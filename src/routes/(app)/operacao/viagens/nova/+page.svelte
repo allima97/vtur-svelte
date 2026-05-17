@@ -17,6 +17,7 @@
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Plane, RefreshCw } from 'lucide-svelte';
   import { apiGet, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type ClienteOption = {
     id: string;
@@ -82,7 +83,7 @@
       const payload = await apiGet<ClienteOption[]>('/api/v1/viagens/clientes');
       mergeClientes(Array.isArray(payload) ? payload : []);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar clientes.');
+      toast.error(toUserMessage(err, 'Erro ao carregar clientes.'));
     } finally {
       loading = false;
     }
@@ -165,7 +166,7 @@
 
       goto('/operacao/viagens');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar viagem.');
+      toast.error(toUserMessage(err, 'Erro ao criar viagem.'));
     } finally {
       saving = false;
     }
