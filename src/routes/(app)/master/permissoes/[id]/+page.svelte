@@ -8,6 +8,7 @@
   import { Checkbox, FieldSelect } from '$lib/components/ui';
   import { apiGet, apiPost } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type PermissionEntry = {
     label: string;
@@ -58,7 +59,7 @@
       sections = payload.sections || [];
     } catch (err) {
       if (dev) console.error(err);
-      toast.error('Nao foi possivel carregar a matriz de permissoes do master.');
+      toast.error(toUserMessage(err, 'Nao foi possivel carregar a matriz de permissoes do master.'));
     } finally {
       loading = false;
     }
@@ -76,7 +77,7 @@
       await loadPage();
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar permissoes.');
+      toast.error(toUserMessage(err, 'Erro ao salvar permissoes.'));
     } finally {
       saving = false;
     }
