@@ -1,3 +1,5 @@
+import { toUserMessage } from "$lib/utils/errors";
+
 const PNG_RENDER_UNAVAILABLE_MSG =
   "PNG rendering unavailable in current worker plan/runtime. Fallback to SVG.";
 
@@ -31,10 +33,7 @@ export async function renderSvgToPng(svg: string, _request?: Request) {
 }
 
 export function isWasmCodegenBlockedError(error: unknown) {
-  const message =
-    error instanceof Error
-      ? error.message
-      : String(error || "");
+  const message = toUserMessage(error, String(error || ""));
   return (
     /createimagebitmap is not defined/i.test(message) ||
     /offscreencanvas is not defined/i.test(message) ||
