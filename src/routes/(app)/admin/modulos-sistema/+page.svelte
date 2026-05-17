@@ -7,6 +7,7 @@
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Settings, CheckCircle, XCircle } from 'lucide-svelte';
   import { apiGet, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type ModuloItem = {
     key: string;
@@ -43,7 +44,7 @@
         reason: ''
       }));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar módulos.');
+      toast.error(toUserMessage(err, 'Erro ao carregar módulos.'));
     } finally {
       loading = false;
     }
@@ -60,7 +61,7 @@
       modulos = [...modulos];
       toast.success(`Módulo ${modulo.label} ${modulo.enabled ? 'habilitado' : 'desabilitado'}.`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar módulo.');
+      toast.error(toUserMessage(err, 'Erro ao atualizar módulo.'));
     } finally {
       savingKey = '';
     }
