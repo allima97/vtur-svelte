@@ -8,6 +8,7 @@
   import { FieldInput, FieldSelect, FieldCheckbox, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
@@ -71,7 +72,7 @@
       const payload = await apiGet<{ items?: Plano[] }>('/api/v1/admin/planos');
       planos = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar planos.');
+      toast.error(toUserMessage(err, 'Erro ao carregar planos.'));
     } finally {
       loading = false;
     }
@@ -105,7 +106,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -119,7 +120,7 @@
       toast.success('Plano excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
