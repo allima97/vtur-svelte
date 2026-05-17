@@ -8,6 +8,7 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     Building2,
     Shield,
@@ -55,7 +56,7 @@
     try {
       summary = await apiGet<AdminSummary>('/api/v1/admin/summary');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar o resumo.');
+      toast.error(toUserMessage(err, 'Nao foi possivel carregar o resumo.'));
       summary = null;
     } finally {
       loading = false;
