@@ -18,6 +18,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { Merge } from 'lucide-svelte';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import { ApiError, apiDelete, apiFetch, apiGet, apiPatch, apiPost } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
 
@@ -298,7 +299,7 @@
       await carregarVenda({ preserveData: true });
       toast.success('Recibo atualizado');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar recibo');
+      toast.error(toUserMessage(err, 'Erro ao salvar recibo'));
     } finally {
       savingRecibo = false;
       if (saved) {
@@ -340,8 +341,8 @@
         MesclarVendasModal = (await import('$lib/components/modais/MesclarVendasModal.svelte')).default;
       }
       showMesclar = true;
-    } catch {
-      toast.error('Erro ao carregar modal de mesclagem.');
+    } catch (err) {
+      toast.error(toUserMessage(err, 'Erro ao carregar modal de mesclagem.'));
     } finally {
       loadingMesclarModal = false;
     }
@@ -520,7 +521,7 @@
         : 'Venda não encontrada';
     } else {
       error = `Erro ao carregar dados da venda: ${getErrorMessage(err)}`;
-      toast.error('Erro ao carregar venda');
+      toast.error(toUserMessage(err, 'Erro ao carregar venda'));
     }
 
     loading = false;
@@ -539,7 +540,7 @@
       venda.cancelada = true;
       toast.success('Venda cancelada com sucesso!');
     } catch (err) {
-      toast.error('Erro ao cancelar venda');
+      toast.error(toUserMessage(err, 'Erro ao cancelar venda'));
     } finally {
       processando = false;
     }
@@ -553,7 +554,7 @@
       toast.success('Venda excluída');
       goto('/vendas');
     } catch (err) {
-      toast.error('Erro ao excluir venda');
+      toast.error(toUserMessage(err, 'Erro ao excluir venda'));
     }
   }
 
