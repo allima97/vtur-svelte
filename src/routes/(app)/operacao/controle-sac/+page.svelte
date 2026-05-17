@@ -11,6 +11,7 @@
   import { diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml, truncateText } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
@@ -147,7 +148,7 @@
       const payload = await apiGet<{ items?: SacRegistro[] }>('/api/v1/operacao/sac');
       registros = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar registros SAC.');
+      toast.error(toUserMessage(err, 'Erro ao carregar registros SAC.'));
     } finally {
       loading = false;
     }
@@ -183,7 +184,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -197,7 +198,7 @@
       toast.success('Registro excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
