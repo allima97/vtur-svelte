@@ -18,6 +18,7 @@
   import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { diffDaysISODate } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { safeOpenNewTab } from '$lib/security/url';
 
   // ─── Types ─────────────────────────────────────────────────────────────────
@@ -603,7 +604,7 @@
           return;
         }
       }
-      loadError = err instanceof Error ? err.message : 'Erro ao carregar roteiro.';
+      loadError = toUserMessage(err, 'Erro ao carregar roteiro.');
       toast.error(loadError);
     } finally {
       loading = false;
@@ -633,7 +634,7 @@
       });
       toast.success('Roteiro salvo com sucesso!');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -649,7 +650,7 @@
       });
       diasBuscaResults = data.dias || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao buscar dias.');
+      toast.error(toUserMessage(err, 'Erro ao buscar dias.'));
     } finally {
       diasBuscaLoading = false;
     }
@@ -728,7 +729,7 @@
       if (!data.quote_id) throw new Error('Orçamento gerado sem identificador.');
       goto(`/orcamentos/${data.quote_id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao gerar orçamento.');
+      toast.error(toUserMessage(err, 'Erro ao gerar orçamento.'));
       gerarLoading = false;
     }
   }
@@ -1334,7 +1335,7 @@
       }
       window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60000);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao visualizar PDF.');
+      toast.error(toUserMessage(err, 'Erro ao visualizar PDF.'));
     } finally {
       previewingPdf = false;
     }
