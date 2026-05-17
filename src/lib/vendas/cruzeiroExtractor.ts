@@ -1,4 +1,5 @@
 import { normalizeText } from "../normalizeText";
+import { toUserMessage } from "../utils/errors";
 import type {
   ContratoDraft,
   ContratoImportResult,
@@ -799,7 +800,7 @@ export async function extractCruzeiroFromPdf(file: File): Promise<ContratoImport
   try {
     return await extractCruzeiroFromText(fullText);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err || "");
+    const msg = toUserMessage(err, String(err || ""));
     if (/Nenhum contrato encontrado/i.test(msg)) {
       throw new Error("Nenhum orcamento de cruzeiro encontrado no PDF.");
     }
