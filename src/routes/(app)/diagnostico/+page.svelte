@@ -6,6 +6,7 @@
   import LoadingState from "$lib/components/ui/LoadingState.svelte";
   import { supabase } from "$lib/db/supabase";
   import { ApiError, apiFetch } from "$lib/services/api";
+  import { toUserMessage } from "$lib/utils/errors";
 
   let sessionInfo = "";
   let sessionDetails = "";
@@ -84,7 +85,7 @@
           {
             name: api,
             status: isApiError ? `Erro ${err.status}` : "Falha",
-            detail: err instanceof Error ? err.message : String(err),
+            detail: toUserMessage(err, "Falha ao executar diagnóstico."),
             time: Date.now() - start,
           },
         ];
