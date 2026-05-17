@@ -7,6 +7,7 @@
   import { Building2, Save } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet, apiPatch } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type Empresa = {
     id: string;
@@ -76,7 +77,7 @@
         };
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados da empresa.');
+      toast.error(toUserMessage(err, 'Erro ao carregar dados da empresa.'));
     } finally {
       loading = false;
     }
@@ -89,7 +90,7 @@
       toast.success('Dados da empresa atualizados com sucesso.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar dados da empresa.');
+      toast.error(toUserMessage(err, 'Erro ao salvar dados da empresa.'));
     } finally {
       saving = false;
     }
