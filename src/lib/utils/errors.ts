@@ -7,6 +7,15 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (!obj || typeof obj !== 'object' || !(key in obj)) return '';
     return String((obj as Record<string, unknown>)[key] || '').trim();
   };
+  const readCauseMessage = (obj: unknown) => {
+    if (!obj || typeof obj !== 'object' || !('cause' in obj)) return '';
+    const cause = (obj as { cause?: unknown }).cause;
+    if (typeof cause === 'string') return cause.trim();
+    if (cause && typeof cause === 'object' && 'message' in cause) {
+      return String((cause as { message?: unknown }).message || '').trim();
+    }
+    return '';
+  };
 
   const safeFallback = String(fallback || 'Erro inesperado.').trim() || 'Erro inesperado.';
 
@@ -87,17 +96,8 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (dataDetails) return dataDetails;
     const dataReason = readField(data, 'reason');
     if (dataReason) return dataReason;
-    if (data && typeof data === 'object' && 'cause' in data) {
-      const cause = (data as { cause?: unknown }).cause;
-      if (typeof cause === 'string') {
-        const message = cause.trim();
-        if (message) return message;
-      }
-      if (cause && typeof cause === 'object' && 'message' in cause) {
-        const message = String((cause as { message?: unknown }).message || '').trim();
-        if (message) return message;
-      }
-    }
+    const dataCause = readCauseMessage(data);
+    if (dataCause) return dataCause;
   }
 
   if (error && typeof error === 'object' && 'response' in error) {
@@ -112,17 +112,8 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       if (responseDetails) return responseDetails;
       const responseReason = readField(data, 'reason');
       if (responseReason) return responseReason;
-      if (data && typeof data === 'object' && 'cause' in data) {
-        const cause = (data as { cause?: unknown }).cause;
-        if (typeof cause === 'string') {
-          const message = cause.trim();
-          if (message) return message;
-        }
-        if (cause && typeof cause === 'object' && 'message' in cause) {
-          const message = String((cause as { message?: unknown }).message || '').trim();
-          if (message) return message;
-        }
-      }
+      const responseCause = readCauseMessage(data);
+      if (responseCause) return responseCause;
     }
   }
 
