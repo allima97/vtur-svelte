@@ -18,8 +18,8 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
   };
   type ErrorRecordWithErrors = ErrorRecord & { errors?: unknown };
 
-  const joinErrorList = (list: unknown[]) =>
-    list
+  const joinErrorList = (list: unknown[]) => {
+    return list
       .map((item) => {
         if (typeof item === 'string') return item.trim();
         if (item && typeof item === 'object') {
@@ -30,6 +30,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       })
       .filter(Boolean)
       .join('; ');
+  };
 
   const readField = (
     obj: unknown,
