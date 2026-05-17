@@ -56,7 +56,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     readField(obj, 'details') ||
     readField(obj, 'reason');
 
-  const safeFallback = String(fallback || 'Erro inesperado.').trim() || 'Erro inesperado.';
+  const safeFallback = String(fallback ?? 'Erro inesperado.').trim() || 'Erro inesperado.';
 
   if (
     typeof error === 'number' ||
