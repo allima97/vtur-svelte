@@ -23,6 +23,7 @@ import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { getPlatformExecutionContext, triggerRebuildAsync } from '$lib/server/readModelRebuild';
 import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
 import { cleanStringSet } from '$lib/utils/array';
+import { toUserMessage } from '$lib/utils/errors';
 
 // Espelha o contrato de vtur-app/src/pages/api/v1/vendas/cadastro-save.ts
 // Aceita POST com payload { venda, recibos, pagamentos, orcamento_id? }
@@ -267,7 +268,7 @@ export async function POST(event: RequestEvent) {
 
     return json({ ok: true, venda_id: vendaIdFinal }, { status: isEdit ? 200 : 201, headers: NO_STORE_HEADERS });
   } catch (err: unknown) {
-    const code = err instanceof Error ? err.message : '';
+    const code = toUserMessage(err, '');
     if (code === 'RECIBO_DUPLICADO' || code === 'RESERVA_DUPLICADA' || code === 'RECIBO_INVALIDO') {
       return json({ error: code }, { status: 409, headers: NO_STORE_HEADERS });
     }
