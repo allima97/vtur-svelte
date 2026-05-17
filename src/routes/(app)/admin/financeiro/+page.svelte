@@ -11,6 +11,7 @@
   import { apiGet, apiPost } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
   import { diffDaysISODate, formatISODateBR, todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type BillingRow = {
     id: string;
@@ -119,7 +120,7 @@
         };
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados financeiros.');
+      toast.error(toUserMessage(err, 'Erro ao carregar dados financeiros.'));
     } finally {
       loading = false;
     }
@@ -151,7 +152,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
