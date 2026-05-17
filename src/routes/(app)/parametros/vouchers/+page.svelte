@@ -17,6 +17,7 @@
   import { ImagePlus, Pencil, RefreshCw, Save, Shield, Trash2, X } from 'lucide-svelte';
   import type { VoucherAssetRecord, VoucherAssetKind, VoucherAssetProvider } from '$lib/vouchers/types';
   import { escapeHtml } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type AssetForm = {
     id: string | null;
@@ -137,7 +138,7 @@
       const payload = await apiGet<{ company_id?: string | null }>('/api/v1/user/context');
       companyId = payload.company_id || null;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar contexto da empresa.');
+      toast.error(toUserMessage(err, 'Erro ao carregar contexto da empresa.'));
     }
   }
 
@@ -154,7 +155,7 @@
       });
       assets = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar assets de voucher.');
+      toast.error(toUserMessage(err, 'Erro ao carregar assets de voucher.'));
     } finally {
       loading = false;
     }
@@ -214,7 +215,7 @@
       resetForm();
       await loadAssets();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar asset.');
+      toast.error(toUserMessage(err, 'Erro ao salvar asset.'));
     } finally {
       saving = false;
     }
@@ -239,7 +240,7 @@
       deleteTarget = null;
       await loadAssets();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir asset.');
+      toast.error(toUserMessage(err, 'Erro ao excluir asset.'));
     }
   }
 </script>
