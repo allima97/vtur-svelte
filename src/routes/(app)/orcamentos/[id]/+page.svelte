@@ -39,6 +39,7 @@
     formatDate as formatDateValue,
     formatDateTime as formatDateTimeValue,
   } from "$lib/utils/formatters";
+  import { toUserMessage } from "$lib/utils/errors";
   import { ensureServerSessionCookie } from "$lib/services/session";
 
   import { confirmAction } from "$lib/stores/confirm";
@@ -147,7 +148,7 @@
         error = "Orçamento não encontrado";
         return;
       }
-      const message = err instanceof Error ? err.message : "erro desconhecido";
+      const message = toUserMessage(err, "erro desconhecido");
       error = `Erro ao carregar dados do orçamento: ${message}`;
       toast.error("Erro ao carregar orçamento");
     }
@@ -231,7 +232,7 @@
       });
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Erro ao gerar prévia do PDF.",
+        toUserMessage(err, "Erro ao gerar prévia do PDF."),
       );
     } finally {
       previewingPdf = false;
