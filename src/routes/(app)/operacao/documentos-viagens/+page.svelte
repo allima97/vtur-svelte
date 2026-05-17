@@ -8,6 +8,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { RefreshCw, Trash2, FileText, ExternalLink } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import { escapeHtml } from '$lib/utils/html';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -93,7 +94,7 @@
       const payload = await apiGet<{ items?: Documento[] }>('/api/v1/operacao/documentos-viagens');
       documentos = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar documentos.');
+      toast.error(toUserMessage(err, 'Erro ao carregar documentos.'));
     } finally {
       loading = false;
     }
@@ -107,7 +108,7 @@
       toast.success('Documento excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
