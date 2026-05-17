@@ -9,6 +9,7 @@
   import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { ApiError, apiFetch, apiGet, apiPatch } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
 
@@ -179,7 +180,7 @@
         await goto('/orcamentos');
         return;
       }
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar orçamento');
+      toast.error(toUserMessage(err, 'Erro ao carregar orçamento'));
       goto('/orcamentos');
     } finally {
       loading = false;
@@ -307,7 +308,7 @@
         : 'Orçamento atualizado com sucesso!');
       goto(`/orcamentos/${orcamentoId}`);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar orçamento');
+      toast.error(toUserMessage(err, 'Erro ao salvar orçamento'));
     } finally {
       saving = false;
     }
