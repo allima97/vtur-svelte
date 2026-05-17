@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import { toUserMessage } from '$lib/utils/errors';
   import { FieldInput } from '$lib/components/ui';
   import { Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
   
@@ -64,7 +65,7 @@
       }, 2000);
 
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Erro ao ativar conta';
+      error = toUserMessage(err, 'Erro ao ativar conta');
     } finally {
       loading = false;
     }
