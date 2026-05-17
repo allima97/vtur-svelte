@@ -7,6 +7,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput } from '$lib/components/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, Map as MapIcon, Calendar } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
@@ -69,7 +70,7 @@
       const payload = await apiGet<{ roteiros?: Roteiro[] }>('/api/v1/roteiros');
       roteiros = payload.roteiros || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar roteiros.');
+      toast.error(toUserMessage(err, 'Erro ao carregar roteiros.'));
     } finally {
       loading = false;
     }
@@ -107,7 +108,7 @@
       modalOpen = false;
       await load({ silent: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -121,7 +122,7 @@
       toast.success('Roteiro excluído.');
       await load({ silent: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
