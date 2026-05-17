@@ -5,12 +5,22 @@
  * e usa fallback normalizado quando nada útil é encontrado.
  */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
+  type ErrorRecord = {
+    message?: unknown;
+    error?: unknown;
+    details?: unknown;
+    reason?: unknown;
+    cause?: unknown;
+    data?: unknown;
+    response?: unknown;
+  };
+
   const joinErrorList = (list: unknown[]) =>
     list
       .map((item) => {
         if (typeof item === 'string') return item.trim();
         if (item && typeof item === 'object') {
-          const record = item as { message?: unknown; error?: unknown; details?: unknown };
+          const record = item as ErrorRecord;
           return String(record.message || record.error || record.details || '').trim();
         }
         return String(item || '').trim();
@@ -23,11 +33,11 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     key: 'message' | 'error' | 'details' | 'reason'
   ) => {
     if (!obj || typeof obj !== 'object' || !(key in obj)) return '';
-    return String((obj as Record<string, unknown>)[key] || '').trim();
+    return String((obj as ErrorRecord)[key] || '').trim();
   };
   const readCauseMessage = (obj: unknown) => {
     if (!obj || typeof obj !== 'object' || !('cause' in obj)) return '';
-    const cause = (obj as { cause?: unknown }).cause;
+    const cause = (obj as ErrorRecord).cause;
     if (typeof cause === 'string') return cause.trim();
     if (cause && typeof cause === 'object' && 'message' in cause) {
       return String((cause as { message?: unknown }).message || '').trim();
@@ -62,7 +72,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
 
     const cause =
       typeof error === 'object' && error !== null && 'cause' in error
-        ? (error as { cause?: unknown }).cause
+        ? (error as ErrorRecord).cause
         : undefined;
     if (typeof cause === 'string') {
       const causeMessage = cause.trim();
@@ -95,7 +105,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
   }
 
   if (error && typeof error === 'object' && 'data' in error) {
-    const data = (error as { data?: unknown }).data;
+    const data = (error as ErrorRecord).data;
     const dataMessage = readField(data, 'message');
     if (dataMessage) return dataMessage;
     const dataError = readField(data, 'error');
@@ -105,7 +115,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     const dataReason = readField(data, 'reason');
     if (dataReason) return dataReason;
     if (data && typeof data === 'object' && 'errors' in data) {
-      const errorsValue = (data as { errors?: unknown }).errors;
+      const errorsValue = (data as ErrorRecord & { errors?: unknown }).errors;
       if (Array.isArray(errorsValue)) {
         const joined = joinErrorList(errorsValue);
         if (joined) return joined;
@@ -119,9 +129,9 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
   }
 
   if (error && typeof error === 'object' && 'response' in error) {
-    const response = (error as { response?: unknown }).response;
+    const response = (error as ErrorRecord).response;
     if (response && typeof response === 'object' && 'data' in response) {
-      const data = (response as { data?: unknown }).data;
+      const data = (response as ErrorRecord).data;
       const responseMessage = readField(data, 'message');
       if (responseMessage) return responseMessage;
       const responseError = readField(data, 'error');
@@ -131,7 +141,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       const responseReason = readField(data, 'reason');
       if (responseReason) return responseReason;
       if (data && typeof data === 'object' && 'errors' in data) {
-        const errorsValue = (data as { errors?: unknown }).errors;
+        const errorsValue = (data as ErrorRecord & { errors?: unknown }).errors;
         if (Array.isArray(errorsValue)) {
           const joined = joinErrorList(errorsValue);
           if (joined) return joined;
