@@ -15,6 +15,7 @@
   import type { ChartData, ChartOptions } from 'chart.js';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet } from '$lib/services/api';
 
   // ---------------------------------------------------------------------------
@@ -130,7 +131,7 @@
       const res = await apiGet<{ data: EvolucaoAnualResult }>(`/api/v1/dashboard/evolucao-anual?${params}`);
       data = res.data ?? null;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro ao carregar análise de desempenho.';
+      const message = toUserMessage(err, 'Erro ao carregar análise de desempenho.');
       toast.error(message);
       data = null;
     } finally {
