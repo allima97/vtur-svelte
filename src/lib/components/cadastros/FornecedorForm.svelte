@@ -10,6 +10,7 @@
   import { ArrowLeft, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { formatDate } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiDelete, apiFetch, apiGet } from '$lib/services/api';
 
   export let fornecedorId: string | null = null;
@@ -201,8 +202,8 @@
       });
       toast.success(isCreateMode ? 'Fornecedor cadastrado com sucesso.' : 'Fornecedor atualizado com sucesso.');
       goto('/cadastros/fornecedores');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar fornecedor.');
+    } catch (err: unknown) {
+      toast.error(toUserMessage(err, 'Erro ao salvar fornecedor.'));
     } finally {
       saving = false;
     }
@@ -215,8 +216,8 @@
       await apiDelete(`/api/v1/fornecedores/${fornecedorId}`);
       toast.success('Fornecedor excluído com sucesso.');
       goto('/cadastros/fornecedores');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir fornecedor.');
+    } catch (err: unknown) {
+      toast.error(toUserMessage(err, 'Erro ao excluir fornecedor.'));
     } finally {
       deleting = false;
       showDeleteDialog = false;
