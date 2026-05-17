@@ -10,14 +10,11 @@
   import { sidebar, isMobile } from '$lib/stores/ui';
   import { sessionSynced, auth } from '$lib/stores/auth';
   import { permissoes } from '$lib/stores/permissoes';
+  import { toUserMessage } from '$lib/utils/errors';
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
 
   let appReady = false;
   let permsInitialized = false;
-
-  function getErrorMessage(err: unknown) {
-    return err instanceof Error ? err.message : String((err as { message?: unknown })?.message || '');
-  }
 
   function handleResize() {
     sidebar.setMobile(window.innerWidth < 1024);
@@ -29,7 +26,7 @@
       await permissoes.init(supabase);
     } catch (err) {
       if (dev) console.error('[AppLayout] Erro ao inicializar permissoes:', err);
-      const message = getErrorMessage(err).toLowerCase();
+      const message = toUserMessage(err, '').toLowerCase();
       if (
         message.includes('sessao invalida') ||
         message.includes('login novamente') ||
