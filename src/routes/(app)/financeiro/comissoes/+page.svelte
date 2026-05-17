@@ -14,6 +14,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import { apiFetch, apiGet, apiPost, apiPut } from '$lib/services/api';
 
@@ -151,7 +152,7 @@
     } catch (err) {
       empresas = [];
       empresaId = '';
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar empresas.');
+      toast.error(toUserMessage(err, 'Erro ao carregar empresas.'));
     }
   }
 
@@ -208,7 +209,7 @@
       }));
       resumoVendedores = data.resumo || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar comissões');
+      toast.error(toUserMessage(err, 'Erro ao carregar comissões'));
     } finally {
       loading = false;
     }
@@ -339,7 +340,7 @@
       comissaoSelecionada = null;
       await loadComissoes();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar pagamento');
+      toast.error(toUserMessage(err, 'Erro ao atualizar pagamento'));
     } finally {
       salvandoDetalhes = false;
     }
@@ -373,7 +374,7 @@
       comissaoSelecionada = null;
       await loadComissoes();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao cancelar comissão');
+      toast.error(toUserMessage(err, 'Erro ao cancelar comissão'));
     } finally {
       salvandoDetalhes = false;
     }
@@ -405,7 +406,7 @@
       comissaoSelecionada = null;
       await loadComissoes();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao registrar pagamento');
+      toast.error(toUserMessage(err, 'Erro ao registrar pagamento'));
     }
   }
 
@@ -435,7 +436,7 @@
       comissoesSelecionadas = [];
       await loadComissoes();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao registrar pagamentos');
+      toast.error(toUserMessage(err, 'Erro ao registrar pagamentos'));
     } finally {
       processando = false;
     }
