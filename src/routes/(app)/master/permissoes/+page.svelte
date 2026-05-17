@@ -8,6 +8,7 @@
   import { RefreshCw, Users, LayoutGrid, XCircle } from 'lucide-svelte';
   import { apiGet } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type UserPermissionRow = {
     id: string;
@@ -80,7 +81,7 @@
       }));
       systemModuleCatalog = payload.system_module_catalog || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar o painel de permissoes do master.');
+      toast.error(toUserMessage(err, 'Nao foi possivel carregar o painel de permissoes do master.'));
       rows = [];
       globalModules = [];
       systemModuleCatalog = [];
