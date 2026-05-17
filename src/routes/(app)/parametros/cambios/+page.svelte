@@ -12,6 +12,7 @@
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   type Cambio = {
@@ -74,7 +75,7 @@
       const payload = await apiGet<{ items?: Cambio[] }>('/api/v1/parametros/cambios');
       cambios = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar câmbios.');
+      toast.error(toUserMessage(err, 'Erro ao carregar câmbios.'));
     } finally {
       loading = false;
     }
@@ -113,7 +114,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar câmbio.');
+      toast.error(toUserMessage(err, 'Erro ao salvar câmbio.'));
     } finally {
       saving = false;
     }
@@ -127,7 +128,7 @@
       toast.success('Câmbio excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir câmbio.');
+      toast.error(toUserMessage(err, 'Erro ao excluir câmbio.'));
     } finally {
       deletingId = '';
     }
