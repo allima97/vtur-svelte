@@ -12,6 +12,7 @@
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     CalendarDays,
     Clock3,
@@ -218,8 +219,8 @@
       visibleRange = { inicio, fim };
       items = Array.isArray(payload?.items) ? payload.items : [];
       await syncCalendarEvents();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao carregar agenda.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao carregar agenda.'));
       items = [];
       await syncCalendarEvents();
     } finally {
@@ -298,25 +299,25 @@
           try {
             await updateFromCalendarEvent(info.event);
             toast.success('Evento reposicionado.');
-          } catch (error) {
+          } catch (error: unknown) {
             info.revert();
-            toast.error(error instanceof Error ? error.message : 'Erro ao mover evento.');
+            toast.error(toUserMessage(error, 'Erro ao mover evento.'));
           }
         },
         eventResize: async (info: CalendarEventMutationInfo) => {
           try {
             await updateFromCalendarEvent(info.event);
             toast.success('Periodo atualizado.');
-          } catch (error) {
+          } catch (error: unknown) {
             info.revert();
-            toast.error(error instanceof Error ? error.message : 'Erro ao atualizar evento.');
+            toast.error(toUserMessage(error, 'Erro ao atualizar evento.'));
           }
         }
       });
 
       calendar.render();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao carregar calendario.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao carregar calendario.'));
       loading = false;
     } finally {
       initializingCalendar = false;
@@ -419,8 +420,8 @@
       eventForm = defaultEventForm();
       selectedEventId = null;
       await loadRange(visibleRange.inicio, visibleRange.fim, true);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao salvar evento.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao salvar evento.'));
     } finally {
       eventSaving = false;
     }
@@ -437,8 +438,8 @@
       selectedEventId = null;
       eventForm = defaultEventForm();
       await loadRange(visibleRange.inicio, visibleRange.fim, true);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao excluir evento.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao excluir evento.'));
     }
   }
 
