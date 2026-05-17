@@ -5,6 +5,7 @@
   import { toast } from '$lib/stores/ui';
   import { Calendar, Phone, Save, Trash2, UserPlus, Users } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   import { apiFetch, apiGet } from '$lib/services/api';
@@ -110,9 +111,9 @@
           form = createInitialForm();
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       acompanhantes = [];
-      errorMessage = error instanceof Error ? error.message : 'Erro ao carregar acompanhantes.';
+      errorMessage = toUserMessage(error, 'Erro ao carregar acompanhantes.');
     } finally {
       loading = false;
     }
@@ -156,8 +157,8 @@
       if (!selectedId) {
         novoAcompanhante();
       }
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : 'Erro ao salvar acompanhante.';
+    } catch (error: unknown) {
+      errorMessage = toUserMessage(error, 'Erro ao salvar acompanhante.');
       toast.error(errorMessage);
     } finally {
       saving = false;
@@ -177,8 +178,8 @@
       toast.success('Acompanhante removido.');
       novoAcompanhante();
       await loadAcompanhantes();
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : 'Erro ao remover acompanhante.';
+    } catch (error: unknown) {
+      errorMessage = toUserMessage(error, 'Erro ao remover acompanhante.');
       toast.error(errorMessage);
     } finally {
       deleting = false;
