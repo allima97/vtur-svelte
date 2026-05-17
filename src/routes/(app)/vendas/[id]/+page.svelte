@@ -396,7 +396,7 @@
   }
 
   function getErrorMessage(err: unknown) {
-    return err instanceof Error ? err.message : 'falha inesperada';
+    return toUserMessage(err, 'falha inesperada');
   }
 
   async function applyVendaData(data: VendaDetalheView, opts: { loadProdutos?: boolean } = {}) {
