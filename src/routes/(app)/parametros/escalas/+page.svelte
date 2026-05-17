@@ -11,6 +11,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet, apiPost } from '$lib/services/api';
   import { Calendar, ChevronLeft, ChevronRight, Eraser, RefreshCw } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type EscalaDia = {
     id: string;
@@ -239,7 +240,7 @@
       mesAtualId = mes?.id || '';
       clearMulti(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar escalas.');
+      toast.error(toUserMessage(err, 'Erro ao carregar escalas.'));
     } finally {
       loading = false;
     }
@@ -302,7 +303,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar escala.');
+      toast.error(toUserMessage(err, 'Erro ao salvar escala.'));
     } finally {
       saving = false;
     }
@@ -377,7 +378,7 @@
       clearMulti(true);
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao aplicar escala.');
+      toast.error(toUserMessage(err, 'Erro ao aplicar escala.'));
     } finally {
       applying = false;
     }
