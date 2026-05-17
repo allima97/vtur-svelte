@@ -2,6 +2,7 @@ import type { SupabaseClient as BaseSupabaseClient } from '@supabase/supabase-js
 import { createBrowserClient, createServerClient } from '@supabase/ssr';
 import { env as publicEnv } from '$env/dynamic/public';
 import { browser } from '$app/environment';
+import { toUserMessage } from '$lib/utils/errors';
 import { mockSupabaseClient, shouldUseMock } from './supabase-mock';
 
 // Cliente singleton para o browser
@@ -11,7 +12,7 @@ let usingMock = false;
 const RETRYABLE_NETWORK_ERRORS = ['failed to fetch', 'err_connection_closed', 'networkerror'];
 
 function isRetryableNetworkError(error: unknown) {
-  const message = String(error instanceof Error ? error.message : '').toLowerCase();
+  const message = toUserMessage(error, '').toLowerCase();
   if (!message) return false;
   return RETRYABLE_NETWORK_ERRORS.some((needle) => message.includes(needle));
 }
