@@ -108,10 +108,6 @@ function normalizeLibraryKey(value?: string | null) {
     .trim();
 }
 
-function getErrorMessage(error: unknown) {
-  return toUserMessage(error, "");
-}
-
 function mergeThemesWithOfficial(userId: string, companyId: string | null, rows: ThemeRow[]) {
   const merged = new Map<string, ThemeRow>();
 
@@ -206,7 +202,7 @@ function mergeMessagesWithOfficial(userId: string, companyId: string | null, the
 }
 
 function isThemeLogoColumnMissingError(error: unknown) {
-  const message = getErrorMessage(error).toLowerCase();
+  const message = toUserMessage(error, "").toLowerCase();
   if (!message) return false;
   return (
     (message.includes("column") && message.includes("logo_url")) ||
