@@ -12,6 +12,7 @@
   import FieldCheckbox from '$lib/components/ui/form/FieldCheckbox.svelte';
   import { toast } from '$lib/stores/ui';
   import { Plus, Pencil, Trash2, RefreshCw, Image, MessageSquare, Tag } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   import { apiGet, apiPost } from '$lib/services/api';
@@ -50,7 +51,7 @@
       temas = payload.temas || [];
       templates = payload.templates || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar CRM.');
+      toast.error(toUserMessage(err, 'Erro ao carregar CRM.'));
     } finally {
       loading = false;
     }
@@ -73,7 +74,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -87,7 +88,7 @@
       toast.success('Excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
