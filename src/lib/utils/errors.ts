@@ -1,7 +1,7 @@
 /**
  * Resolve uma mensagem amigável a partir de diferentes formatos de erro.
  * Prioriza conteúdos explícitos do erro (message/error/details/reason),
- * inclusive variantes aninhadas em `data.*` (`errors` incluído) e `response.data.*`,
+ * inclusive variantes aninhadas em `data.*` e `response.data.*` (`errors` incluído),
  * e usa fallback normalizado quando nada útil é encontrado.
  */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
