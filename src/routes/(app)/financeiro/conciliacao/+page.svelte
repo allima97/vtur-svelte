@@ -16,6 +16,7 @@
   import { extractRexturFromText } from '$lib/vendas/facialRexturExtractor';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost } from '$lib/services/api';
   import type { ConciliacaoLinhaInput } from '../../../api/v1/conciliacao/_types';
   import {
@@ -55,7 +56,7 @@
   });
 
   function getErrorMessage(error: unknown, fallback: string): string {
-    return error instanceof Error ? error.message : fallback;
+    return toUserMessage(error, fallback);
   }
 
   type ConciliacaoItem = {
