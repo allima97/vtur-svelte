@@ -1,4 +1,12 @@
 export function toUserMessage(error: unknown, fallback: string): string {
+  if (Array.isArray(error)) {
+    const joined = error
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+      .join('; ');
+    if (joined) return joined;
+  }
+
   if (typeof error === 'string') {
     const message = error.trim();
     if (message) return message;
