@@ -17,6 +17,7 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import { apiGet, apiPost } from '$lib/services/api';
 
@@ -158,7 +159,7 @@
       movimentacoes = data.movimentacoes || [];
       porFormaPagamento = data.porFormaPagamento || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados');
+      toast.error(toUserMessage(err, 'Erro ao carregar dados'));
     } finally {
       loading = false;
     }
@@ -263,7 +264,7 @@
 
       await carregarDados();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar movimentação');
+      toast.error(toUserMessage(err, 'Erro ao criar movimentação'));
     } finally {
       processando = false;
     }
@@ -295,7 +296,7 @@
 
       toast.success('Relatório exportado!');
     } catch (err) {
-      toast.error('Erro ao exportar');
+      toast.error(toUserMessage(err, 'Erro ao exportar'));
     }
   }
 
