@@ -7,6 +7,7 @@
   import { toast } from '$lib/stores/ui';
   import { formatDateTime } from '$lib/utils/formatters';
   import { downloadBlob, fetchPreviewPngBlob } from '$lib/utils/browser-images';
+  import { toUserMessage } from '$lib/utils/errors';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { safeOpenNewTab } from '$lib/security/url';
 
@@ -410,10 +411,10 @@
           .filter((item) => item.id)
           .sort((a, b) => PT_BR_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
       }
-    } catch (err) {
+    } catch (err: unknown) {
       if (dev) console.error('Erro ao carregar templates:', err);
       templates = [];
-      erroTemplates = err instanceof Error ? err.message : 'Falha ao carregar templates';
+      erroTemplates = toUserMessage(err, 'Falha ao carregar templates');
     } finally {
       carregandoTemplates = false;
     }
@@ -476,8 +477,8 @@
       const { blob, generatedLocally } = await fetchPreviewPngBlob(previewCardUrl);
       downloadBlob(blob, `crm-cliente-${Date.now()}.png`);
       if (generatedLocally) toast.info('PNG gerado localmente no navegador.');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Falha ao baixar PNG.');
+    } catch (err: unknown) {
+      toast.error(toUserMessage(err, 'Falha ao baixar PNG.'));
     }
   }
 
@@ -540,8 +541,8 @@
         response: payload
       });
       onClose();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar mensagem');
+    } catch (err: unknown) {
+      toast.error(toUserMessage(err, 'Erro ao enviar mensagem'));
     } finally {
       enviando = false;
     }
