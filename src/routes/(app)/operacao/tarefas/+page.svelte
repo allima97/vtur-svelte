@@ -11,6 +11,7 @@
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     Archive,
     FolderKanban,
@@ -211,8 +212,8 @@
       });
       categorias = Array.isArray(payload?.categorias) ? payload.categorias : [];
       itens = Array.isArray(payload?.itens) ? payload.itens : [];
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : 'Erro ao carregar tarefas.';
+    } catch (error: unknown) {
+      errorMessage = toUserMessage(error, 'Erro ao carregar tarefas.');
       categorias = [];
       itens = [];
     } finally {
@@ -353,8 +354,8 @@
         created_at: item.created_at || null,
         updated_at: item.updated_at || null
       };
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao carregar tarefa.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao carregar tarefa.'));
       taskModalOpen = false;
       resetTaskModal();
     } finally {
@@ -383,8 +384,8 @@
       taskModalOpen = false;
       resetTaskModal();
       await loadBoard();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao salvar tarefa.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao salvar tarefa.'));
     } finally {
       taskSaving = false;
     }
@@ -427,8 +428,8 @@
       taskModalOpen = false;
       resetTaskModal();
       await loadBoard();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao atualizar tarefa.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao atualizar tarefa.'));
     } finally {
       taskArchiving = false;
     }
@@ -444,8 +445,8 @@
       taskModalOpen = false;
       resetTaskModal();
       await loadBoard();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao excluir tarefa.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao excluir tarefa.'));
     }
   }
 
@@ -482,8 +483,8 @@
       categoryModalOpen = false;
       resetCategoryModal();
       await loadBoard();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao salvar categoria.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao salvar categoria.'));
     } finally {
       categorySaving = false;
     }
@@ -503,8 +504,8 @@
       categoryModalOpen = false;
       resetCategoryModal();
       await loadBoard();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao excluir categoria.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao excluir categoria.'));
     }
   }
 
