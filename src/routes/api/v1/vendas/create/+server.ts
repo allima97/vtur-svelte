@@ -18,6 +18,7 @@ import {
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+import { toUserMessage } from "$lib/utils/errors";
 
 const MAX_VENDA_CREATE_BODY_BYTES = 512 * 1024;
 
@@ -126,8 +127,7 @@ export async function POST(event) {
         recibos,
       });
     } catch (err) {
-      const code =
-        err instanceof Error ? err.message : "Erro ao validar recibos.";
+      const code = toUserMessage(err, "Erro ao validar recibos.");
       if (code === "RECIBO_DUPLICADO" || code === "RESERVA_DUPLICADA") {
         return json({ code }, { status: 409, headers: NO_STORE_HEADERS });
       }
@@ -144,7 +144,7 @@ export async function POST(event) {
         targetCompanyId,
       );
     } catch (err) {
-      const code = err instanceof Error ? err.message : "";
+      const code = toUserMessage(err, "");
       if (code === "DATA_VENDA_INVALIDA") {
         return json({ error: "Data da venda invalida." }, { status: 400, headers: NO_STORE_HEADERS });
       }
