@@ -28,6 +28,7 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { ApiError, apiGet, apiPatch } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     buildClientePayload,
     classificacaoSelectOptions,
@@ -76,8 +77,8 @@
     try {
       const data = await apiGet<Record<string, unknown>>(`/api/v1/clientes/${clienteId}`);
       formData = fillClienteFormFromApi(data);
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : 'Erro ao carregar cliente.';
+    } catch (error: unknown) {
+      errorMessage = toUserMessage(error, 'Erro ao carregar cliente.');
       toast.error(errorMessage);
     } finally {
       loading = false;
@@ -164,14 +165,14 @@
 
       toast.success('Cliente atualizado com sucesso.');
       goto(`/clientes/${clienteId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) {
         const payload = error.payload as { errors?: Record<string, string> } | undefined;
         if (payload?.errors && typeof payload.errors === 'object') {
           errors = payload.errors;
         }
       }
-      toast.error(error instanceof Error ? error.message : 'Erro ao atualizar cliente.');
+      toast.error(toUserMessage(error, 'Erro ao atualizar cliente.'));
     } finally {
       saving = false;
     }
