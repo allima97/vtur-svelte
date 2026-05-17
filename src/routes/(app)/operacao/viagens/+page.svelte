@@ -11,6 +11,7 @@
   import { Plus, Plane, Calendar, FileText, Clock, CreditCard, SlidersHorizontal } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
   import { formatViagemStatus, resolveViagemStatus, type StatusViagem } from '$lib/viagens/status';
@@ -121,7 +122,7 @@
       }));
       viagensFiltradas = viagens;
     } catch (err) {
-      errorMessage = `Erro ao carregar viagens: ${err instanceof Error ? err.message : String(err)}`;
+      errorMessage = `Erro ao carregar viagens: ${toUserMessage(err, 'falha inesperada')}`;
       toast.error(errorMessage);
       viagens = [];
       viagensFiltradas = [];
