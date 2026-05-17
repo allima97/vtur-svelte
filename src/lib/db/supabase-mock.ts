@@ -6,6 +6,7 @@
 import { browser, dev } from '$app/environment';
 import { goto } from '$app/navigation';
 import { env as publicEnv } from '$env/dynamic/public';
+import { toUserMessage } from '$lib/utils/errors';
 
 const MOCK_USER = {
   id: 'mock-user-001',
@@ -162,7 +163,7 @@ export function shouldUseMock(): boolean {
     
     return false;
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e || '');
+    const message = toUserMessage(e, String(e || ''));
     if (dev) console.error('[Supabase] Erro ao verificar mock', {
       message
     });
