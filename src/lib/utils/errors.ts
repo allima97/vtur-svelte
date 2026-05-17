@@ -120,6 +120,16 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     const response = (error as ErrorRecord).response;
     const responsePrimary = readPrimaryMessage(response);
     if (responsePrimary) return responsePrimary;
+    if (response && typeof response === 'object' && 'errors' in response) {
+      const errorsValue = (response as ErrorRecordWithErrors).errors;
+      if (Array.isArray(errorsValue)) {
+        const joined = joinErrorList(errorsValue);
+        if (joined) return joined;
+      } else if (typeof errorsValue === 'string') {
+        const message = errorsValue.trim();
+        if (message) return message;
+      }
+    }
 
     if (response && typeof response === 'object' && 'data' in response) {
       const data = (response as ErrorRecord).data;
