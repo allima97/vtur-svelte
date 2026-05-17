@@ -3,6 +3,7 @@ import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import { ensureModuloAccess, getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { safeJsonParse } from '$lib/utils/json';
+import { toUserMessage } from '$lib/utils/errors';
 
 type CacheEntry = {
   expiresAt: number;
@@ -47,9 +48,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (isRecord(error) && typeof error.message === 'string') return error.message;
-  return '';
+  const recordMessage = isRecord(error) && typeof error.message === 'string' ? error.message : '';
+  return toUserMessage(error, recordMessage);
 }
 
 function normalizeItems(input: unknown): WidgetInput[] {
