@@ -30,6 +30,7 @@
   import { toast } from '$lib/stores/ui';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet } from '$lib/services/api';
 
   type ClienteDetalhe = {
@@ -180,8 +181,8 @@
       historicoOrcamentos = Array.isArray(historicoPayload?.orcamentos)
         ? historicoPayload.orcamentos
         : [];
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : 'Erro ao carregar cliente.';
+    } catch (error: unknown) {
+      errorMessage = toUserMessage(error, 'Erro ao carregar cliente.');
       toast.error(errorMessage);
     } finally {
       loading = false;
