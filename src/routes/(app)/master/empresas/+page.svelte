@@ -8,6 +8,7 @@
   import { RefreshCw, Building2, CheckCircle, CreditCard, Network } from 'lucide-svelte';
   import { apiGet } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type Empresa = {
     id: string;
@@ -88,7 +89,7 @@
       const payload = await apiGet<{ items?: Empresa[] }>('/api/v1/admin/empresas');
       rows = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar as empresas.');
+      toast.error(toUserMessage(err, 'Nao foi possivel carregar as empresas.'));
     } finally {
       loading = false;
     }
