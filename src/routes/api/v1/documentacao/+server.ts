@@ -30,10 +30,6 @@ type DocumentacaoBody = {
   is_active?: boolean;
 };
 
-function getErrorMessage(error: unknown, fallback: string) {
-  return toUserMessage(error, fallback);
-}
-
 function normalizeSlug(value: unknown) {
   return (
     String(value || 'vtur')
@@ -208,7 +204,7 @@ export const POST: RequestHandler = async (event) => {
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     logServerError("[documentacao] falha ao salvar documentação", error);
-    return json({ error: getErrorMessage(error, "Erro interno ao salvar documentação.") }, { status: 500, headers: NO_STORE_HEADERS });
+    return json({ error: toUserMessage(error, "Erro interno ao salvar documentação.") }, { status: 500, headers: NO_STORE_HEADERS });
   }
 };
 
@@ -229,6 +225,6 @@ export const DELETE: RequestHandler = async (event) => {
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     logServerError("[documentacao] falha ao excluir documentação", error);
-    return json({ error: getErrorMessage(error, "Erro interno ao excluir documentação.") }, { status: 500, headers: NO_STORE_HEADERS });
+    return json({ error: toUserMessage(error, "Erro interno ao excluir documentação.") }, { status: 500, headers: NO_STORE_HEADERS });
   }
 };
