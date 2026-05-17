@@ -14,6 +14,7 @@
   import { apiGet } from '$lib/services/api';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
 
   interface Venda {
@@ -210,7 +211,7 @@
       }
     } catch (err) {
       if (seq !== requestSeq) return;
-      errorMessage = err instanceof Error ? err.message : 'Erro ao carregar vendas.';
+      errorMessage = toUserMessage(err, 'Erro ao carregar vendas.');
       vendas = [];
       totalVendas = 0;
       toast.error(errorMessage);
@@ -251,7 +252,7 @@
         countVendas: 0,
         countAtivas: 0
       };
-      const msg = err instanceof Error ? err.message : 'Erro ao carregar KPIs do mês corrente.';
+      const msg = toUserMessage(err, 'Erro ao carregar KPIs do mês corrente.');
       toast.error(msg);
     } finally {
       loadingKpis = false;
