@@ -7,6 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiFetch, apiGet, apiPost } from '$lib/services/api';
   import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
   import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
@@ -40,7 +41,7 @@
   };
 
   function getErrorMessage(err: unknown, fallback: string) {
-    return err instanceof Error ? err.message || fallback : fallback;
+    return toUserMessage(err, fallback);
   }
 
   let loading = true;
