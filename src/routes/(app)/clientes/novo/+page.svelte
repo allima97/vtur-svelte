@@ -23,6 +23,7 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { ApiError, apiGet, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     buildClientePayload,
     classificacaoSelectOptions,
@@ -138,14 +139,14 @@
       } else {
         goto('/clientes');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) {
         const payload = error.payload as { errors?: Record<string, string> } | undefined;
         if (payload?.errors && typeof payload.errors === 'object') {
           errors = payload.errors;
         }
       }
-      toast.error(error instanceof Error ? error.message : 'Erro ao cadastrar cliente.');
+      toast.error(toUserMessage(error, 'Erro ao cadastrar cliente.'));
     } finally {
       loading = false;
     }
