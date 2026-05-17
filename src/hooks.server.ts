@@ -22,6 +22,7 @@ import { resolveDashboardPathByUserType } from '$lib/server/dashboardRedirect';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
 import { initKvNamespace, checkKvEpochAsync } from '$lib/server/kvInvalidation';
+import { toUserMessage } from '$lib/utils/errors';
 
 const permLevel = (p?: string | null): number => {
 	switch ((p || '').toLowerCase()) {
@@ -98,7 +99,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null;
 
 const getErrorCode = (value: unknown) => (isRecord(value) ? String(value.code || '') : '');
-const getErrorMessage = (value: unknown) => (isRecord(value) ? String(value.message || '') : '');
+const getErrorMessage = (value: unknown) => toUserMessage(value, '');
 
 const buildPerms = (
 	rows: Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>
