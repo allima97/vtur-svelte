@@ -13,6 +13,8 @@
   import { apiGet, apiPatch } from '$lib/services/api';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
 
   // Perfil do usuário logado (para assinatura da mensagem)
   let userNome = '';
@@ -111,8 +113,8 @@
   let items: FollowUpItem[] = [];
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
+  const autoReload = createDebouncedReloader(() => loadFollowUps(), 250);
   $: normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   let modalOpen = false;
@@ -142,7 +144,7 @@
       });
       items = Array.isArray(payload?.items) ? payload.items : [];
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : 'Erro ao carregar follow-ups.';
+      errorMessage = toUserMessage(error, 'Erro ao carregar follow-ups.');
       items = [];
     } finally {
       loading = false;
@@ -158,7 +160,7 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -166,10 +168,7 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void loadFollowUps();
-    }, 250);
+    autoReload.schedule();
   }
 
   $: rows = items
@@ -235,7 +234,7 @@
       selectedItem = null;
       await loadFollowUps();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao salvar follow-up.');
+      toast.error(toUserMessage(error, 'Erro ao salvar follow-up.'));
     } finally {
       saving = false;
     }

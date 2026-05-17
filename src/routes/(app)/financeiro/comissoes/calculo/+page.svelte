@@ -10,6 +10,8 @@
   import { currentMonthRangeISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { apiGet, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
 
   interface VendaCalculada {
     id?: string;
@@ -80,7 +82,7 @@
   let empresaId = '';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  const autoReload = createDebouncedReloader(() => loadComissoes(), 250);
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'
@@ -138,7 +140,7 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -171,7 +173,7 @@
     } catch (err) {
       empresas = [];
       empresaId = '';
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar empresas.');
+      toast.error(toUserMessage(err, 'Erro ao carregar empresas.'));
     }
   }
 
@@ -181,10 +183,7 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void loadComissoes();
-    }, 250);
+    autoReload.schedule();
   }
 
   async function loadComissoes() {
@@ -203,7 +202,7 @@
       comissoesPendentes = data.items || [];
       persistenciaDisponivel = data.persistencia_disponivel !== false;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar comissões pendentes');
+      toast.error(toUserMessage(err, 'Erro ao carregar comissões pendentes'));
     } finally {
       loading = false;
     }
@@ -238,7 +237,7 @@
       await loadComissoes();
       
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao calcular comissões');
+      toast.error(toUserMessage(err, 'Erro ao calcular comissões'));
     } finally {
       calculando = false;
     }
