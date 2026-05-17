@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost } from '$lib/services/api';
   import { Upload, FileText, CheckCircle, AlertCircle, Download } from 'lucide-svelte';
 
@@ -78,7 +79,7 @@
       toast.success(`${resultado.criados} produto(s) importado(s).`);
       textoProdutos = '';
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao importar produtos.');
+      toast.error(toUserMessage(err, 'Erro ao importar produtos.'));
     } finally {
       saving = false;
     }
