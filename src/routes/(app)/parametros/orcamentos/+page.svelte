@@ -8,6 +8,7 @@
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
   import { apiGet, apiPost } from '$lib/services/api';
   import { Save, RefreshCw, FileText, Upload, ImageIcon, X } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   const LOGO_BUCKET = 'quotes';
 
@@ -159,7 +160,7 @@
         }
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar parâmetros.');
+      toast.error(toUserMessage(err, 'Erro ao carregar parâmetros.'));
     } finally {
       loading = false;
     }
@@ -243,7 +244,7 @@
 
       toast.success('Parâmetros de orçamento salvos.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
