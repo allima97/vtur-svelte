@@ -4,7 +4,7 @@
  * inclui variantes aninhadas em `data.*`, `response.*` e `response.data.*`
  * (incluindo `errors`, `cause` e `error.error`, também em `response.errors`),
  * seguindo a ordem do formato mais direto para os formatos aninhados,
- * e usa fallback normalizado quando nada util é encontrado.
+ * e usa fallback normalizado quando nada útil é encontrado.
  */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
   type ErrorRecord = {
