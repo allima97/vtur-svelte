@@ -8,6 +8,7 @@
   import { Plus, RefreshCw } from 'lucide-svelte';
   import { apiGet } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type TipoUsuario = {
     id: string;
@@ -43,7 +44,7 @@
       const payload = await apiGet<{ items?: TipoUsuario[] }>('/api/v1/admin/tipos-usuario');
       rows = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar os tipos de usuario.');
+      toast.error(toUserMessage(err, 'Nao foi possivel carregar os tipos de usuario.'));
     } finally {
       loading = false;
     }
