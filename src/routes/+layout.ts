@@ -2,13 +2,13 @@ import { browser, dev } from '$app/environment';
 import { auth } from '$lib/stores/auth';
 import { permissoes } from '$lib/stores/permissoes';
 import { createSupabaseBrowserClient } from '$lib/db/supabase';
+import { toUserMessage } from '$lib/utils/errors';
 import type { Session } from '@supabase/supabase-js';
 
 let authListenerInitialized = false;
 
 function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  return String(error || '');
+  return toUserMessage(error, String(error || ''));
 }
 
 export const load = async () => {
