@@ -17,6 +17,7 @@
   import { apiFetch, apiGet } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type RuleType = 'GERAL' | 'ESCALONAVEL';
   type FaixaType = 'PRE' | 'POS';
@@ -183,8 +184,7 @@
       const data = await requestApi<Rule[]>('GET');
       rules = Array.isArray(data) ? data.map((rule) => normalizeRule(rule)) : [];
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Erro ao carregar regras de comissão.';
+      const message = toUserMessage(err, 'Erro ao carregar regras de comissão.');
       errorMessage = message;
       rules = [];
       toast.error(message);
@@ -396,7 +396,7 @@
       await loadRules({ silent: true });
       cancelForm();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao salvar regra.';
+      const message = toUserMessage(err, 'Erro ao salvar regra.');
       errorMessage = message;
       toast.error(message);
     } finally {
@@ -439,12 +439,8 @@
       await loadRules({ silent: true });
       closeConfirm();
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : confirmMode === 'inativar'
-            ? 'Erro ao inativar regra.'
-            : 'Erro ao excluir regra.';
+      const fallback = confirmMode === 'inativar' ? 'Erro ao inativar regra.' : 'Erro ao excluir regra.';
+      const message = toUserMessage(err, fallback);
       errorMessage = message;
       toast.error(message);
       actionLoading = false;
