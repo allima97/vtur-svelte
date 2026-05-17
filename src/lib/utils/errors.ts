@@ -5,6 +5,19 @@
  * e usa fallback normalizado quando nada útil é encontrado.
  */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
+  const joinErrorList = (list: unknown[]) =>
+    list
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (item && typeof item === 'object') {
+          const record = item as { message?: unknown; error?: unknown; details?: unknown };
+          return String(record.message || record.error || record.details || '').trim();
+        }
+        return String(item || '').trim();
+      })
+      .filter(Boolean)
+      .join('; ');
+
   const readField = (obj: unknown, key: 'message' | 'error' | 'details' | 'reason') => {
     if (!obj || typeof obj !== 'object' || !(key in obj)) return '';
     return String((obj as Record<string, unknown>)[key] || '').trim();
@@ -31,17 +44,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
   }
 
   if (Array.isArray(error)) {
-    const joined = error
-      .map((item) => {
-        if (typeof item === 'string') return item.trim();
-        if (item && typeof item === 'object') {
-          const record = item as { message?: unknown; error?: unknown; details?: unknown };
-          return String(record.message || record.error || record.details || '').trim();
-        }
-        return String(item || '').trim();
-      })
-      .filter(Boolean)
-      .join('; ');
+    const joined = joinErrorList(error);
     if (joined) return joined;
   }
 
@@ -101,10 +104,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (data && typeof data === 'object' && 'errors' in data) {
       const errorsValue = (data as { errors?: unknown }).errors;
       if (Array.isArray(errorsValue)) {
-        const joined = errorsValue
-          .map((item) => String(item || '').trim())
-          .filter(Boolean)
-          .join('; ');
+        const joined = joinErrorList(errorsValue);
         if (joined) return joined;
       } else if (typeof errorsValue === 'string') {
         const message = errorsValue.trim();
@@ -130,10 +130,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       if (data && typeof data === 'object' && 'errors' in data) {
         const errorsValue = (data as { errors?: unknown }).errors;
         if (Array.isArray(errorsValue)) {
-          const joined = errorsValue
-            .map((item) => String(item || '').trim())
-            .filter(Boolean)
-            .join('; ');
+          const joined = joinErrorList(errorsValue);
           if (joined) return joined;
         } else if (typeof errorsValue === 'string') {
           const message = errorsValue.trim();
