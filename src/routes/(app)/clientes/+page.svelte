@@ -7,6 +7,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
   import { apiGet } from '$lib/services/api';
@@ -263,9 +264,9 @@
         comViagem: Number(s?.comViagem ?? fallbackSummary.comViagem),
         emNegociacao: Number(s?.emNegociacao ?? fallbackSummary.emNegociacao)
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (seq !== requestSeq) return;
-      errorMessage = error instanceof Error ? error.message : 'Erro ao carregar clientes.';
+      errorMessage = toUserMessage(error, 'Erro ao carregar clientes.');
       clientes = [];
       totalClientes = 0;
       toast.error(errorMessage);
