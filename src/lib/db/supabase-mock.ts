@@ -163,7 +163,7 @@ export function shouldUseMock(): boolean {
     
     return false;
   } catch (e: unknown) {
-    const message = toUserMessage(e, String(e || ''));
+    const message = toUserMessage(e, '');
     if (dev) console.error('[Supabase] Erro ao verificar mock', {
       message
     });

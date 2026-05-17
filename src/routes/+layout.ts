@@ -34,7 +34,7 @@ export const load = async () => {
           } catch (err) {
             if (dev) {
               console.error('[layout.ts] Erro ao reinicializar permissoes', {
-                message: toUserMessage(err, String(err || ''))
+                message: toUserMessage(err, '')
               });
             }
           }
