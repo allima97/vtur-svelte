@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPatch } from '$lib/services/api';
   import { Save, User, Phone, MapPin, Mail, Building2 } from 'lucide-svelte';
 
@@ -92,7 +93,7 @@
         };
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar perfil.');
+      toast.error(toUserMessage(err, 'Erro ao carregar perfil.'));
     } finally {
       loading = false;
     }
@@ -104,7 +105,7 @@
       await apiPatch('/api/v1/profile/signature', { signature: assinatura.trim() });
       toast.success('Assinatura atualizada.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar assinatura.');
+      toast.error(toUserMessage(err, 'Erro ao salvar assinatura.'));
     } finally {
       savingAssinatura = false;
     }
@@ -138,7 +139,7 @@
       toast.success('Perfil atualizado com sucesso.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar perfil.');
+      toast.error(toUserMessage(err, 'Erro ao salvar perfil.'));
     } finally {
       saving = false;
     }
