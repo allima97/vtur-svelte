@@ -9,6 +9,7 @@
   import { ApiError, apiFetch, apiPost } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
 
   const emptyForm = {
     id: '',
@@ -174,7 +175,7 @@
       }
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar empresa.');
+      toast.error(toUserMessage(err, 'Erro ao salvar empresa.'));
     } finally {
       saving = false;
     }
@@ -193,7 +194,7 @@
       await loadPage();
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar vinculo master.');
+      toast.error(toUserMessage(err, 'Erro ao criar vinculo master.'));
     } finally {
       linkSaving = false;
     }
@@ -210,7 +211,7 @@
       await loadPage();
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar vinculo.');
+      toast.error(toUserMessage(err, 'Erro ao atualizar vinculo.'));
     }
   }
 
@@ -224,7 +225,7 @@
       await loadPage();
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao remover vinculo.');
+      toast.error(toUserMessage(err, 'Erro ao remover vinculo.'));
     }
   }
 
