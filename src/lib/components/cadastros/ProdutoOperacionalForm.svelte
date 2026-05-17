@@ -9,6 +9,7 @@
   import { FieldCheckbox, FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, FieldToggle, LoadingState } from '$lib/components/ui';
   import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
 
   export let mode: 'produtos' | 'destinos' = 'produtos';
@@ -319,9 +320,9 @@
 
       toast.success(isCreateMode ? 'Cadastro salvo com sucesso.' : 'Cadastro atualizado com sucesso.');
       goto(routeBase);
-    } catch (err) {
+    } catch (err: unknown) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar cadastro.');
+      toast.error(toUserMessage(err, 'Erro ao salvar cadastro.'));
     } finally {
       saving = false;
     }
@@ -334,8 +335,8 @@
       await apiDelete(`/api/v1/produtos/${produtoId}`);
       toast.success('Registro excluído com sucesso.');
       goto(routeBase);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir registro.');
+    } catch (err: unknown) {
+      toast.error(toUserMessage(err, 'Erro ao excluir registro.'));
     } finally {
       deleting = false;
       showDeleteDialog = false;
