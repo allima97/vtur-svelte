@@ -13,6 +13,7 @@
   import { goto } from '$app/navigation';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
 
   export let title = 'Dashboard do gestor';
   export let subtitle = 'Visão consolidada da equipe e desempenho comercial.';
@@ -485,8 +486,8 @@
       userCtx = payload.userCtx || null;
       vendasAgg = payload.vendasAgg || vendasAgg;
       metas = payload.metas || [];
-    } catch (err) {
-      errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dashboard do gestor.';
+    } catch (err: unknown) {
+      errorMessage = toUserMessage(err, 'Erro ao carregar dashboard do gestor.');
       toast.error('Erro ao carregar dashboard do gestor.');
     } finally {
       loading = false;
