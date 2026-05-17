@@ -190,7 +190,7 @@ export async function POST(event: RequestEvent) {
         targetCompanyId
       );
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : '';
+      const message = toUserMessage(e, '');
       if (message === 'DATA_VENDA_INVALIDA') {
         return json({ error: 'data_venda inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
       }
