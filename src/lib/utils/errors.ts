@@ -108,6 +108,10 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       if (responseMessage) return responseMessage;
       const responseError = readField(data, 'error');
       if (responseError) return responseError;
+      const responseDetails = readField(data, 'details');
+      if (responseDetails) return responseDetails;
+      const responseReason = readField(data, 'reason');
+      if (responseReason) return responseReason;
     }
   }
 
