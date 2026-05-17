@@ -12,6 +12,7 @@
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { CopyCheck, Pencil, Plus, RefreshCw, SlidersHorizontal, Target, Trash2 } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type Produto = {
     id: string;
@@ -208,7 +209,7 @@
       vendedores = payload.vendedores || [];
       produtos = payload.produtos || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar metas.');
+      toast.error(toUserMessage(err, 'Erro ao carregar metas.'));
     } finally {
       loading = false;
     }
@@ -300,7 +301,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar meta.');
+      toast.error(toUserMessage(err, 'Erro ao salvar meta.'));
     } finally {
       saving = false;
     }
@@ -343,7 +344,7 @@
       bulkOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao aplicar metas.');
+      toast.error(toUserMessage(err, 'Erro ao aplicar metas.'));
     } finally {
       saving = false;
     }
@@ -357,7 +358,7 @@
       toast.success('Meta excluída.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir meta.');
+      toast.error(toUserMessage(err, 'Erro ao excluir meta.'));
     } finally {
       deletingId = '';
     }
