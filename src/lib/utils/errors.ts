@@ -31,6 +31,11 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       .filter(Boolean)
       .join('; ');
   };
+  const readErrorsValue = (value: unknown) => {
+    if (Array.isArray(value)) return joinErrorList(value);
+    if (typeof value === 'string') return value.trim();
+    return '';
+  };
 
   const readField = (
     obj: unknown,
@@ -105,13 +110,8 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (dataPrimary) return dataPrimary;
     if (data && typeof data === 'object' && 'errors' in data) {
       const errorsValue = (data as ErrorRecordWithErrors).errors;
-      if (Array.isArray(errorsValue)) {
-        const joined = joinErrorList(errorsValue);
-        if (joined) return joined;
-      } else if (typeof errorsValue === 'string') {
-        const message = errorsValue.trim();
-        if (message) return message;
-      }
+      const message = readErrorsValue(errorsValue);
+      if (message) return message;
     }
     const dataCause = readCauseMessage(data);
     if (dataCause) return dataCause;
@@ -123,13 +123,8 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (responsePrimary) return responsePrimary;
     if (response && typeof response === 'object' && 'errors' in response) {
       const errorsValue = (response as ErrorRecordWithErrors).errors;
-      if (Array.isArray(errorsValue)) {
-        const joined = joinErrorList(errorsValue);
-        if (joined) return joined;
-      } else if (typeof errorsValue === 'string') {
-        const message = errorsValue.trim();
-        if (message) return message;
-      }
+      const message = readErrorsValue(errorsValue);
+      if (message) return message;
     }
 
     if (response && typeof response === 'object' && 'data' in response) {
@@ -138,13 +133,8 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       if (responseDataPrimary) return responseDataPrimary;
       if (data && typeof data === 'object' && 'errors' in data) {
         const errorsValue = (data as ErrorRecordWithErrors).errors;
-        if (Array.isArray(errorsValue)) {
-          const joined = joinErrorList(errorsValue);
-          if (joined) return joined;
-        } else if (typeof errorsValue === 'string') {
-          const message = errorsValue.trim();
-          if (message) return message;
-        }
+        const message = readErrorsValue(errorsValue);
+        if (message) return message;
       }
       const responseCause = readCauseMessage(data);
       if (responseCause) return responseCause;
