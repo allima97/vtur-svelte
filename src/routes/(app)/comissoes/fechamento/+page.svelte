@@ -10,7 +10,9 @@
   import { apiGet } from '$lib/services/api';
   import { Calculator, DollarSign, RefreshCw, SlidersHorizontal, TrendingUp, Users } from 'lucide-svelte';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
-  import { formatDate } from '$lib/utils/formatters';
+  import { formatCurrency, formatDate } from '$lib/utils/formatters';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
+  import { toUserMessage } from '$lib/utils/errors';
 
   // ─── Tipos ──────────────────────────────────────────────────────────────────
   interface ComissaoItem {
@@ -68,12 +70,11 @@
   let abortController: AbortController | null = null;
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
-  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  });
+  const autoReload = createDebouncedReloader(() => {
+    void load();
+    void loadVendedores();
+  }, 250);
 
   // ─── KPIs derivados ───────────────────────────────────────────────────────
   $: comissoesStats = comissoes.reduce(
@@ -92,8 +93,8 @@
   $: vendedoresUnicos  = comissoesStats.vendedores.size;
 
   // ─── Colunas da tabela ──────────────────────────────────────────────────────
-  function formatCurrency(value: number) {
-    return BRL_CURRENCY_FORMATTER.format(value || 0);
+  function formatCurrencySafe(value: number) {
+    return formatCurrency(value || 0);
   }
 
   const columns = [
@@ -106,7 +107,7 @@
     },
     {
       key: 'valor_venda', label: 'Valor Venda', sortable: true, align: 'right' as const,
-      formatter: (v: number) => formatCurrency(v)
+      formatter: (v: number) => formatCurrencySafe(v)
     },
     {
       key: 'percentual_aplicado', label: '%', sortable: true, width: '70px', align: 'center' as const,
@@ -114,7 +115,7 @@
     },
     {
       key: 'valor_comissao', label: 'Comissão', sortable: true, align: 'right' as const,
-      formatter: (v: number) => formatCurrency(v)
+      formatter: (v: number) => formatCurrencySafe(v)
     },
     {
       key: 'status', label: 'Status', sortable: true, width: '110px',
@@ -152,7 +153,7 @@
       comissoes = data.items ?? [];
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar comissões.');
+      toast.error(toUserMessage(err, 'Erro ao carregar comissões.'));
     } finally {
       loading = false;
     }
@@ -214,7 +215,7 @@
 
   onDestroy(() => {
     if (abortController) abortController.abort();
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -222,11 +223,7 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void load();
-      void loadVendedores();
-    }, 250);
+    autoReload.schedule();
   }
 
   const MONTH_NAME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
@@ -297,8 +294,8 @@
 
 <!-- KPIs -->
 <div class="vtur-kpi-grid mb-6">
-  <KPICard title="Total comissões" value={formatCurrency(totalComissoes)} color="comissoes" icon={DollarSign}  />
-  <KPICard title="Total vendas"    value={formatCurrency(totalVendas)}    color="comissoes" icon={TrendingUp}  />
+  <KPICard title="Total comissões" value={formatCurrencySafe(totalComissoes)} color="comissoes" icon={DollarSign}  />
+  <KPICard title="Total vendas"    value={formatCurrencySafe(totalVendas)}    color="comissoes" icon={TrendingUp}  />
   <KPICard title="Pendentes"       value={pendentes}                       color="comissoes" icon={Calculator}  />
   <KPICard title="Vendedores"      value={vendedoresUnicos}                color="comissoes" icon={Users}       />
 </div>

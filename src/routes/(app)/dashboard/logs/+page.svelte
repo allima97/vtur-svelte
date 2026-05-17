@@ -12,6 +12,8 @@
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { formatDateTime } from '$lib/utils/formatters';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type LogUsuario = {
     nome_completo: string | null;
@@ -46,7 +48,7 @@
   let showFilterSheet = false;
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  const autoReload = createDebouncedReloader(() => loadLogs(1), 300);
 
   function formatDetails(value: unknown) {
     if (!value) return '-';
@@ -76,7 +78,7 @@
       page = Number(payload.page || nextPage);
       pageSize = Number(payload.pageSize || pageSize);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar logs administrativos.');
+      toast.error(toUserMessage(err, 'Erro ao carregar logs administrativos.'));
     } finally {
       loading = false;
     }
@@ -101,7 +103,7 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -109,10 +111,7 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void loadLogs(1);
-    }, 300);
+    autoReload.schedule();
   }
 
   $: autoReloadKey = buildAutoReloadKey();
