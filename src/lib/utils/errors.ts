@@ -1,6 +1,6 @@
 /**
  * Resolve uma mensagem amigável a partir de diferentes formatos de erro.
- * prioriza conteúdos explícitos do erro (message/error/details/reason)
+ * prioriza mensagens explícitas do erro (message/error/details/reason)
  * inclui variantes aninhadas em `data.*`, `response.*` e `response.data.*`
  * (incluindo `errors`, `cause` e `error.error`, também em `response.errors`),
  * seguindo a ordem do formato mais direto para os formatos aninhados,
