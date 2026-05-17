@@ -72,18 +72,8 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     const message = String(error.message || '').trim();
     if (message) return message;
 
-    const cause =
-      typeof error === 'object' && error !== null && 'cause' in error
-        ? (error as ErrorRecord).cause
-        : undefined;
-    if (typeof cause === 'string') {
-      const causeMessage = cause.trim();
-      if (causeMessage) return causeMessage;
-    }
-    if (cause && typeof cause === 'object' && 'message' in cause) {
-      const causeMessage = String((cause as { message?: unknown }).message || '').trim();
-      if (causeMessage) return causeMessage;
-    }
+    const errorCause = readCauseMessage(error);
+    if (errorCause) return errorCause;
   }
 
   if (error && typeof error === 'object' && 'message' in error) {
