@@ -37,10 +37,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     return '';
   };
 
-  const readField = (
-    obj: unknown,
-    key: 'message' | 'error' | 'details' | 'reason'
-  ) => {
+  const readField = (obj: unknown, key: 'message' | 'error' | 'details' | 'reason') => {
     if (!obj || typeof obj !== 'object' || !(key in obj)) return '';
     return String((obj as ErrorRecord)[key] || '').trim();
   };
