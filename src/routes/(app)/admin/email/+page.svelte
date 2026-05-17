@@ -7,6 +7,7 @@
   import { toast } from '$lib/stores/ui';
   import { Send, RefreshCw } from 'lucide-svelte';
   import { apiFetch, apiGet, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type EmailSettings = {
     smtp_host?: string | null;
@@ -58,7 +59,7 @@
         suporte_from_email: payload.settings.suporte_from_email || ''
       };
     } catch (err) {
-      toast.error('Nao foi possivel carregar as configuracoes de e-mail.');
+      toast.error(toUserMessage(err, 'Nao foi possivel carregar as configuracoes de e-mail.'));
     } finally {
       loading = false;
     }
@@ -73,7 +74,7 @@
       });
       toast.success('Configuracoes de e-mail salvas.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar configuracoes.');
+      toast.error(toUserMessage(err, 'Erro ao salvar configuracoes.'));
     } finally {
       saving = false;
     }
@@ -93,7 +94,7 @@
       });
       toast.success('E-mail de teste enviado com sucesso.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar teste.');
+      toast.error(toUserMessage(err, 'Erro ao enviar teste.'));
     } finally {
       sendingTest = false;
     }
