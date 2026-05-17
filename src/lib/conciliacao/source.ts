@@ -789,7 +789,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         // não derruba a busca principal de conciliação.
         logSourceWarning(
           "[source] rateio query falhou, seguindo sem rateio:",
-          toUserMessage(err, String((err as DatabaseErrorLike)?.message || "")),
+          toUserMessage(err, ""),
         );
         rateioQueryFailed = true;
         break;
@@ -823,7 +823,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       } catch (err: unknown) {
         logSourceWarning(
           "[source] rateio por recibo falhou, seguindo sem rateio:",
-          toUserMessage(err, String((err as DatabaseErrorLike)?.message || "")),
+          toUserMessage(err, ""),
         );
         rateioQueryFailed = true;
         break;
@@ -1025,7 +1025,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       } catch (err: unknown) {
         logSourceWarning(
           "[source] rateio por recibo fallback falhou, seguindo sem rateio:",
-          toUserMessage(err, String((err as DatabaseErrorLike)?.message || "")),
+          toUserMessage(err, ""),
         );
         break;
       }
