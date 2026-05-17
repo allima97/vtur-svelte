@@ -9,6 +9,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   type TipoProduto = {
@@ -81,7 +82,7 @@
       const payload = await apiGet<{ items?: TipoProduto[] }>('/api/v1/tipo-produtos', { all: 1 });
       tipos = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar tipos de produto.');
+      toast.error(toUserMessage(err, 'Erro ao carregar tipos de produto.'));
     } finally {
       loading = false;
     }
@@ -120,7 +121,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar tipo de produto.');
+      toast.error(toUserMessage(err, 'Erro ao salvar tipo de produto.'));
     } finally {
       saving = false;
     }
@@ -134,7 +135,7 @@
       toast.success('Tipo de produto excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir tipo de produto.');
+      toast.error(toUserMessage(err, 'Erro ao excluir tipo de produto.'));
     } finally {
       deletingId = '';
     }
