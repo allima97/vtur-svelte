@@ -1,6 +1,6 @@
 /**
  * Resolve uma mensagem amigável a partir de diferentes formatos de erro.
- * Prioriza conteúdos explícitos do erro (message/error/details/reason/data.message/data.error/data.details) e usa fallback normalizado quando nada útil é encontrado.
+ * Prioriza conteúdos explícitos do erro (message/error/details/reason/data.message/data.error/data.details/data.reason) e usa fallback normalizado quando nada útil é encontrado.
  */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
   const safeFallback = String(fallback || 'Erro inesperado.').trim() || 'Erro inesperado.';
