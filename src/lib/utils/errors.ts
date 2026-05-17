@@ -100,5 +100,16 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     }
   }
 
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: unknown }).response;
+    if (response && typeof response === 'object' && 'data' in response) {
+      const data = (response as { data?: unknown }).data;
+      const responseMessage = readField(data, 'message');
+      if (responseMessage) return responseMessage;
+      const responseError = readField(data, 'error');
+      if (responseError) return responseError;
+    }
+  }
+
   return safeFallback;
 }
