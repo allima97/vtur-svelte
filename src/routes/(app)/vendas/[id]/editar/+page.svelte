@@ -6,6 +6,7 @@
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
   import { ApiError, apiFetch, apiGet, apiPatch } from '$lib/services/api';
@@ -481,7 +482,7 @@
       const [, vendaRaw] = await Promise.all([loadBase(), fetchVendaData()]);
       await processVendaData(vendaRaw);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados da venda.');
+      toast.error(toUserMessage(err, 'Erro ao carregar dados da venda.'));
     } finally {
       loading = false;
     }
@@ -960,7 +961,7 @@
       toast.success('Venda atualizada com sucesso!');
       goto('/vendas');
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar venda.');
+      toast.error(toUserMessage(err, 'Erro ao atualizar venda.'));
     } finally {
       saving = false;
     }
