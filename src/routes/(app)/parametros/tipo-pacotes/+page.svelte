@@ -9,6 +9,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   type TipoPacote = {
@@ -56,7 +57,7 @@
       const payload = await apiGet<{ items?: TipoPacote[] }>('/api/v1/parametros/tipo-pacotes');
       tipos = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar tipos de pacote.');
+      toast.error(toUserMessage(err, 'Erro ao carregar tipos de pacote.'));
     } finally {
       loading = false;
     }
@@ -91,7 +92,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar tipo de pacote.');
+      toast.error(toUserMessage(err, 'Erro ao salvar tipo de pacote.'));
     } finally {
       saving = false;
     }
@@ -105,7 +106,7 @@
       toast.success('Tipo de pacote excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir tipo de pacote.');
+      toast.error(toUserMessage(err, 'Erro ao excluir tipo de pacote.'));
     } finally {
       deletingId = '';
     }
