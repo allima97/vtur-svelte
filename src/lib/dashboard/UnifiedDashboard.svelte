@@ -13,6 +13,7 @@
   import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
   import { monthRangeFromKey, parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     TrendingUp,
     ShoppingCart,
@@ -574,8 +575,8 @@
       podeVerOperacao = Boolean(data.podeVerOperacao);
       podeVerConsultoria = Boolean(data.podeVerConsultoria);
       applyPrefs((data.widgetPrefs || []) as WidgetPrefRow[]);
-    } catch (err) {
-      errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dashboard.';
+    } catch (err: unknown) {
+      errorMessage = toUserMessage(err, 'Erro ao carregar dashboard.');
       toast.error('Erro ao carregar dashboard');
     } finally {
       loading = false;
@@ -677,8 +678,8 @@
       saveDashboardPrefsToStorage('dashboard_kpis', kpiOrder, kpiVisible);
       toast.success('Preferências do dashboard salvas.');
       showCustomize = false;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar preferências.');
+    } catch (err: unknown) {
+      toast.error(toUserMessage(err, 'Erro ao salvar preferências.'));
     } finally {
       savingCustomize = false;
     }
