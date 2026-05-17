@@ -6,6 +6,7 @@
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { formatDate, formatYearMonthLabel } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import { todayISODateLocal } from '$lib/date';
   import { toast } from '$lib/stores/ui';
   import { auth } from '$lib/stores/auth';
@@ -95,7 +96,7 @@
       dias = diasEquipe.filter((d) => d.usuario_id === userId);
       feriados = payload.feriados || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar escala.');
+      toast.error(toUserMessage(err, 'Erro ao carregar escala.'));
     } finally {
       loading = false;
     }
