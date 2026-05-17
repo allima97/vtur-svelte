@@ -49,6 +49,7 @@
     normalizeViagemStatus,
     type StatusViagem,
   } from "$lib/viagens/status";
+  import { toUserMessage } from "$lib/utils/errors";
   import { ApiError, apiDelete, apiGet, apiPatch } from "$lib/services/api";
 
   interface Cliente {
@@ -253,7 +254,7 @@
         goto("/operacao/viagens");
         return;
       }
-      toast.error(err instanceof Error ? err.message : "Erro ao carregar viagem");
+      toast.error(toUserMessage(err, "Erro ao carregar viagem"));
     } finally {
       loading = false;
     }
@@ -268,7 +269,7 @@
       showStatusModal = false;
       await loadViagem();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao atualizar viagem");
+      toast.error(toUserMessage(err, "Erro ao atualizar viagem"));
     } finally {
       saving = false;
     }
@@ -280,7 +281,7 @@
       toast.success("Viagem excluída com sucesso");
       goto("/operacao/viagens");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao excluir viagem");
+      toast.error(toUserMessage(err, "Erro ao excluir viagem"));
     }
   }
 
