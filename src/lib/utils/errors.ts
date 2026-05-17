@@ -127,6 +127,19 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       if (responseDetails) return responseDetails;
       const responseReason = readField(data, 'reason');
       if (responseReason) return responseReason;
+      if (data && typeof data === 'object' && 'errors' in data) {
+        const errorsValue = (data as { errors?: unknown }).errors;
+        if (Array.isArray(errorsValue)) {
+          const joined = errorsValue
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+            .join('; ');
+          if (joined) return joined;
+        } else if (typeof errorsValue === 'string') {
+          const message = errorsValue.trim();
+          if (message) return message;
+        }
+      }
       const responseCause = readCauseMessage(data);
       if (responseCause) return responseCause;
     }
