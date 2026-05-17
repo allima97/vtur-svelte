@@ -11,6 +11,7 @@
   import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, UserPlus, Users } from 'lucide-svelte';
 
   type Option = {
@@ -287,7 +288,7 @@
         await loadDetail();
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar usuario.');
+      toast.error(toUserMessage(err, 'Erro ao salvar usuario.'));
     } finally {
       saving = false;
     }
@@ -328,7 +329,7 @@
       toast.success('Convite enviado com sucesso.');
       await goto('/admin/usuarios');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar convite.');
+      toast.error(toUserMessage(err, 'Erro ao enviar convite.'));
     } finally {
       inviting = false;
     }
@@ -360,7 +361,7 @@
       avisoTemplateId = '';
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar aviso.');
+      toast.error(toUserMessage(err, 'Erro ao enviar aviso.'));
     }
   }
 
@@ -384,7 +385,7 @@
       confirmarSenha = '';
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao redefinir senha.');
+      toast.error(toUserMessage(err, 'Erro ao redefinir senha.'));
     }
   }
 
@@ -396,7 +397,7 @@
       await loadMfaStatus(userForm.id);
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao resetar 2FA.');
+      toast.error(toUserMessage(err, 'Erro ao resetar 2FA.'));
     }
   }
 
