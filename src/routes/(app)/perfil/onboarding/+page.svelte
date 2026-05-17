@@ -7,6 +7,7 @@
   import { FieldInput, FieldRadioGroup, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { apiGet, apiPatch } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
   import { Save, CheckCircle, User, Phone, MapPin } from 'lucide-svelte';
 
   let loading = true;
@@ -67,7 +68,7 @@
         uso_individual: perfil.uso_individual ?? null
       };
     } catch (err) {
-      toast.error('Erro ao carregar perfil.');
+      toast.error(toUserMessage(err, 'Erro ao carregar perfil.'));
     } finally {
       loading = false;
     }
@@ -97,7 +98,7 @@
       toast.success('Perfil completado com sucesso!');
       goto('/');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar perfil.');
+      toast.error(toUserMessage(err, 'Erro ao salvar perfil.'));
     } finally {
       saving = false;
     }
