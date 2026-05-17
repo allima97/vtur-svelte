@@ -11,6 +11,7 @@
   import { apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
   import { escapeHtml } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   type MessageTemplate = {
@@ -84,7 +85,7 @@
       const payload = await apiGet<{ templates?: MessageTemplate[] }>('/api/v1/admin/crm');
       templates = payload.templates || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar templates.');
+      toast.error(toUserMessage(err, 'Erro ao carregar templates.'));
     } finally {
       loading = false;
     }
@@ -119,7 +120,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -133,7 +134,7 @@
       toast.success('Template excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
