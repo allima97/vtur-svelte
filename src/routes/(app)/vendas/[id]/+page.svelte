@@ -395,10 +395,6 @@
     return err instanceof ApiError && INITIAL_LOAD_RETRY_STATUSES.has(err.status);
   }
 
-  function getErrorMessage(err: unknown) {
-    return toUserMessage(err, 'falha inesperada');
-  }
-
   async function applyVendaData(data: VendaDetalheView, opts: { loadProdutos?: boolean } = {}) {
     venda = data;
 
@@ -520,7 +516,7 @@
         ? 'Não foi possível carregar a venda após salvar. Volte para a lista e abra novamente.'
         : 'Venda não encontrada';
     } else {
-      error = `Erro ao carregar dados da venda: ${getErrorMessage(err)}`;
+      error = `Erro ao carregar dados da venda: ${toUserMessage(err, 'falha inesperada')}`;
       toast.error(toUserMessage(err, 'Erro ao carregar venda'));
     }
 
