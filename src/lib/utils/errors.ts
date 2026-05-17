@@ -1,4 +1,4 @@
-export function toUserMessage(error: unknown, fallback: string): string {
+export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
   if (
     typeof error === 'number' ||
     typeof error === 'boolean' ||
