@@ -7,6 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { Plus, Trash2, RefreshCw, Star, Search } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -104,7 +105,7 @@
       preferencias = payload.items || [];
       tipos = payload.tipos || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar preferências.');
+      toast.error(toUserMessage(err, 'Erro ao carregar preferências.'));
     } finally {
       loading = false;
     }
@@ -179,7 +180,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -193,7 +194,7 @@
       toast.success('Preferência excluída.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
