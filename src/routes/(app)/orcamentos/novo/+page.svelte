@@ -8,6 +8,7 @@
   import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost } from '$lib/services/api';
 
   // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -235,7 +236,7 @@
       );
       goto('/orcamentos');
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar orçamento');
+      toast.error(toUserMessage(err, 'Erro ao salvar orçamento'));
     } finally {
       saving = false;
     }
