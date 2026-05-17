@@ -27,5 +27,10 @@ export function toUserMessage(error: unknown, fallback: string): string {
     if (message) return message;
   }
 
+  if (error && typeof error === 'object' && 'error' in error) {
+    const message = String((error as { error?: unknown }).error || '').trim();
+    if (message) return message;
+  }
+
   return fallback;
 }
