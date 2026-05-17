@@ -8,6 +8,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     ArrowLeft,
     Building2,
@@ -127,7 +128,7 @@
       lastLoadedCompanyId = companyContextId();
       startPoller();
     } catch (err) {
-      errorMessage = err instanceof Error ? err.message : 'Erro ao carregar mural.';
+      errorMessage = toUserMessage(err, 'Erro ao carregar mural.');
       toast.error(errorMessage);
     } finally {
       loading = false;
@@ -148,7 +149,7 @@
       recados = getVisibleRecados(payload.recados || []);
       startPoller();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao trocar empresa.');
+      toast.error(toUserMessage(err, 'Erro ao trocar empresa.'));
     } finally {
       recadosLoading = false;
     }
@@ -166,7 +167,7 @@
       supportsAttachments = payload.supportsAttachments !== false;
       recados = getVisibleRecados(payload.recados || []);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar recados.');
+      toast.error(toUserMessage(err, 'Erro ao atualizar recados.'));
     } finally {
       recadosLoading = false;
     }
@@ -200,7 +201,7 @@
       mobileScreen = 'chat';
       toast.success('Recado enviado.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar recado.');
+      toast.error(toUserMessage(err, 'Erro ao enviar recado.'));
     } finally {
       sending = false;
     }
@@ -215,7 +216,7 @@
       deleteTarget = null;
       toast.success('Recado excluído.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir recado.');
+      toast.error(toUserMessage(err, 'Erro ao excluir recado.'));
     } finally {
       deleting = false;
     }
