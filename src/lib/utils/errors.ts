@@ -46,6 +46,11 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     }
     return '';
   };
+  const readPrimaryMessage = (obj: unknown) =>
+    readField(obj, 'message') ||
+    readField(obj, 'error') ||
+    readField(obj, 'details') ||
+    readField(obj, 'reason');
 
   const safeFallback = String(fallback || 'Erro inesperado.').trim() || 'Erro inesperado.';
 
@@ -98,14 +103,8 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
 
   if (error && typeof error === 'object' && 'data' in error) {
     const data = (error as ErrorRecord).data;
-    const dataMessage = readField(data, 'message');
-    if (dataMessage) return dataMessage;
-    const dataError = readField(data, 'error');
-    if (dataError) return dataError;
-    const dataDetails = readField(data, 'details');
-    if (dataDetails) return dataDetails;
-    const dataReason = readField(data, 'reason');
-    if (dataReason) return dataReason;
+    const dataPrimary = readPrimaryMessage(data);
+    if (dataPrimary) return dataPrimary;
     if (data && typeof data === 'object' && 'errors' in data) {
       const errorsValue = (data as ErrorRecordWithErrors).errors;
       if (Array.isArray(errorsValue)) {
@@ -122,25 +121,13 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
 
   if (error && typeof error === 'object' && 'response' in error) {
     const response = (error as ErrorRecord).response;
-    const responseMessage = readField(response, 'message');
-    if (responseMessage) return responseMessage;
-    const responseError = readField(response, 'error');
-    if (responseError) return responseError;
-    const responseDetails = readField(response, 'details');
-    if (responseDetails) return responseDetails;
-    const responseReason = readField(response, 'reason');
-    if (responseReason) return responseReason;
+    const responsePrimary = readPrimaryMessage(response);
+    if (responsePrimary) return responsePrimary;
 
     if (response && typeof response === 'object' && 'data' in response) {
       const data = (response as ErrorRecord).data;
-      const responseDataMessage = readField(data, 'message');
-      if (responseDataMessage) return responseDataMessage;
-      const responseDataError = readField(data, 'error');
-      if (responseDataError) return responseDataError;
-      const responseDataDetails = readField(data, 'details');
-      if (responseDataDetails) return responseDataDetails;
-      const responseDataReason = readField(data, 'reason');
-      if (responseDataReason) return responseDataReason;
+      const responseDataPrimary = readPrimaryMessage(data);
+      if (responseDataPrimary) return responseDataPrimary;
       if (data && typeof data === 'object' && 'errors' in data) {
         const errorsValue = (data as ErrorRecordWithErrors).errors;
         if (Array.isArray(errorsValue)) {
