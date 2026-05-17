@@ -1,4 +1,9 @@
 export function toUserMessage(error: unknown, fallback: string): string {
+  if (typeof error === 'string') {
+    const message = error.trim();
+    if (message) return message;
+  }
+
   if (error instanceof Error) {
     const message = String(error.message || '').trim();
     if (message) return message;
