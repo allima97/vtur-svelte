@@ -33,6 +33,7 @@
     createBlankAppInfo 
   } from '$lib/vouchers/extraData';
   import { addDaysISODate, diffDaysISODate } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost } from '$lib/services/api';
   import type { 
     VoucherProvider, 
@@ -43,7 +44,7 @@
   } from '$lib/vouchers/types';
 
   function getErrorMessage(error: unknown, fallback: string) {
-    return error instanceof Error && error.message ? error.message : fallback;
+    return toUserMessage(error, fallback);
   }
 
   // Tipo para o formulário do wizard
