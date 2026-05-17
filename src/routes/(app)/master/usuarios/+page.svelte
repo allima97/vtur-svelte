@@ -10,6 +10,7 @@
   import { Plus, RefreshCw, Users, UserCheck, UserX, UserCog, SlidersHorizontal } from 'lucide-svelte';
   import { apiGet } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type Usuario = {
     id: string;
@@ -125,7 +126,7 @@
       const payload = await apiGet<{ items?: Usuario[] }>('/api/v1/admin/usuarios');
       usuarios = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar os usuarios administrativos.');
+      toast.error(toUserMessage(err, 'Nao foi possivel carregar os usuarios administrativos.'));
       usuarios = [];
     } finally {
       loading = false;
