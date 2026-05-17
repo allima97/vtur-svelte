@@ -7,10 +7,6 @@ import type { Session } from '@supabase/supabase-js';
 
 let authListenerInitialized = false;
 
-function getErrorMessage(error: unknown) {
-  return toUserMessage(error, String(error || ''));
-}
-
 export const load = async () => {
   if (browser) {
     const supabase = createSupabaseBrowserClient();
@@ -38,7 +34,7 @@ export const load = async () => {
           } catch (err) {
             if (dev) {
               console.error('[layout.ts] Erro ao reinicializar permissoes', {
-                message: getErrorMessage(err)
+                message: toUserMessage(err, String(err || ''))
               });
             }
           }
