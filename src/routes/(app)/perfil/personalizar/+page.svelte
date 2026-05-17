@@ -8,6 +8,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { descobrirModulo } from '$lib/config/modulos';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost } from '$lib/services/api';
   import { Save, RefreshCw } from 'lucide-svelte';
 
@@ -243,8 +244,9 @@
       toast.success('Preferências de menu salvas com sucesso.');
       setFeedback('Preferências de menu salvas com sucesso.', 'success');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar preferências de menu.');
-      setFeedback(err instanceof Error ? err.message : 'Erro ao salvar preferências de menu.', 'error');
+      const message = toUserMessage(err, 'Erro ao salvar preferências de menu.');
+      toast.error(message);
+      setFeedback(message, 'error');
     } finally {
       saving = false;
     }
@@ -266,8 +268,9 @@
       toast.success('Preferências resetadas para o padrão.');
       setFeedback('Preferências resetadas para o padrão.', 'success');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao resetar preferências de menu.');
-      setFeedback(err instanceof Error ? err.message : 'Erro ao resetar preferências de menu.', 'error');
+      const message = toUserMessage(err, 'Erro ao resetar preferências de menu.');
+      toast.error(message);
+      setFeedback(message, 'error');
     }
   }
 
