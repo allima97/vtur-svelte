@@ -8,6 +8,7 @@
   import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
   import { apiGet } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { MessageCircle, RefreshCw } from 'lucide-svelte';
@@ -104,7 +105,7 @@
     } catch (err) {
       compras = [];
       total = 0;
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar últimas compras.');
+      toast.error(toUserMessage(err, 'Erro ao carregar últimas compras.'));
     } finally {
       loading = false;
     }
