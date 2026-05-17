@@ -9,6 +9,7 @@ import {
   resolveUserScope
 } from '$lib/server/v1';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { toUserMessage } from '$lib/utils/errors';
 
 const MAX_DOCUMENTACAO_BODY_BYTES = 512 * 1024;
 
@@ -30,7 +31,7 @@ type DocumentacaoBody = {
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback;
+  return toUserMessage(error, fallback);
 }
 
 function normalizeSlug(value: unknown) {
