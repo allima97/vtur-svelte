@@ -16,6 +16,7 @@
 
 import { writable, derived, get } from 'svelte/store';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { toUserMessage } from '$lib/utils/errors';
 import {
   MAPA_MODULOS,
   listarModulosComHeranca,
@@ -322,8 +323,7 @@ function createPermissoesStore() {
         error: null,
       });
     } catch (err) {
-      const normalizedError =
-        err instanceof Error ? err : new Error('Erro ao carregar permissões');
+      const normalizedError = new Error(toUserMessage(err, 'Erro ao carregar permissões'));
 
       const finalMessage = isPermissionOrSessionError(err)
         ? 'Sessao invalida ou sem permissao para carregar contexto. Faca login novamente.'
