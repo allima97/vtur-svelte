@@ -67,5 +67,10 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (message) return message;
   }
 
+  if (error && typeof error === 'object' && 'reason' in error) {
+    const message = String((error as { reason?: unknown }).reason || '').trim();
+    if (message) return message;
+  }
+
   return safeFallback;
 }
