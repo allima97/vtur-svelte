@@ -122,16 +122,25 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
 
   if (error && typeof error === 'object' && 'response' in error) {
     const response = (error as ErrorRecord).response;
+    const responseMessage = readField(response, 'message');
+    if (responseMessage) return responseMessage;
+    const responseError = readField(response, 'error');
+    if (responseError) return responseError;
+    const responseDetails = readField(response, 'details');
+    if (responseDetails) return responseDetails;
+    const responseReason = readField(response, 'reason');
+    if (responseReason) return responseReason;
+
     if (response && typeof response === 'object' && 'data' in response) {
       const data = (response as ErrorRecord).data;
-      const responseMessage = readField(data, 'message');
-      if (responseMessage) return responseMessage;
-      const responseError = readField(data, 'error');
-      if (responseError) return responseError;
-      const responseDetails = readField(data, 'details');
-      if (responseDetails) return responseDetails;
-      const responseReason = readField(data, 'reason');
-      if (responseReason) return responseReason;
+      const responseDataMessage = readField(data, 'message');
+      if (responseDataMessage) return responseDataMessage;
+      const responseDataError = readField(data, 'error');
+      if (responseDataError) return responseDataError;
+      const responseDataDetails = readField(data, 'details');
+      if (responseDataDetails) return responseDataDetails;
+      const responseDataReason = readField(data, 'reason');
+      if (responseDataReason) return responseDataReason;
       if (data && typeof data === 'object' && 'errors' in data) {
         const errorsValue = (data as ErrorRecordWithErrors).errors;
         if (Array.isArray(errorsValue)) {
