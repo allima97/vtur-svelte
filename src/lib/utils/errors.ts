@@ -72,5 +72,13 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (message) return message;
   }
 
+  if (error && typeof error === 'object' && 'data' in error) {
+    const data = (error as { data?: unknown }).data;
+    if (data && typeof data === 'object' && 'message' in data) {
+      const message = String((data as { message?: unknown }).message || '').trim();
+      if (message) return message;
+    }
+  }
+
   return safeFallback;
 }
