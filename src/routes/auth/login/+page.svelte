@@ -5,6 +5,7 @@
   import { env as publicEnv } from '$env/dynamic/public';
   import { supabase, isMockMode } from '$lib/db/supabase';
   import { auth } from '$lib/stores/auth';
+  import { toUserMessage } from '$lib/utils/errors';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
@@ -222,7 +223,7 @@
       auth.setAuth(payload.user ?? null, session);
       await finishLogin();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '';
+      const message = toUserMessage(err, '');
       error = message || 'Erro ao fazer login';
       if (message.includes('Invalid login')) {
         error = 'Email ou senha incorretos';
@@ -290,7 +291,7 @@
       auth.setAuth(payload.user ?? null, session);
       await finishLogin();
     } catch (err: unknown) {
-      const message = String(err instanceof Error ? err.message : '').trim();
+      const message = toUserMessage(err, '').trim();
       if (message.includes('The operation either timed out or was not allowed')) {
         error = 'A autenticação por passkey foi cancelada ou expirou.';
       } else {
