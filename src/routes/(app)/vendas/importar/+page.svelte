@@ -31,6 +31,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
+  import { toUserMessage } from '$lib/utils/errors';
   import { todayISODateLocal } from '$lib/date';
   import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
   import type { ContratoDraft } from '$lib/vendas/contratoCvcExtractor';
@@ -291,7 +292,7 @@
       warningMessage = String(payload?.warning || '').trim();
       vendedorId = currentUserId;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar contexto.');
+      toast.error(toUserMessage(err, 'Erro ao carregar contexto.'));
     }
   }
 
@@ -610,7 +611,7 @@
 
       textInput = '';
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro na extração.');
+      toast.error(toUserMessage(err, 'Erro na extração.'));
     } finally {
       extracting = false;
     }
@@ -763,7 +764,7 @@
       contatoModalOpen = false;
       goto('/vendas');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar importação.');
+      toast.error(toUserMessage(err, 'Erro ao salvar importação.'));
     } finally {
       saving = false;
     }
