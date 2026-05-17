@@ -99,7 +99,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null;
 
 const getErrorCode = (value: unknown) => (isRecord(value) ? String(value.code || '') : '');
-const getErrorMessage = (value: unknown) => toUserMessage(value, '');
 
 const buildPerms = (
 	rows: Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>
@@ -655,7 +654,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	if (!isSenhaObrigatoriaAllowed) {
 		const missingColumn =
 			getErrorCode(userProfileRes.error) === '42703' ||
-			getErrorMessage(userProfileRes.error).toLowerCase().includes('must_change_password');
+			toUserMessage(userProfileRes.error, '').toLowerCase().includes('must_change_password');
 
 		if (!userProfileRes.error || missingColumn) {
 			if (Boolean(perfil?.must_change_password)) {
