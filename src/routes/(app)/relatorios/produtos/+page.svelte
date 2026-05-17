@@ -15,6 +15,9 @@
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { apiGet } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { formatCurrency } from '$lib/utils/formatters';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
+  import { toUserMessage } from '$lib/utils/errors';
 
   interface ProdutoRelatorio {
     produto: string;
@@ -49,10 +52,6 @@
 
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
-  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  });
   const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
   let produtos: ProdutoRelatorio[] = [];
@@ -69,15 +68,15 @@
   let ordenacao = 'receita';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
+  const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
   async function loadBase() {
     try {
       const data = await apiGet<{ empresas?: EmpresaFiltro[]; vendedores?: VendedorFiltro[] }>('/api/v1/relatorios/base');
       empresas = data.empresas || [];
       vendedores = data.vendedores || [];
-    } catch (err) {
+    } catch (_err) {
       empresas = [];
       vendedores = [];
       toast.error('Erro ao carregar filtros do relatório');
@@ -137,7 +136,7 @@
       }
     } catch (err) {
       produtos = [];
-      toast.error('Erro ao carregar relatorio de produtos');
+      toast.error(toUserMessage(err, 'Erro ao carregar relatório de produtos'));
     } finally {
       loading = false;
     }
@@ -153,7 +152,7 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -168,14 +167,7 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void loadRelatorio();
-    }, 250);
-  }
-
-  function formatCurrency(value: number): string {
-    return BRL_CURRENCY_FORMATTER.format(value);
+    autoReload.schedule();
   }
 
   function handleExport() {
