@@ -7,6 +7,7 @@
   import Card from "$lib/components/ui/Card.svelte";
   import LoadingState from "$lib/components/ui/LoadingState.svelte";
   import FieldInput from "$lib/components/ui/form/FieldInput.svelte";
+  import { toUserMessage } from "$lib/utils/errors";
   import { AlertCircle, KeyRound } from "lucide-svelte";
 
   let codigo = "";
@@ -76,7 +77,7 @@
 
       factorId = verifiedFactor.id;
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : "Erro ao carregar verificação 2FA.";
+      error = toUserMessage(err, "Erro ao carregar verificação 2FA.");
     } finally {
       loading = false;
     }
@@ -117,7 +118,7 @@
       await permissoes.refresh(supabaseClient);
       goto(nextPath);
     } catch (err: unknown) {
-      const msg = String(err instanceof Error ? err.message : "").toLowerCase();
+      const msg = toUserMessage(err, "").toLowerCase();
       if (
         msg.includes("invalid") ||
         msg.includes("incorrect") ||
@@ -126,7 +127,7 @@
         error =
           "Código inválido ou expirado. Verifique o aplicativo autenticador.";
       } else {
-        error = err instanceof Error ? err.message : "Erro ao verificar código.";
+        error = toUserMessage(err, "Erro ao verificar código.");
       }
       codigo = "";
     } finally {
