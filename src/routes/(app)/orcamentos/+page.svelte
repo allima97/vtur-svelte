@@ -7,6 +7,7 @@
   import { Plus, FileText, Send, ShoppingCart, AlertCircle, FileSpreadsheet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { diffDaysISODate, todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
   import { apiGet } from '$lib/services/api';
@@ -189,7 +190,7 @@
       orcamentosFiltrados = sortOrcamentosPorPrioridade(items);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      const msg = err instanceof Error ? err.message : 'Erro ao carregar orçamentos.';
+      const msg = toUserMessage(err, 'Erro ao carregar orçamentos.');
       errorMessage = msg;
       orcamentosFiltrados = [];
       toast.error(msg);
