@@ -8,6 +8,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { Plus, Ticket, FileText, ExternalLink, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import type { VoucherRecord, VoucherAssetRecord, VoucherProvider } from '$lib/vouchers/types';
   import { apiDelete, apiGet } from '$lib/services/api';
@@ -107,7 +108,7 @@
       const vouchersData = await apiGet<{ items?: VoucherRecord[] }>('/api/v1/vouchers', { company_id: companyId });
       vouchers = vouchersData.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar vouchers');
+      toast.error(toUserMessage(err, 'Erro ao carregar vouchers'));
     } finally {
       loading = false;
     }
@@ -137,8 +138,8 @@
     try {
       await loadPreviewDependencies();
       showPreview = true;
-    } catch {
-      toast.error('Erro ao carregar prévia do voucher.');
+    } catch (err) {
+      toast.error(toUserMessage(err, 'Erro ao carregar prévia do voucher.'));
     }
   }
 
@@ -162,7 +163,7 @@
       deleteConfirmVoucher = null;
       await loadData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir voucher');
+      toast.error(toUserMessage(err, 'Erro ao excluir voucher'));
     }
   }
 
