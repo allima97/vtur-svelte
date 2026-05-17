@@ -12,7 +12,9 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
-  import { formatDate } from '$lib/utils/formatters';
+  import { formatCurrency, formatDate } from '$lib/utils/formatters';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet } from '$lib/services/api';
 
   interface ClienteRelatorio {
@@ -51,11 +53,6 @@
 
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
-  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  });
-
   let clientes: ClienteRelatorio[] = [];
   let empresas: EmpresaFiltro[] = [];
   let vendedores: VendedorFiltro[] = [];
@@ -70,15 +67,15 @@
   let ordenacao = 'total_gasto';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
+  const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
   async function loadBase() {
     try {
       const data = await apiGet<{ empresas?: EmpresaFiltro[]; vendedores?: VendedorFiltro[] }>('/api/v1/relatorios/base');
       empresas = data.empresas || [];
       vendedores = data.vendedores || [];
-    } catch (err) {
+    } catch (_err) {
       empresas = [];
       vendedores = [];
       toast.error('Erro ao carregar filtros do relatório');
@@ -144,7 +141,7 @@
       }
     } catch (err) {
       clientes = [];
-      toast.error('Erro ao carregar relatorio de clientes');
+      toast.error(toUserMessage(err, 'Erro ao carregar relatório de clientes'));
     } finally {
       loading = false;
     }
@@ -160,7 +157,7 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -175,14 +172,7 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void loadRelatorio();
-    }, 250);
-  }
-
-  function formatCurrency(value: number): string {
-    return BRL_CURRENCY_FORMATTER.format(value);
+    autoReload.schedule();
   }
 
   function getCategoriaBadge(categoria: string): string {

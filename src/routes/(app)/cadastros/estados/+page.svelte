@@ -9,6 +9,8 @@
   import { BottomSheet, FieldInput, FieldSelect } from '$lib/components/ui';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw, SlidersHorizontal } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
 
   import { confirmAction } from '$lib/stores/confirm';
   type Subdivisao = {
@@ -44,8 +46,8 @@
   let filtroPais = '';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
+  const autoReload = createDebouncedReloader(() => load(), 250);
 
   let form = { nome: '', pais_id: '', codigo_admin1: '', tipo: '' };
 
@@ -60,7 +62,7 @@
     try {
       const payload = await apiGet<PaisesResponse>('/api/v1/paises');
       paises = payload.items || [];
-    } catch {
+    } catch (_err) {
       paises = [];
     }
   }
@@ -80,7 +82,7 @@
           await new Promise(r => setTimeout(r, 800));
           continue;
         }
-        toast.error('Não foi possível carregar os estados. Tente novamente.');
+        toast.error(toUserMessage(err, 'Não foi possível carregar os estados. Tente novamente.'));
         loading = false;
         return;
       }
@@ -117,7 +119,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -131,7 +133,7 @@
       toast.success('Estado excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
@@ -144,7 +146,7 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -152,10 +154,7 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void load();
-    }, 250);
+    autoReload.schedule();
   }
 
   $: autoReloadKey = buildAutoReloadKey();
