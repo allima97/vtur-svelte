@@ -1,4 +1,8 @@
 export function toUserMessage(error: unknown, fallback: string): string {
+  if (typeof error === 'number' || typeof error === 'boolean') {
+    return String(error);
+  }
+
   if (Array.isArray(error)) {
     const joined = error
       .map((item) => {
