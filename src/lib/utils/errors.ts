@@ -93,24 +93,9 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (nestedMessage) return nestedMessage;
   }
 
-  if (error && typeof error === 'object' && 'message' in error) {
-    const message = readField(error, 'message');
-    if (message) return message;
-  }
-
-  if (error && typeof error === 'object' && 'error' in error) {
-    const message = readField(error, 'error');
-    if (message) return message;
-  }
-
-  if (error && typeof error === 'object' && 'details' in error) {
-    const message = readField(error, 'details');
-    if (message) return message;
-  }
-
-  if (error && typeof error === 'object' && 'reason' in error) {
-    const message = readField(error, 'reason');
-    if (message) return message;
+  if (error && typeof error === 'object') {
+    const topLevelMessage = readPrimaryMessage(error);
+    if (topLevelMessage) return topLevelMessage;
   }
 
   if (error && typeof error === 'object' && 'data' in error) {
