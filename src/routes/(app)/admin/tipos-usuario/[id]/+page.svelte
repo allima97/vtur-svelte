@@ -6,6 +6,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Checkbox, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
 
@@ -133,7 +134,7 @@
       }
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar tipo de usuario.');
+      toast.error(toUserMessage(err, 'Erro ao salvar tipo de usuario.'));
     } finally {
       saving = false;
     }
@@ -150,7 +151,7 @@
       await goto('/admin/tipos-usuario');
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao remover tipo de usuario.');
+      toast.error(toUserMessage(err, 'Erro ao remover tipo de usuario.'));
     } finally {
       deleting = false;
     }
