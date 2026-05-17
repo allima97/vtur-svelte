@@ -19,6 +19,7 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
+import { toUserMessage } from '$lib/utils/errors';
 
 const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -709,7 +710,7 @@ export async function POST(event) {
           recibos: contratos.map((contrato) => resolveContratoReciboNumeros(contrato, isFacialRextur))
         });
       } catch (err) {
-        const code = err instanceof Error ? err.message : 'Erro ao validar duplicidade.';
+        const code = toUserMessage(err, 'Erro ao validar duplicidade.');
         if (code === 'RECIBO_DUPLICADO' || code === 'RESERVA_DUPLICADA') {
           return textNoStore(code, 409);
         }
