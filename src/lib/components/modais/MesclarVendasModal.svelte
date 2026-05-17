@@ -67,10 +67,6 @@
     return `${day}/${m}/${y}`;
   }
 
-  function getErrorMessage(error: unknown, fallback: string) {
-    return toUserMessage(error, fallback);
-  }
-
   function toggleSelecionado(id: string) {
     const novo = new Set(selecionados);
     if (novo.has(id)) {
@@ -96,7 +92,7 @@
       });
       candidatos = data.items || [];
     } catch (e: unknown) {
-      erro = getErrorMessage(e, 'Erro ao carregar vendas do cliente.');
+      erro = toUserMessage(e, 'Erro ao carregar vendas do cliente.');
     } finally {
       loading = false;
     }
@@ -119,7 +115,7 @@
       onMerged();
       fechar();
     } catch (e: unknown) {
-      erro = getErrorMessage(e, 'Erro ao mesclar vendas.');
+      erro = toUserMessage(e, 'Erro ao mesclar vendas.');
       confirmando = false;
     } finally {
       mesclando = false;
