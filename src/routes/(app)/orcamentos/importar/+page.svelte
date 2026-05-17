@@ -6,6 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { AlertMessage, FieldInput, FieldTextarea, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost } from '$lib/services/api';
   import type { PassagemAereaFonte } from '$lib/quote/passagemAereaQuoteImport';
   import type { QuoteDraft, QuoteItemDraft, QuoteSegmentDraft } from '$lib/quote/types';
@@ -339,7 +340,7 @@
       statusMessage = `${items.length} item(s) extraído(s).`;
       toast.success(`${items.length} item(s) identificado(s).`);
     } catch (err: unknown) {
-      errorMessage = err instanceof Error ? err.message : 'Erro ao extrair itens.';
+      errorMessage = toUserMessage(err, 'Erro ao extrair itens.');
       toast.error(errorMessage);
       statusMessage = '';
     } finally {
@@ -504,7 +505,7 @@
       toast.success('Orçamento importado com sucesso!');
       goto(`/orcamentos/${quoteId}`);
     } catch (err: unknown) {
-      errorMessage = err instanceof Error ? err.message : 'Erro ao salvar.';
+      errorMessage = toUserMessage(err, 'Erro ao salvar.');
       toast.error(errorMessage);
     } finally {
       saving = false;
