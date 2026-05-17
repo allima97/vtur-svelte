@@ -5,6 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
+  import { toUserMessage } from '$lib/utils/errors';
   import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-svelte';
 
   let email = '';
@@ -76,7 +77,7 @@
 
       success = true;
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.';
+      error = toUserMessage(err, 'Erro inesperado. Tente novamente.');
       if (turnstileEnabled) {
         turnstileWidget?.reset?.();
       }
