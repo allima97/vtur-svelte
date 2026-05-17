@@ -8,6 +8,7 @@
   import { Gift, RefreshCw, SlidersHorizontal, Users } from 'lucide-svelte';
   import { apiGet } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type Colaborador = {
     id: string;
@@ -33,7 +34,7 @@
       const payload = await apiGet<{ items?: Colaborador[] }>('/api/v1/users/aniversariantes', { month: mesSelecionado });
       colaboradores = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar aniversariantes.');
+      toast.error(toUserMessage(err, 'Erro ao carregar aniversariantes.'));
     } finally {
       loading = false;
     }
