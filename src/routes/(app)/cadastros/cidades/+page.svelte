@@ -11,6 +11,8 @@
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw, Search, SlidersHorizontal } from 'lucide-svelte';
   import { escapeHtml } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
 
   import { confirmAction } from '$lib/stores/confirm';
   type Cidade = {
@@ -52,10 +54,10 @@
   let totalCidades = 0;
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let lastSubdivisoesKey = '';
-  let subdivisoesReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
+  const autoReload = createDebouncedReloader(() => load(), 300);
+  const subdivisoesAutoReload = createDebouncedReloader(() => loadSubdivisoes(), 300);
 
   let form = { nome: '', subdivisao_id: '', descricao: '' };
 
@@ -86,7 +88,7 @@
     try {
       const payload = await apiGet<SubdivisoesResponse>('/api/v1/subdivisoes', { q: term, page: 1, pageSize: 200 }, undefined, 30_000);
       subdivisoes = Array.isArray(payload?.items) ? payload.items : [];
-    } catch {
+    } catch (_err) {
       subdivisoes = [];
     } finally {
       loadingSubdivisoes = false;
@@ -121,7 +123,7 @@
           await new Promise(r => setTimeout(r, 800));
           continue;
         }
-        toast.error('Não foi possível carregar as cidades. Tente novamente.');
+        toast.error(toUserMessage(err, 'Não foi possível carregar as cidades. Tente novamente.'));
         loading = false;
         return;
       }
@@ -157,7 +159,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -171,7 +173,7 @@
       toast.success('Cidade excluída.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
@@ -187,8 +189,8 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    if (subdivisoesReloadTimer) clearTimeout(subdivisoesReloadTimer);
+    autoReload.cancel();
+    subdivisoesAutoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -200,17 +202,11 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void load();
-    }, 300);
+    autoReload.schedule();
   }
 
   function scheduleSubdivisoesReload() {
-    if (subdivisoesReloadTimer) clearTimeout(subdivisoesReloadTimer);
-    subdivisoesReloadTimer = setTimeout(() => {
-      void loadSubdivisoes();
-    }, 300);
+    subdivisoesAutoReload.schedule();
   }
 
   $: autoReloadKey = buildAutoReloadKey();

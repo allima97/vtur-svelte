@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { dev } from '$app/environment';
   import { onDestroy, onMount, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import type { ChartData } from 'chart.js';
@@ -22,7 +21,9 @@
     parseISODateParts,
     todayISODateLocal
   } from '$lib/date';
-  import { formatDate } from '$lib/utils/formatters';
+  import { formatCurrency, formatDate } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
   import { apiFetch, apiGet } from '$lib/services/api';
 
   interface Recibo {
@@ -259,11 +260,6 @@
 
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
-  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  });
-
   let vendas: VendaRelatorio[] = [];
   let vendedores: VendedorFiltro[] = [];
   let empresas: EmpresaFiltro[] = [];
@@ -293,9 +289,9 @@
   };
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let relatorioRequestSeq = 0;
   let showFilterSheet = false;
+  const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
   const columnsBase = [
     { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '140px' },
@@ -351,9 +347,7 @@
     } catch (err) {
       empresas = [];
       vendedores = [];
-      const msg = err instanceof Error ? err.message : 'Erro ao carregar filtros analíticos';
-      if (dev) console.error('[loadBase] Erro:', msg);
-      toast.error(msg);
+      toast.error(toUserMessage(err, 'Erro ao carregar filtros analíticos'));
     } finally {
       loadingBase = false;
     }
@@ -414,16 +408,13 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void loadRelatorio();
-    }, 250);
+    autoReload.schedule();
   }
 
   async function handleFilterChange() {
     await tick();
     if (!autoReloadEnabled) return;
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
     lastAutoReloadKey = buildAutoReloadKey();
     void loadRelatorio();
   }
@@ -464,9 +455,7 @@
         vendas = [];
       }
       chartSeries = { mensal: [], diaria: [] };
-      const msg = err instanceof Error ? err.message : 'Erro ao carregar relatório de vendas';
-      if (dev) console.error('[loadRelatorio] Erro:', msg);
-      toast.error(msg);
+      toast.error(toUserMessage(err, 'Erro ao carregar relatório de vendas'));
     } finally {
       if (requestSeq === relatorioRequestSeq) {
         loading = false;
@@ -525,12 +514,8 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
-
-  function formatCurrency(value: number): string {
-    return BRL_CURRENCY_FORMATTER.format(value);
-  }
 
   function getStatusBadge(status: string): string {
     const styles: Record<string, string> = {
