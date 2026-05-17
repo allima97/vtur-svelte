@@ -9,6 +9,7 @@
   import { apiGet, apiPost } from '$lib/services/api';
   import { Users, RefreshCw, UserCheck, UserX, Search } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type Usuario = {
     id: string;
@@ -57,7 +58,7 @@
       relacoes = payload.relacoes || [];
       convites = payload.convites || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar equipe.');
+      toast.error(toUserMessage(err, 'Erro ao carregar equipe.'));
     } finally {
       loading = false;
     }
@@ -79,7 +80,7 @@
       toast.success(ativo ? 'Vendedor adicionado à equipe.' : 'Vendedor removido da equipe.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar equipe.');
+      toast.error(toUserMessage(err, 'Erro ao atualizar equipe.'));
     } finally {
       savingId = '';
     }
