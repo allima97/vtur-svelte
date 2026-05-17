@@ -5,6 +5,7 @@
   import { apiFetch, apiGet } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import { onMount } from 'svelte';
   
   // Props
@@ -61,8 +62,8 @@
     try {
       const data = await apiGet<{ interacoes?: InteracaoQuote[] }>('/api/v1/orcamentos/interacao', { quote_id: orcamentoId });
       interacoes = data.interacoes || [];
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar interações.');
+    } catch (err: unknown) {
+      toast.error(toUserMessage(err, 'Erro ao carregar interações.'));
     } finally {
       loading = false;
     }
@@ -100,8 +101,8 @@
       };
       
       onSave();
-    } catch (err) {
-      toast.error('Erro ao salvar interação');
+    } catch (err: unknown) {
+      toast.error(toUserMessage(err, 'Erro ao salvar interação'));
     } finally {
       salvando = false;
     }
