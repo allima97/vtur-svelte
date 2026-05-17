@@ -13,6 +13,8 @@
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
   import { apiGet, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
+  import { createDebouncedReloader } from '$lib/utils/autoReload';
 
   type AjusteItem = {
     id: string;
@@ -62,8 +64,8 @@
   let busca = '';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
-  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
+  const autoReload = createDebouncedReloader(() => load({ silent: true }), 300);
 
   let form = { vendedor_destino_id: '', percentual_destino: '50', observacao: '' };
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -146,7 +148,7 @@
       items = payload.items || [];
       vendedores = payload.vendedores || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar ajustes.');
+      toast.error(toUserMessage(err, 'Erro ao carregar ajustes.'));
     } finally {
       loading = false;
     }
@@ -179,7 +181,7 @@
       modalOpen = false;
       await load({ silent: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar rateio.');
+      toast.error(toUserMessage(err, 'Erro ao salvar rateio.'));
     } finally {
       saving = false;
     }
@@ -200,7 +202,7 @@
       modalOpen = false;
       await load({ silent: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao desfazer rateio.');
+      toast.error(toUserMessage(err, 'Erro ao desfazer rateio.'));
     } finally {
       clearing = false;
     }
@@ -225,7 +227,7 @@
     } catch (err) {
       empresas = [];
       empresaId = '';
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar empresas.');
+      toast.error(toUserMessage(err, 'Erro ao carregar empresas.'));
     }
   }
 
@@ -246,7 +248,7 @@
   });
 
   onDestroy(() => {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReload.cancel();
   });
 
   function buildAutoReloadKey() {
@@ -254,10 +256,7 @@
   }
 
   function scheduleAutoReload() {
-    if (autoReloadTimer) clearTimeout(autoReloadTimer);
-    autoReloadTimer = setTimeout(() => {
-      void load({ silent: true });
-    }, 300);
+    autoReload.schedule();
   }
 
   $: autoReloadKey = buildAutoReloadKey();
