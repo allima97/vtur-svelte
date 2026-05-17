@@ -6,6 +6,7 @@
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
   import { apiGet, apiPost } from '$lib/services/api';
@@ -215,7 +216,7 @@
         ? (getDefaultVendedorIdForEmpresa(empresaId) || data.user?.id || '')
         : (data.user?.id || '');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar base do cadastro de vendas.');
+      toast.error(toUserMessage(err, 'Erro ao carregar base do cadastro de vendas.'));
       goto('/vendas');
     }
     
@@ -250,7 +251,7 @@
       
       toast.success(`Dados do orçamento ${orcamento.codigo} carregados!`);
     } catch (err) {
-      toast.warning(err instanceof Error ? err.message : 'Não foi possível carregar os dados do orçamento.');
+      toast.warning(toUserMessage(err, 'Não foi possível carregar os dados do orçamento.'));
     }
   }
 
@@ -648,7 +649,7 @@
       toast.success('Venda cadastrada com sucesso!');
       goto('/vendas');
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar venda.');
+      toast.error(toUserMessage(err, 'Erro ao salvar venda.'));
     } finally {
       saving = false;
     }
