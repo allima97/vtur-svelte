@@ -31,6 +31,7 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import { fade } from "svelte/transition";
   import { formatDate as formatDateValue } from "$lib/utils/formatters";
+  import { toUserMessage } from "$lib/utils/errors";
   import type { VoucherRecord, VoucherAssetRecord } from "$lib/vouchers/types";
   import { apiDelete, apiGet, apiPatch, apiPost } from "$lib/services/api";
 
@@ -113,7 +114,7 @@
         goto("/operacao/vouchers");
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao carregar voucher");
+      toast.error(toUserMessage(err, "Erro ao carregar voucher"));
       goto("/operacao/vouchers");
     } finally {
       loading = false;
@@ -147,7 +148,7 @@
         await carregarVoucher($page.params.id);
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar voucher");
+      toast.error(toUserMessage(err, "Erro ao salvar voucher"));
     }
   }
 
@@ -175,8 +176,8 @@
     try {
       await Promise.all([loadEditorModal(), carregarAssets()]);
       showEditor = true;
-    } catch {
-      toast.error("Erro ao carregar editor de voucher.");
+    } catch (err) {
+      toast.error(toUserMessage(err, "Erro ao carregar editor de voucher."));
     }
   }
 
@@ -184,8 +185,8 @@
     try {
       await Promise.all([loadPreviewModal(), carregarAssets()]);
       showPreview = true;
-    } catch {
-      toast.error("Erro ao carregar prévia do voucher.");
+    } catch (err) {
+      toast.error(toUserMessage(err, "Erro ao carregar prévia do voucher."));
     }
   }
 
@@ -197,7 +198,7 @@
       toast.success("Voucher excluído com sucesso!");
       goto("/operacao/vouchers");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao excluir voucher");
+      toast.error(toUserMessage(err, "Erro ao excluir voucher"));
     }
   }
 
