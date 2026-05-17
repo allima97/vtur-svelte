@@ -1,7 +1,14 @@
 export function toUserMessage(error: unknown, fallback: string): string {
   if (Array.isArray(error)) {
     const joined = error
-      .map((item) => String(item || '').trim())
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (item && typeof item === 'object') {
+          const record = item as { message?: unknown; error?: unknown; details?: unknown };
+          return String(record.message || record.error || record.details || '').trim();
+        }
+        return String(item || '').trim();
+      })
       .filter(Boolean)
       .join('; ');
     if (joined) return joined;
