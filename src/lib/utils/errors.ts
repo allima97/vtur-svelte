@@ -3,6 +3,11 @@
  * Prioriza conteúdos explícitos do erro (message/error/details/reason/data.message/data.error/data.details/data.reason/data.cause) e usa fallback normalizado quando nada útil é encontrado.
  */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
+  const readField = (obj: unknown, key: 'message' | 'error' | 'details' | 'reason') => {
+    if (!obj || typeof obj !== 'object' || !(key in obj)) return '';
+    return String((obj as Record<string, unknown>)[key] || '').trim();
+  };
+
   const safeFallback = String(fallback || 'Erro inesperado.').trim() || 'Erro inesperado.';
 
   if (
@@ -53,43 +58,35 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
   }
 
   if (error && typeof error === 'object' && 'message' in error) {
-    const message = String((error as { message?: unknown }).message || '').trim();
+    const message = readField(error, 'message');
     if (message) return message;
   }
 
   if (error && typeof error === 'object' && 'error' in error) {
-    const message = String((error as { error?: unknown }).error || '').trim();
+    const message = readField(error, 'error');
     if (message) return message;
   }
 
   if (error && typeof error === 'object' && 'details' in error) {
-    const message = String((error as { details?: unknown }).details || '').trim();
+    const message = readField(error, 'details');
     if (message) return message;
   }
 
   if (error && typeof error === 'object' && 'reason' in error) {
-    const message = String((error as { reason?: unknown }).reason || '').trim();
+    const message = readField(error, 'reason');
     if (message) return message;
   }
 
   if (error && typeof error === 'object' && 'data' in error) {
     const data = (error as { data?: unknown }).data;
-    if (data && typeof data === 'object' && 'message' in data) {
-      const message = String((data as { message?: unknown }).message || '').trim();
-      if (message) return message;
-    }
-    if (data && typeof data === 'object' && 'error' in data) {
-      const message = String((data as { error?: unknown }).error || '').trim();
-      if (message) return message;
-    }
-    if (data && typeof data === 'object' && 'details' in data) {
-      const message = String((data as { details?: unknown }).details || '').trim();
-      if (message) return message;
-    }
-    if (data && typeof data === 'object' && 'reason' in data) {
-      const message = String((data as { reason?: unknown }).reason || '').trim();
-      if (message) return message;
-    }
+    const dataMessage = readField(data, 'message');
+    if (dataMessage) return dataMessage;
+    const dataError = readField(data, 'error');
+    if (dataError) return dataError;
+    const dataDetails = readField(data, 'details');
+    if (dataDetails) return dataDetails;
+    const dataReason = readField(data, 'reason');
+    if (dataReason) return dataReason;
     if (data && typeof data === 'object' && 'cause' in data) {
       const cause = (data as { cause?: unknown }).cause;
       if (typeof cause === 'string') {
