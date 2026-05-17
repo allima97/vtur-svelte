@@ -8,6 +8,7 @@
   import { toast } from '$lib/stores/ui';
   import { FieldInput, FieldCheckbox } from '$lib/components/ui';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
@@ -48,7 +49,7 @@
       const payload = await apiGet<{ items?: Termo[] }>('/api/v1/parametros/nao-comissionaveis');
       termos = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar termos.');
+      toast.error(toUserMessage(err, 'Erro ao carregar termos.'));
     } finally {
       loading = false;
     }
@@ -78,7 +79,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -92,7 +93,7 @@
       toast.success('Termo excluído.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
