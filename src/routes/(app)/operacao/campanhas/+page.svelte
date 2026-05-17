@@ -8,6 +8,7 @@
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, Megaphone, ExternalLink } from 'lucide-svelte';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
+  import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
   import { sanitizeAbsoluteHttpUrl } from '$lib/security/url';
@@ -114,7 +115,7 @@
       canEdit = Boolean(payload.can_write);
     } catch (err) {
       canEdit = false;
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar campanhas.');
+      toast.error(toUserMessage(err, 'Erro ao carregar campanhas.'));
     } finally {
       loading = false;
     }
@@ -158,7 +159,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
     }
@@ -173,7 +174,7 @@
       toast.success('Campanha excluída.');
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+      toast.error(toUserMessage(err, 'Erro ao excluir.'));
     } finally {
       deletingId = '';
     }
