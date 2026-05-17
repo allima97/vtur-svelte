@@ -13,6 +13,7 @@
     PageHeader
   } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { BookOpen, FileText, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-svelte';
@@ -98,7 +99,7 @@
     } catch (err) {
       sections = [];
       selectedId = '';
-      toast.error(err instanceof Error ? err.message : 'Não foi possível carregar a documentação.');
+      toast.error(toUserMessage(err, 'Não foi possível carregar a documentação.'));
     } finally {
       loading = false;
     }
@@ -138,7 +139,7 @@
       modalOpen = false;
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Não foi possível salvar a documentação.');
+      toast.error(toUserMessage(err, 'Não foi possível salvar a documentação.'));
     } finally {
       saving = false;
     }
@@ -154,7 +155,7 @@
       if (selectedId === section.id) selectedId = '';
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Não foi possível excluir a documentação.');
+      toast.error(toUserMessage(err, 'Não foi possível excluir a documentação.'));
     }
   }
 
