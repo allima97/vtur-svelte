@@ -1,3 +1,7 @@
+/**
+ * Resolve uma mensagem amigável a partir de diferentes formatos de erro.
+ * Prioriza conteúdos explícitos do erro e usa fallback quando nada útil é encontrado.
+ */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
   if (
     typeof error === 'number' ||
