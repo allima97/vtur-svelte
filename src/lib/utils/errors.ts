@@ -1,5 +1,10 @@
 export function toUserMessage(error: unknown, fallback: string): string {
-  if (typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint') {
+  if (
+    typeof error === 'number' ||
+    typeof error === 'boolean' ||
+    typeof error === 'bigint' ||
+    typeof error === 'symbol'
+  ) {
     return String(error);
   }
 
