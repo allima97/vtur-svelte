@@ -4,6 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet } from '$lib/services/api';
   import { Bug, RefreshCw, CheckCircle, XCircle } from 'lucide-svelte';
 
@@ -55,7 +56,7 @@
     try {
       debugData = await apiGet<DebugPermissionsResponse>('/api/v1/debug/permissions');
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      error = toUserMessage(err, 'Erro ao carregar dados de debug.');
     } finally {
       loading = false;
     }
