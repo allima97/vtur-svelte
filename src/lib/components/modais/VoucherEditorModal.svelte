@@ -72,10 +72,6 @@
     hoteis: VoucherHotelForm[];
   }
 
-  function getErrorMessage(error: unknown, fallback: string) {
-    return toUserMessage(error, fallback);
-  }
-
   export let open = false;
   export let voucher: VoucherRecord | null = null;
   export let companyId: string | null = null;
@@ -378,7 +374,7 @@
       applyImportedResult(imported, { replaceDays: false, replaceHotels: false });
       toast.success('Dados da viagem importados com sucesso');
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, 'Erro ao importar dados da viagem'));
+      toast.error(toUserMessage(err, 'Erro ao importar dados da viagem'));
     } finally {
       importingTravel = false;
     }
@@ -398,7 +394,7 @@
       applyImportedResult(imported, { replaceDays: true, replaceHotels: false });
       toast.success('Itinerário importado com sucesso');
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, 'Erro ao importar itinerário'));
+      toast.error(toUserMessage(err, 'Erro ao importar itinerário'));
     } finally {
       importingCircuit = false;
     }
@@ -418,7 +414,7 @@
       applyImportedResult(imported, { replaceDays: false, replaceHotels: true });
       toast.success('Hotéis importados com sucesso');
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, 'Erro ao importar hotéis'));
+      toast.error(toUserMessage(err, 'Erro ao importar hotéis'));
     } finally {
       importingHotels = false;
     }
@@ -432,7 +428,7 @@
       applyImportedResult(imported, { replaceDays: true, replaceHotels: true });
       toast.success('Arquivo importado com sucesso');
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, 'Erro ao importar arquivo'));
+      toast.error(toUserMessage(err, 'Erro ao importar arquivo'));
     } finally {
       importingFile = false;
     }
