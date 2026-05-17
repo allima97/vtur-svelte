@@ -8,6 +8,7 @@
   import Badge from '$lib/components/ui/Badge.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPatch, apiPost } from '$lib/services/api';
   import { safeOpenNewTab } from '$lib/security/url';
   import { Calendar, Download, Plus, RefreshCw, SlidersHorizontal, Video, X } from 'lucide-svelte';
@@ -107,14 +108,6 @@
     return BRL_CURRENCY_FORMATTER.format(val);
   }
 
-  function getErrorMessage(err: unknown): string {
-    if (err instanceof Error) return err.message;
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message?: unknown }).message ?? err);
-    }
-    return String(err);
-  }
-
   async function loadConsultorias() {
     loading = true;
     try {
@@ -122,7 +115,7 @@
         status: statusFilter || undefined
       });
     } catch (err) {
-      toast.error('Erro ao carregar consultorias: ' + getErrorMessage(err));
+      toast.error(toUserMessage(err, 'Erro ao carregar consultorias.'));
     } finally {
       loading = false;
     }
@@ -185,7 +178,7 @@
       closeModal();
       await loadConsultorias();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar consultoria.');
+      toast.error(toUserMessage(err, 'Erro ao salvar consultoria.'));
     } finally {
       saving = false;
     }
@@ -201,7 +194,7 @@
       toast.success(c.fechada ? 'Consultoria reaberta.' : 'Consultoria fechada.');
       await loadConsultorias();
     } catch (err) {
-      toast.error('Erro: ' + getErrorMessage(err));
+      toast.error(toUserMessage(err, 'Erro ao atualizar status da consultoria.'));
     }
   }
 
