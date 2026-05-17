@@ -22,6 +22,7 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/reque
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { findEquipeVturVendedor } from "$lib/conciliacao/baixaRac";
 import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
+import { toUserMessage } from "$lib/utils/errors";
 
 const MAX_CONCILIACAO_IMPORT_BODY_BYTES = 8 * 1024 * 1024;
 
@@ -597,8 +598,7 @@ export async function POST(event) {
         .in("data", datasImportaveis);
       diasSemMovimento = data || [];
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message.toLowerCase() : String(err || "").toLowerCase();
+      const msg = toUserMessage(err, String(err || "")).toLowerCase();
       const code =
         typeof err === "object" && err !== null && "code" in err
           ? String(err.code || "").trim()
