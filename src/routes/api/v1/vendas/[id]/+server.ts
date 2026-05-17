@@ -22,6 +22,7 @@ import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } fro
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { fetchSaleForScope } from "$lib/server/salesScope";
 import { chunkArray } from "$lib/utils/array";
+import { toUserMessage } from "$lib/utils/errors";
 
 const MAX_VENDA_UPDATE_BODY_BYTES = 512 * 1024;
 const MAX_VENDA_DELETE_BODY_BYTES = 8 * 1024;
@@ -460,8 +461,7 @@ export async function PATCH(event) {
           recibos: recibosForSync,
         });
       } catch (err) {
-        const code =
-          err instanceof Error ? err.message : "Erro ao validar recibos.";
+        const code = toUserMessage(err, "Erro ao validar recibos.");
         if (code === "RECIBO_DUPLICADO") {
           return json(
             { code, error: "Recibo já utilizado em outra venda da empresa." },
@@ -488,7 +488,7 @@ export async function PATCH(event) {
         targetCompanyId,
       );
     } catch (err) {
-      const code = err instanceof Error ? err.message : "";
+      const code = toUserMessage(err, "");
       logVendaError("[PATCH venda] buildVendaPayload error:", err, { code });
       if (code === "DATA_VENDA_INVALIDA") {
         return json({ error: "Data da venda invalida." }, { status: 400, headers: NO_STORE_HEADERS });
