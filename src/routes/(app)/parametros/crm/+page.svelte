@@ -5,6 +5,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { downloadBlob, fetchPreviewPngBlob } from '$lib/utils/browser-images';
+  import { toUserMessage } from '$lib/utils/errors';
   import { safeOpenNewTab } from '$lib/security/url';
   import {
     RefreshCw,
@@ -472,7 +473,7 @@
         assinatura = { ...assinatura, linha2: data.settings.consultor_nome };
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar CRM.');
+      toast.error(toUserMessage(err, 'Erro ao carregar CRM.'));
     } finally {
       loading = false;
     }
@@ -634,7 +635,7 @@
       await apiPost('/api/v1/crm/signature', { assinatura });
       toast.success('Assinatura salva com sucesso.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar assinatura.');
+      toast.error(toUserMessage(err, 'Erro ao salvar assinatura.'));
     } finally {
       savingSig = false;
     }
@@ -704,7 +705,7 @@
       downloadBlob(blob, `crm-${Date.now()}.png`);
       if (generatedLocally) toast.info('PNG gerado localmente no navegador.');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Falha ao baixar PNG.';
+      const message = toUserMessage(err, 'Falha ao baixar PNG.');
       toast.error(message);
     } finally {
       previewLoading = false;
