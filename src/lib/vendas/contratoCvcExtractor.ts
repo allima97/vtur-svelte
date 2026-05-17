@@ -1,5 +1,6 @@
 import { normalizeText } from "../normalizeText";
 import { uniqueCleanStrings } from "../utils/array";
+import { toUserMessage } from "../utils/errors";
 
 const PLACEHOLDER_VALUES = new Set(["-", "—", "–", "nº", "n°", "n", "nao informado", "não informado"]);
 const ROTEIRO_PASSAGEIRO_PLACEHOLDERS = new Set([
@@ -3602,7 +3603,7 @@ export async function extractContratosFromPdf(
       disableRoteiro: options.disableRoteiro,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err || "");
+    const msg = toUserMessage(err, String(err || ""));
     if (!fullText.trim()) {
       throw new Error("Não foi possível extrair texto do PDF. Tente colar o texto do contrato.");
     }
