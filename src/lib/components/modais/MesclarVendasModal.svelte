@@ -6,6 +6,7 @@
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet, apiPost } from '$lib/services/api';
+  import { toUserMessage } from '$lib/utils/errors';
 
   // ─── Props ─────────────────────────────────────────────────────────────────
   export let open = false;
@@ -67,11 +68,7 @@
   }
 
   function getErrorMessage(error: unknown, fallback: string) {
-    if (error instanceof Error) return error.message;
-    if (error && typeof error === 'object' && 'message' in error) {
-      return String((error as { message?: unknown }).message || fallback);
-    }
-    return fallback;
+    return toUserMessage(error, fallback);
   }
 
   function toggleSelecionado(id: string) {
