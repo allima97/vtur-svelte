@@ -1,6 +1,8 @@
 /**
  * Resolve uma mensagem amigável a partir de diferentes formatos de erro.
- * Prioriza conteúdos explícitos do erro (message/error/details/reason/data.message/data.error/data.details/data.reason/data.cause/response.data.message/response.data.error/response.data.details/response.data.reason/response.data.cause) e usa fallback normalizado quando nada útil é encontrado.
+ * Prioriza conteúdos explícitos do erro (message/error/details/reason),
+ * inclusive variantes aninhadas em `data.*` e `response.data.*`,
+ * e usa fallback normalizado quando nada útil é encontrado.
  */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
   const readField = (obj: unknown, key: 'message' | 'error' | 'details' | 'reason') => {
