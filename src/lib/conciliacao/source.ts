@@ -12,6 +12,7 @@ import {
 import { calcularRankingComissionavel } from "$lib/server/rankingComissionavel";
 import { isRankingEligibleUser, logServerError } from "$lib/server/v1";
 import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
+import { toUserMessage } from "$lib/utils/errors";
 import { toCleanString as toStr, toFiniteNumber as toNumber } from "$lib/utils/values";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -138,7 +139,7 @@ function logSourceWarning(context: string, error: unknown) {
 
 function getErrorMessage(error: unknown) {
   const errorLike = error as DatabaseErrorLike;
-  return errorLike?.message || error;
+  return toUserMessage(error, String(errorLike?.message || ""));
 }
 
 function normalizeConciliacaoReserva(value?: unknown) {
