@@ -9,9 +9,10 @@
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, SlidersHorizontal } from 'lucide-svelte';
   import { formatYearMonthLabel } from '$lib/utils/formatters';
+  import { toUserMessage } from '$lib/utils/errors';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { ApiError, apiFetch } from '$lib/services/api';
+  import { apiFetch } from '$lib/services/api';
   import { diffDaysISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
 
   interface VendedorRanking {
@@ -249,13 +250,10 @@
       resumo = data.resumo || resumo;
 
       if (showSuccess) toast.success('Ranking atualizado');
-    } catch (err) {
+    } catch (err: unknown) {
       if (requestSeq !== rankingRequestSeq) return;
       vendedores = [];
-      errorMessage =
-        err instanceof ApiError || err instanceof Error
-          ? err.message
-          : 'Erro ao carregar ranking de vendas.';
+      errorMessage = toUserMessage(err, 'Erro ao carregar ranking de vendas.');
       toast.error(errorMessage || 'Erro ao carregar ranking de vendas.');
     } finally {
       if (requestSeq === rankingRequestSeq) {
