@@ -11,6 +11,7 @@
   import { toast } from "$lib/stores/ui";
   import { permissoes } from "$lib/stores/permissoes";
   import { descobrirModulo } from "$lib/config/modulos";
+  import { toUserMessage } from "$lib/utils/errors";
   import { ApiError, apiFetch, apiGet, apiPost } from "$lib/services/api";
   import {
     createDefaultConciliacaoBandRules,
@@ -214,7 +215,7 @@
       await loadSys();
     } catch (err) {
       if (dev) console.error(err);
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar parâmetros.");
+      toast.error(toUserMessage(err, "Erro ao salvar parâmetros."));
     } finally {
       sysSaving = false;
     }
@@ -349,7 +350,7 @@
       const data = await requestRulesApi<Rule[]>('GET');
       rules = Array.isArray(data) ? data.map(normalizeRule) : [];
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao carregar regras de comissão.';
+      const msg = toUserMessage(err, 'Erro ao carregar regras de comissão.');
       rulesError = msg; rules = []; toast.error(msg);
     } finally { rulesLoading = false; }
   }
@@ -402,7 +403,7 @@
       await requestRulesApi('POST', { id: editRuleId || undefined, nome: ruleForm.nome.trim(), descricao: ruleForm.descricao.trim() || null, tipo: ruleForm.tipo, meta_nao_atingida: ruleForm.meta_nao_atingida, meta_atingida: ruleForm.meta_atingida, super_meta: ruleForm.super_meta, ativo: ruleForm.ativo, tiers: ruleForm.tipo === 'ESCALONAVEL' ? ruleForm.tiers : [] });
       toast.success(editRuleId ? 'Regra atualizada com sucesso.' : 'Regra criada com sucesso.');
       await loadRules({ silent: true }); cancelRuleForm();
-    } catch (err) { const msg = err instanceof Error ? err.message : 'Erro ao salvar regra.'; rulesError = msg; toast.error(msg); } finally { rulesSaving = false; }
+    } catch (err) { const msg = toUserMessage(err, 'Erro ao salvar regra.'); rulesError = msg; toast.error(msg); } finally { rulesSaving = false; }
   }
 
   function askInactivate(rule: Rule) { selectedRule = rule; confirmMode = 'inativar'; confirmOpen = true; }
@@ -416,7 +417,7 @@
       else { await requestRulesApi('DELETE', { id: selectedRule.id }); toast.success('Regra excluída com sucesso.'); }
       await loadRules({ silent: true }); closeConfirm();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : confirmMode === 'inativar' ? 'Erro ao inativar regra.' : 'Erro ao excluir regra.';
+      const msg = toUserMessage(err, confirmMode === 'inativar' ? 'Erro ao inativar regra.' : 'Erro ao excluir regra.');
       rulesError = msg; toast.error(msg); rulesActionLoading = false;
     }
   }
@@ -575,8 +576,9 @@
       toast.success('Preferências de menu salvas com sucesso.');
       setFeedback('Preferências de menu salvas com sucesso.', 'success');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar preferências de menu.');
-      setFeedback(err instanceof Error ? err.message : 'Erro ao salvar preferências de menu.', 'error');
+      const message = toUserMessage(err, 'Erro ao salvar preferências de menu.');
+      toast.error(message);
+      setFeedback(message, 'error');
     } finally { menuSaving = false; }
   }
   async function resetMenuPrefs() {
@@ -588,8 +590,9 @@
       toast.success('Preferências resetadas para o padrão.');
       setFeedback('Preferências resetadas para o padrão.', 'success');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao resetar preferências de menu.');
-      setFeedback(err instanceof Error ? err.message : 'Erro ao resetar preferências de menu.', 'error');
+      const message = toUserMessage(err, 'Erro ao resetar preferências de menu.');
+      toast.error(message);
+      setFeedback(message, 'error');
     }
   }
 
