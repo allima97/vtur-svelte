@@ -6,6 +6,7 @@ import {
   buildOfficialThemeRows,
 } from '$lib/cards/officialLibrary';
 import { resolveThemeAssetMeta } from '$lib/cards/themeAssetMeta';
+import { toUserMessage } from '$lib/utils/errors';
 
 type ScopeValue = "system" | "master" | "gestor" | "user";
 const LOGO_BUCKET = "quotes";
@@ -108,7 +109,7 @@ function normalizeLibraryKey(value?: string | null) {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "";
+  return toUserMessage(error, "");
 }
 
 function mergeThemesWithOfficial(userId: string, companyId: string | null, rows: ThemeRow[]) {
