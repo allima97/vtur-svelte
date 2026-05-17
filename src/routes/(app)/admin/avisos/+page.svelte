@@ -9,6 +9,7 @@
   import { Plus, RefreshCw } from 'lucide-svelte';
   import { apiGet, apiPost } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { toUserMessage } from '$lib/utils/errors';
 
   type Template = {
     id: string;
@@ -67,7 +68,7 @@
         form = { ...templates[0] };
       }
     } catch (err) {
-      toast.error('Nao foi possivel carregar os templates de aviso.');
+      toast.error(toUserMessage(err, 'Nao foi possivel carregar os templates de aviso.'));
       templates = [];
     } finally {
       loading = false;
@@ -82,7 +83,7 @@
       form = { ...form, id: form.id || payload.id || '' };
       await loadPage();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar template.');
+      toast.error(toUserMessage(err, 'Erro ao salvar template.'));
     } finally {
       saving = false;
     }
@@ -100,7 +101,7 @@
       form = { ...emptyTemplate };
       await loadPage();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao remover template.');
+      toast.error(toUserMessage(err, 'Erro ao remover template.'));
     } finally {
       deleting = false;
     }
