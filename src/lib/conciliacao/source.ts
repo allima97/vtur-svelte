@@ -137,11 +137,6 @@ function logSourceWarning(context: string, error: unknown) {
   logServerError(context, error);
 }
 
-function getErrorMessage(error: unknown) {
-  const errorLike = error as DatabaseErrorLike;
-  return toUserMessage(error, String(errorLike?.message || ""));
-}
-
 function normalizeConciliacaoReserva(value?: unknown) {
   return toStr(value)
     .replace(/^REXTUR[\s-]*/i, "")
@@ -794,7 +789,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         // não derruba a busca principal de conciliação.
         logSourceWarning(
           "[source] rateio query falhou, seguindo sem rateio:",
-          getErrorMessage(err),
+          toUserMessage(err, String((err as DatabaseErrorLike)?.message || "")),
         );
         rateioQueryFailed = true;
         break;
@@ -828,7 +823,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       } catch (err: unknown) {
         logSourceWarning(
           "[source] rateio por recibo falhou, seguindo sem rateio:",
-          getErrorMessage(err),
+          toUserMessage(err, String((err as DatabaseErrorLike)?.message || "")),
         );
         rateioQueryFailed = true;
         break;
@@ -1030,7 +1025,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       } catch (err: unknown) {
         logSourceWarning(
           "[source] rateio por recibo fallback falhou, seguindo sem rateio:",
-          getErrorMessage(err),
+          toUserMessage(err, String((err as DatabaseErrorLike)?.message || "")),
         );
         break;
       }
