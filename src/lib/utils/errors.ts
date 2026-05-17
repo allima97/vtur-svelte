@@ -14,6 +14,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     data?: unknown;
     response?: unknown;
   };
+  type ErrorRecordWithErrors = ErrorRecord & { errors?: unknown };
 
   const joinErrorList = (list: unknown[]) =>
     list
@@ -115,7 +116,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     const dataReason = readField(data, 'reason');
     if (dataReason) return dataReason;
     if (data && typeof data === 'object' && 'errors' in data) {
-      const errorsValue = (data as ErrorRecord & { errors?: unknown }).errors;
+      const errorsValue = (data as ErrorRecordWithErrors).errors;
       if (Array.isArray(errorsValue)) {
         const joined = joinErrorList(errorsValue);
         if (joined) return joined;
@@ -141,7 +142,7 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
       const responseReason = readField(data, 'reason');
       if (responseReason) return responseReason;
       if (data && typeof data === 'object' && 'errors' in data) {
-        const errorsValue = (data as ErrorRecord & { errors?: unknown }).errors;
+        const errorsValue = (data as ErrorRecordWithErrors).errors;
         if (Array.isArray(errorsValue)) {
           const joined = joinErrorList(errorsValue);
           if (joined) return joined;
