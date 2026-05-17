@@ -40,10 +40,6 @@
     options: PublicKeyCredentialCreationOptionsJSON;
   };
 
-  function getErrorMessage(err: unknown, fallback: string) {
-    return toUserMessage(err, fallback);
-  }
-
   let loading = true;
   let factors: MfaFactor[] = [];
   let passkeys: Passkey[] = [];
@@ -66,8 +62,8 @@
       const { data, error: factorsError } = await supabase.auth.mfa.listFactors();
       if (factorsError) throw factorsError;
       factors = data?.totp || [];
-    } catch (err) {
-      error = getErrorMessage(err, 'Erro ao carregar fatores 2FA.');
+    } catch (err: unknown) {
+      error = toUserMessage(err, 'Erro ao carregar fatores 2FA.');
     } finally {
       loading = false;
     }
@@ -78,8 +74,8 @@
     try {
       const payload = await apiGet<PasskeysResponse>('/api/auth/passkeys');
       passkeys = payload.passkeys || [];
-    } catch (err) {
-      error = getErrorMessage(err, 'Erro ao carregar passkeys.');
+    } catch (err: unknown) {
+      error = toUserMessage(err, 'Erro ao carregar passkeys.');
     } finally {
       passkeysLoading = false;
     }
@@ -100,8 +96,8 @@
         qrCode: data.totp.qr_code,
         secret: data.totp.secret
       };
-    } catch (err) {
-      error = getErrorMessage(err, 'Erro ao iniciar configuração 2FA.');
+    } catch (err: unknown) {
+      error = toUserMessage(err, 'Erro ao iniciar configuração 2FA.');
     } finally {
       enrolling = false;
     }
@@ -135,8 +131,8 @@
       enrollmentData = null;
       verificationCode = '';
       await loadFactors();
-    } catch (err) {
-      const message = getErrorMessage(err, 'Erro ao verificar código.');
+    } catch (err: unknown) {
+      const message = toUserMessage(err, 'Erro ao verificar código.');
       error = message.includes('invalid') || message.includes('Invalid')
         ? 'Código inválido. Verifique o aplicativo autenticador.'
         : message;
@@ -156,8 +152,8 @@
 
       toast.success('Fator 2FA removido.');
       await loadFactors();
-    } catch (err) {
-      error = getErrorMessage(err, 'Erro ao remover fator 2FA.');
+    } catch (err: unknown) {
+      error = toUserMessage(err, 'Erro ao remover fator 2FA.');
     } finally {
       removing = false;
     }
@@ -184,8 +180,8 @@
 
       toast.success('Passkey cadastrada com sucesso.');
       await loadPasskeys();
-    } catch (err) {
-      error = getErrorMessage(err, 'Erro ao cadastrar passkey.');
+    } catch (err: unknown) {
+      error = toUserMessage(err, 'Erro ao cadastrar passkey.');
     } finally {
       registeringPasskey = false;
     }
@@ -205,8 +201,8 @@
 
       toast.success('Passkey removida.');
       await loadPasskeys();
-    } catch (err) {
-      error = getErrorMessage(err, 'Erro ao remover passkey.');
+    } catch (err: unknown) {
+      error = toUserMessage(err, 'Erro ao remover passkey.');
     } finally {
       removingPasskeyId = null;
     }
