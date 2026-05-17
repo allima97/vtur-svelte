@@ -11,6 +11,7 @@
     CheckCircle, XCircle, SlidersHorizontal
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
 
@@ -135,7 +136,7 @@
       });
       formasPagamento = data.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados');
+      toast.error(toUserMessage(err, 'Erro ao carregar dados'));
     } finally {
       loading = false;
     }
@@ -194,7 +195,7 @@
       showFormDialog = false;
       await carregarFormasPagamento({ silent: true });
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+      toast.error(toUserMessage(err, 'Erro ao salvar'));
     } finally {
       processando = false;
     }
@@ -211,7 +212,7 @@
       excluindo = null;
       await carregarFormasPagamento({ silent: true });
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir');
+      toast.error(toUserMessage(err, 'Erro ao excluir'));
     } finally {
       processando = false;
     }
