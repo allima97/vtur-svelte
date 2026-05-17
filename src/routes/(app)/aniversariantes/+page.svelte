@@ -7,6 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import { apiGet } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
   import { CalendarDays, RefreshCw, Gift, SlidersHorizontal } from 'lucide-svelte';
@@ -87,7 +88,7 @@
       });
       aniversariantes = payload.items || [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar aniversariantes.');
+      toast.error(toUserMessage(err, 'Erro ao carregar aniversariantes.'));
     } finally {
       loading = false;
     }
