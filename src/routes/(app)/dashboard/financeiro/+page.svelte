@@ -8,6 +8,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { apiGet } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     Banknote,
     CreditCard,
@@ -124,8 +125,8 @@
       ]);
       caixa = caixaPayload;
       conciliacao = conciliacaoPayload;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao carregar dashboard financeiro.');
+    } catch (error: unknown) {
+      toast.error(toUserMessage(error, 'Erro ao carregar dashboard financeiro.'));
     } finally {
       loading = false;
     }
