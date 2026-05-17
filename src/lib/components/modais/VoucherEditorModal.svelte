@@ -15,6 +15,7 @@
     OverlayModal
   } from '../ui';
   import { toast } from '../../stores/ui';
+  import { toUserMessage } from '$lib/utils/errors';
   import {
     createEmptyVoucherImport,
     extractVoucherImportFromFile,
@@ -72,11 +73,7 @@
   }
 
   function getErrorMessage(error: unknown, fallback: string) {
-    if (error instanceof Error) return error.message || fallback;
-    if (error && typeof error === 'object' && 'message' in error) {
-      return String((error as { message?: unknown }).message || fallback);
-    }
-    return fallback;
+    return toUserMessage(error, fallback);
   }
 
   export let open = false;
