@@ -16,6 +16,10 @@ export function toUserMessage(error: unknown, fallback: string): string {
       const causeMessage = cause.trim();
       if (causeMessage) return causeMessage;
     }
+    if (cause && typeof cause === 'object' && 'message' in cause) {
+      const causeMessage = String((cause as { message?: unknown }).message || '').trim();
+      if (causeMessage) return causeMessage;
+    }
   }
 
   if (error && typeof error === 'object' && 'message' in error) {
