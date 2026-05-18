@@ -5,7 +5,6 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
-  import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
@@ -48,6 +47,8 @@
   let vendedores: BaseOption[] = [];
   let avisoOpen = false;
   let selectedCompra: Compra | null = null;
+  let ModalAvisoClienteComponent: typeof import('$lib/components/modais/ModalAvisoCliente.svelte').default | null = null;
+  let modalAvisoLoadPromise: Promise<boolean> | null = null;
   let comprasRequestSeq = 0;
   let comprasAbortController: AbortController | null = null;
 
@@ -130,13 +131,33 @@
     await Promise.all([loadBase(), loadCompras()]);
   }
 
-  function abrirAviso(compra: Compra) {
+  async function ensureModalAvisoLoaded() {
+    if (ModalAvisoClienteComponent) return true;
+    if (modalAvisoLoadPromise) return modalAvisoLoadPromise;
+
+    modalAvisoLoadPromise = import('$lib/components/modais/ModalAvisoCliente.svelte')
+      .then((module) => {
+        ModalAvisoClienteComponent = module.default;
+        return true;
+      })
+      .catch((err) => {
+        toast.error(toUserMessage(err, 'Erro ao carregar aviso ao cliente.'));
+        return false;
+      })
+      .finally(() => {
+        modalAvisoLoadPromise = null;
+      });
+
+    return modalAvisoLoadPromise;
+  }
+
+  async function abrirAviso(compra: Compra) {
     if (!compra.cliente_id) {
       toast.error('Compra sem cliente vinculado.');
       return;
     }
     selectedCompra = compra;
-    avisoOpen = true;
+    avisoOpen = await ensureModalAvisoLoaded();
   }
 
   onMount(async () => {
@@ -217,8 +238,9 @@
   </svelte:fragment>
 </DataTable>
 
-{#if selectedCompra}
-  <ModalAvisoCliente
+{#if selectedCompra && ModalAvisoClienteComponent}
+  <svelte:component
+    this={ModalAvisoClienteComponent}
     bind:open={avisoOpen}
     clienteId={selectedCompra.cliente_id || ''}
     clienteNome={selectedCompra.cliente_nome}

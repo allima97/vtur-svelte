@@ -31,9 +31,6 @@
     AlertCircle,
   } from "lucide-svelte";
   import { toast } from "$lib/stores/ui";
-  import ModalInteracaoQuote from "$lib/components/modais/ModalInteracaoQuote.svelte";
-  import { openQuotePreview } from "$lib/quote/exportQuotePdfClient";
-  import { createSupabaseBrowserClient } from "$lib/db/supabase";
   import { compareISODate, todayISODateLocal } from "$lib/date";
   import {
     formatDate as formatDateValue,
@@ -48,6 +45,8 @@
   const STATUS_SEM_ALERTA_EXPIRADO = new Set(["aprovado", "rejeitado", "fechado"]);
   const STATUS_COM_ACOES_DECISAO = new Set(["pendente", "enviado", "novo"]);
   let previewingPdf = false;
+  let ModalInteracaoQuoteComponent: typeof import("$lib/components/modais/ModalInteracaoQuote.svelte").default | null = null;
+  let interacaoModalLoadPromise: Promise<boolean> | null = null;
 
   interface OrcamentoInteracao {
     tipo?: string | null;
@@ -134,6 +133,30 @@
       if (seq === loadSeq && !destroyed) loading = false;
     }
   });
+
+  async function ensureInteracaoModalLoaded() {
+    if (ModalInteracaoQuoteComponent) return true;
+    if (interacaoModalLoadPromise) return interacaoModalLoadPromise;
+
+    interacaoModalLoadPromise = import("$lib/components/modais/ModalInteracaoQuote.svelte")
+      .then((module) => {
+        ModalInteracaoQuoteComponent = module.default;
+        return true;
+      })
+      .catch((err) => {
+        toast.error(toUserMessage(err, "Erro ao carregar interação do orçamento."));
+        return false;
+      })
+      .finally(() => {
+        interacaoModalLoadPromise = null;
+      });
+
+    return interacaoModalLoadPromise;
+  }
+
+  async function openInteracaoModal() {
+    showInteracaoModal = await ensureInteracaoModalLoaded();
+  }
 
   async function carregarOrcamento(seq = loadSeq, signal?: AbortSignal) {
     try {
@@ -256,6 +279,10 @@
     }
     previewingPdf = true;
     try {
+      const [{ createSupabaseBrowserClient }, { openQuotePreview }] = await Promise.all([
+        import("$lib/db/supabase"),
+        import("$lib/quote/exportQuotePdfClient")
+      ]);
       const supabaseBrowser = createSupabaseBrowserClient();
       await openQuotePreview({
         quoteId: orcamentoId,
@@ -515,7 +542,7 @@
     <Button
       variant="unstyled"
       class_name="vtur-kpi-card text-left hover:shadow-lg transition-all duration-200"
-      on:click={() => (showInteracaoModal = true)}
+      on:click={openInteracaoModal}
     >
       <div
         class={`flex h-10 w-10 items-center justify-center rounded-xl ${!ultimaInteracao ? "bg-red-50 text-red-500" : (diasSemInteracao || 0) >= 7 ? "bg-amber-50 text-amber-500" : "bg-blue-50 text-blue-500"}`}
@@ -637,7 +664,7 @@
         </div>
         <Button
           variant="secondary"
-          on:click={() => (showInteracaoModal = true)}
+          on:click={openInteracaoModal}
           class_name="shrink-0 justify-center"
         >
           Registrar interação
@@ -654,7 +681,7 @@
         </div>
         <Button
           variant="secondary"
-          on:click={() => (showInteracaoModal = true)}
+          on:click={openInteracaoModal}
           class_name="shrink-0 justify-center"
         >
           Registrar novo follow-up
@@ -671,7 +698,7 @@
         </div>
         <Button
           variant="secondary"
-          on:click={() => (showInteracaoModal = true)}
+          on:click={openInteracaoModal}
           class_name="shrink-0 justify-center"
         >
           Registrar interação
@@ -968,7 +995,7 @@
           <Button
             variant="secondary"
             color="clientes"
-            on:click={() => (showInteracaoModal = true)}
+            on:click={openInteracaoModal}
             class_name="w-full justify-center"
           >
             <MessageCircle size={16} class="mr-2" />
@@ -1029,7 +1056,7 @@
             <p class="text-sm">Nenhuma interação registrada</p>
             <Button
               variant="unstyled"
-              on:click={() => (showInteracaoModal = true)}
+              on:click={openInteracaoModal}
               class_name="mt-2 text-sm text-clientes-600 hover:underline"
             >
               Registrar primeira interação
@@ -1080,11 +1107,14 @@
     </div>
   </div>
 
-  <ModalInteracaoQuote
-    bind:open={showInteracaoModal}
-    {orcamentoId}
-    clienteNome={clienteNome}
-    onClose={() => (showInteracaoModal = false)}
-    onSave={carregarInteracoes}
-  />
+  {#if ModalInteracaoQuoteComponent}
+    <svelte:component
+      this={ModalInteracaoQuoteComponent}
+      bind:open={showInteracaoModal}
+      {orcamentoId}
+      clienteNome={clienteNome}
+      onClose={() => (showInteracaoModal = false)}
+      onSave={carregarInteracoes}
+    />
+  {/if}
 {/if}

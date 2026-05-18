@@ -9,8 +9,6 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import DashboardCustomizeDialog from './DashboardCustomizeDialog.svelte';
-  import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
   import { monthRangeFromKey, parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
@@ -176,6 +174,8 @@
   let errorMessage: string | null = null;
   let showCustomize = false;
   let savingCustomize = false;
+  let DashboardCustomizeDialogComponent: typeof import('./DashboardCustomizeDialog.svelte').default | null = null;
+  let customizeDialogLoadPromise: Promise<boolean> | null = null;
 
 
   function getDefaultPeriod() {
@@ -230,8 +230,30 @@
   // Modal aviso aniversariante
   let showAvisoAniversario = false;
   let avisoAniv: { id: string; nome: string; telefone: string; email: string; nascimento: string | null } | null = null;
+  let ModalAvisoClienteComponent: typeof import('$lib/components/modais/ModalAvisoCliente.svelte').default | null = null;
+  let modalAvisoLoadPromise: Promise<boolean> | null = null;
 
-  function abrirAvisoAniversario(aniv: Aniversariante) {
+  async function ensureModalAvisoLoaded() {
+    if (ModalAvisoClienteComponent) return true;
+    if (modalAvisoLoadPromise) return modalAvisoLoadPromise;
+
+    modalAvisoLoadPromise = import('$lib/components/modais/ModalAvisoCliente.svelte')
+      .then((module) => {
+        ModalAvisoClienteComponent = module.default;
+        return true;
+      })
+      .catch((err) => {
+        toast.error(toUserMessage(err, 'Erro ao carregar aviso ao cliente.'));
+        return false;
+      })
+      .finally(() => {
+        modalAvisoLoadPromise = null;
+      });
+
+    return modalAvisoLoadPromise;
+  }
+
+  async function abrirAvisoAniversario(aniv: Aniversariante) {
     avisoAniv = {
       id: aniv.cliente_id || aniv.id,
       nome: aniv.nome,
@@ -239,9 +261,34 @@
       email: '',
       nascimento: aniv.nascimento || null
     };
-    showAvisoAniversario = true;
+    showAvisoAniversario = await ensureModalAvisoLoaded();
+    if (!showAvisoAniversario) avisoAniv = null;
   }
   let consultorias: Consultoria[] = [];
+
+  async function ensureCustomizeDialogLoaded() {
+    if (DashboardCustomizeDialogComponent) return true;
+    if (customizeDialogLoadPromise) return customizeDialogLoadPromise;
+
+    customizeDialogLoadPromise = import('./DashboardCustomizeDialog.svelte')
+      .then((module) => {
+        DashboardCustomizeDialogComponent = module.default;
+        return true;
+      })
+      .catch((err) => {
+        toast.error(toUserMessage(err, 'Erro ao carregar personalização do dashboard.'));
+        return false;
+      })
+      .finally(() => {
+        customizeDialogLoadPromise = null;
+      });
+
+    return customizeDialogLoadPromise;
+  }
+
+  async function abrirPersonalizacaoDashboard() {
+    showCustomize = await ensureCustomizeDialogLoaded();
+  }
 
   let empresas: { id: string; nome: string }[] = [];
   let vendedoresFiltro: { id: string; nome: string }[] = [];
@@ -854,7 +901,7 @@
   color="financeiro"
   breadcrumbs={[{ label: 'Dashboard' }]}
   actions={[
-    { label: 'Personalizar', onClick: () => (showCustomize = true), variant: 'secondary', icon: SlidersHorizontal },
+    { label: 'Personalizar', onClick: abrirPersonalizacaoDashboard, variant: 'secondary', icon: SlidersHorizontal },
     { label: 'Ranking', onClick: goToRanking, variant: 'secondary', icon: BarChart2 }
   ]}
 />
@@ -1354,25 +1401,29 @@
   </div>
 {/if}
 
-<DashboardCustomizeDialog
-  bind:open={showCustomize}
-  loading={savingCustomize}
-  {widgetOrder}
-  {widgetVisible}
-  {kpiOrder}
-  {kpiVisible}
-  widgetOptions={DASHBOARD_WIDGETS.filter((item) => availableWidgetIds.includes(item.id))}
-  kpiOptions={DASHBOARD_KPIS}
-  onClose={() => (showCustomize = false)}
-  onSave={salvarPreferencias}
-  onMoveWidget={moveWidget}
-  onToggleWidget={toggleWidget}
-  onMoveKpi={moveKpi}
-  onToggleKpi={toggleKpi}
-/>
+{#if DashboardCustomizeDialogComponent}
+  <svelte:component
+    this={DashboardCustomizeDialogComponent}
+    bind:open={showCustomize}
+    loading={savingCustomize}
+    {widgetOrder}
+    {widgetVisible}
+    {kpiOrder}
+    {kpiVisible}
+    widgetOptions={DASHBOARD_WIDGETS.filter((item) => availableWidgetIds.includes(item.id))}
+    kpiOptions={DASHBOARD_KPIS}
+    onClose={() => (showCustomize = false)}
+    onSave={salvarPreferencias}
+    onMoveWidget={moveWidget}
+    onToggleWidget={toggleWidget}
+    onMoveKpi={moveKpi}
+    onToggleKpi={toggleKpi}
+  />
+{/if}
 
-{#if avisoAniv}
-  <ModalAvisoCliente
+{#if avisoAniv && ModalAvisoClienteComponent}
+  <svelte:component
+    this={ModalAvisoClienteComponent}
     bind:open={showAvisoAniversario}
     clienteId={avisoAniv.id}
     clienteNome={avisoAniv.nome}

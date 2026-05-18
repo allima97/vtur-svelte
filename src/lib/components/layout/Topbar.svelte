@@ -5,11 +5,13 @@
   import { auth } from '$lib/stores/auth';
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
   import { Bell, Calendar, Calculator, LogOut, User, Settings, Shield } from 'lucide-svelte';
-  import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
+  import { toUserMessage } from '$lib/utils/errors';
 
   let loggingOut = false;
   let userDropdownOpen = false;
   let showCalculator = false;
+  let CalculatorModalComponent: typeof import('$lib/components/modais/CalculatorModal.svelte').default | null = null;
+  let calculatorLoadPromise: Promise<boolean> | null = null;
   let logoutController: AbortController | null = null;
 
   $: currentUser = $auth.user;
@@ -27,6 +29,30 @@
 
   function openRecadosInfo() {
     toast.info('Mural de recados será portado na próxima etapa.');
+  }
+
+  async function ensureCalculatorLoaded() {
+    if (CalculatorModalComponent) return true;
+    if (calculatorLoadPromise) return calculatorLoadPromise;
+
+    calculatorLoadPromise = import('$lib/components/modais/CalculatorModal.svelte')
+      .then((module) => {
+        CalculatorModalComponent = module.default;
+        return true;
+      })
+      .catch((err) => {
+        toast.error(toUserMessage(err, 'Erro ao carregar calculadora.'));
+        return false;
+      })
+      .finally(() => {
+        calculatorLoadPromise = null;
+      });
+
+    return calculatorLoadPromise;
+  }
+
+  async function openCalculator() {
+    showCalculator = await ensureCalculatorLoaded();
   }
 
   async function handleLogout() {
@@ -82,7 +108,7 @@
           size="sm"
           class_name="vtur-icon-button !h-10 !w-10 !rounded-xl !p-0"
           ariaLabel="Calculadora"
-          on:click={() => (showCalculator = true)}
+          on:click={openCalculator}
         >
           <Calculator size={18} />
         </Button>
@@ -177,7 +203,10 @@
   </div>
 </header>
 
-<CalculatorModal
-  bind:open={showCalculator}
-  onClose={() => (showCalculator = false)}
-/>
+{#if CalculatorModalComponent}
+  <svelte:component
+    this={CalculatorModalComponent}
+    bind:open={showCalculator}
+    onClose={() => (showCalculator = false)}
+  />
+{/if}

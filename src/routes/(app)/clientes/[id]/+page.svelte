@@ -7,7 +7,6 @@
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
   import AcompanhantesManager from '$lib/components/clientes/AcompanhantesManager.svelte';
   import {
     ArrowLeft,
@@ -104,6 +103,8 @@
   let loading = true;
   let errorMessage: string | null = null;
   let showAvisoModal = false;
+  let ModalAvisoClienteComponent: typeof import('$lib/components/modais/ModalAvisoCliente.svelte').default | null = null;
+  let modalAvisoLoadPromise: Promise<boolean> | null = null;
   let loadController: AbortController | null = null;
   let loadSeq = 0;
 
@@ -197,6 +198,30 @@
     }
   }
 
+  async function ensureModalAvisoLoaded() {
+    if (ModalAvisoClienteComponent) return true;
+    if (modalAvisoLoadPromise) return modalAvisoLoadPromise;
+
+    modalAvisoLoadPromise = import('$lib/components/modais/ModalAvisoCliente.svelte')
+      .then((module) => {
+        ModalAvisoClienteComponent = module.default;
+        return true;
+      })
+      .catch((err) => {
+        toast.error(toUserMessage(err, 'Erro ao carregar aviso ao cliente.'));
+        return false;
+      })
+      .finally(() => {
+        modalAvisoLoadPromise = null;
+      });
+
+    return modalAvisoLoadPromise;
+  }
+
+  async function abrirAvisoCliente() {
+    showAvisoModal = await ensureModalAvisoLoaded();
+  }
+
   onMount(() => {
     void carregarCliente();
   });
@@ -246,7 +271,7 @@
       },
       {
         label: 'Enviar Aviso',
-        onClick: () => (showAvisoModal = true),
+        onClick: abrirAvisoCliente,
         variant: 'secondary',
         icon: Send
       },
@@ -517,14 +542,17 @@
     </div>
   </div>
 
-  <ModalAvisoCliente
-    bind:open={showAvisoModal}
-    clienteId={clienteId}
-    clienteNome={cliente.nome}
-    clienteTelefone={cliente.whatsapp || cliente.telefone || ''}
-    clienteEmail={cliente.email || ''}
-    clienteNascimento={cliente.nascimento || null}
-    onClose={() => (showAvisoModal = false)}
-    onEnviar={() => toast.success('Aviso preparado com sucesso.')}
-  />
+  {#if ModalAvisoClienteComponent}
+    <svelte:component
+      this={ModalAvisoClienteComponent}
+      bind:open={showAvisoModal}
+      clienteId={clienteId}
+      clienteNome={cliente.nome}
+      clienteTelefone={cliente.whatsapp || cliente.telefone || ''}
+      clienteEmail={cliente.email || ''}
+      clienteNascimento={cliente.nascimento || null}
+      onClose={() => (showAvisoModal = false)}
+      onEnviar={() => toast.success('Aviso preparado com sucesso.')}
+    />
+  {/if}
 {/if}

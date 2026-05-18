@@ -6,9 +6,13 @@
   export let data: ChartData;
   export let options: ChartOptions = {};
   export let height: number = 300;
+  export let lazy: boolean = true;
+  export let rootMargin: string = '320px';
   
+  let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
   let chart: ChartType | null = null;
+  let creatingChart = false;
   
   function buildDefaultOptions(): ChartOptions {
     return {
@@ -83,27 +87,52 @@
     return deepMerge(buildDefaultOptions() as MergeableRecord, options) as ChartOptions;
   }
 
-  onMount(() => {
-    let canceled = false;
-
-    void (async () => {
-      if (!canvas) return;
-
+  async function createChart(canceled: () => boolean) {
+    if (creatingChart || chart || !canvas) return;
+    creatingChart = true;
+    try {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
       const { default: Chart } = await import('chart.js/auto');
-      if (canceled) return;
+      if (canceled()) return;
 
       chart = new Chart(ctx, {
         type,
         data,
         options: mergedOptions()
       });
-    })();
+    } finally {
+      creatingChart = false;
+    }
+  }
+
+  onMount(() => {
+    let canceled = false;
+    let observer: IntersectionObserver | null = null;
+
+    const start = () => {
+      void createChart(() => canceled);
+    };
+
+    if (!lazy || typeof IntersectionObserver === 'undefined' || !container) {
+      start();
+    } else {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          observer?.disconnect();
+          observer = null;
+          start();
+        },
+        { rootMargin }
+      );
+      observer.observe(container);
+    }
 
     return () => {
       canceled = true;
+      observer?.disconnect();
       chart?.destroy();
       chart = null;
     };
@@ -117,6 +146,6 @@
   }
 </script>
 
-<div style="height: {height}px;">
+<div bind:this={container} style="height: {height}px;">
   <canvas bind:this={canvas}></canvas>
 </div>
