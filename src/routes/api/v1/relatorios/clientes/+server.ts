@@ -23,6 +23,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
+import { fetchRelatorioClientesReadModelRpc } from "$lib/server/reciboContribuicoesReadModel";
 import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 
 const DEFAULT_ITEMS_LIMIT = 250;
@@ -196,6 +197,46 @@ export async function GET(event) {
       ttlMs: 300_000,
       staleTtlMs: 1_800_000,
       loader: async () => {
+        const months = monthSpanInclusive(dataInicio, dataFim);
+        const rpcItems = await fetchRelatorioClientesReadModelRpc(client, {
+          dataInicio,
+          dataFim,
+          companyIds,
+          vendedorIds,
+        });
+
+        if (rpcItems) {
+          const rawItems = rpcItems
+            .map((item) => {
+              const ticketMedio =
+                item.total_compras > 0
+                  ? item.total_gasto / item.total_compras
+                  : 0;
+              return {
+                cliente_id: item.cliente_id,
+                total_compras: item.total_compras,
+                total_gasto: item.total_gasto,
+                ultima_compra: item.ultima_compra,
+                ticket_medio: ticketMedio,
+                frequencia: item.total_compras / months,
+                categoria: getClienteCategoria(
+                  item.total_compras,
+                  item.total_gasto,
+                ),
+              };
+            })
+            .sort((left, right) => right.total_gasto - left.total_gasto);
+
+          return {
+            rawItems,
+            total: rawItems.length,
+            periodo: {
+              data_inicio: dataInicio,
+              data_fim: dataFim,
+            },
+          };
+        }
+
         const { contributions } = await fetchVendasKpiReciboContributions(client, {
           dataInicio,
           dataFim,
@@ -209,7 +250,6 @@ export async function GET(event) {
             }
           : undefined);
 
-        const months = monthSpanInclusive(dataInicio, dataFim);
         const byClient = new Map<
           string,
           {

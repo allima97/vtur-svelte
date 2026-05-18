@@ -18,6 +18,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
+import { fetchRelatorioProdutosReadModelRpc } from "$lib/server/reciboContribuicoesReadModel";
 
 const DEFAULT_ITEMS_LIMIT = 250;
 const MAX_ITEMS_LIMIT = 1000;
@@ -111,6 +112,62 @@ export async function GET(event) {
       ttlMs: 300_000,
       staleTtlMs: 1_800_000,
       loader: async () => {
+        const rpcItems = await fetchRelatorioProdutosReadModelRpc(client, {
+          dataInicio,
+          dataFim,
+          companyIds,
+          vendedorIds,
+        });
+
+        if (rpcItems) {
+          const items = rpcItems.map((produtoItem) => {
+            const produtoId = produtoItem.produto_id ?? null;
+            const produtoNameSlug = String(produtoItem.produto ?? "")
+              .toLowerCase()
+              .replace(/\s+/g, "-")
+              .replace(/[^a-z0-9-]/g, "");
+
+            return {
+              ...produtoItem,
+              produto_id: produtoId,
+              produto_nome: produtoItem.produto,
+              nome: produtoItem.produto,
+              produto_display: produtoItem.produto,
+              produto_short: String(produtoItem.produto ?? "").slice(0, 20),
+              produto_display_name: String(produtoItem.produto ?? ""),
+              produto_display_short: String(produtoItem.produto ?? "").slice(
+                0,
+                12,
+              ),
+              produto_alternative_display: String(produtoItem.produto ?? ""),
+              produto_display_alias: String(produtoItem.produto ?? ""),
+              produto_name_slug: produtoNameSlug,
+              produto_url: `/produtos/${produtoId ?? produtoNameSlug}`,
+              produto_code: String(produtoItem.produto ?? "")
+                .replace(/[^A-Za-z0-9]/g, "")
+                .toUpperCase(),
+              custo_medio:
+                produtoItem.quantidade > 0
+                  ? Math.max(produtoItem.receita - produtoItem.lucro, 0) /
+                    produtoItem.quantidade
+                  : 0,
+              margem:
+                produtoItem.receita > 0
+                  ? (produtoItem.lucro / produtoItem.receita) * 100
+                  : 0,
+            };
+          });
+
+          return {
+            items,
+            total: items.length,
+            periodo: {
+              data_inicio: dataInicio,
+              data_fim: dataFim,
+            },
+          };
+        }
+
         const { contributions } = await fetchVendasKpiReciboContributions(client, {
           dataInicio,
           dataFim,

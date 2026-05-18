@@ -401,7 +401,137 @@ as $dashboard_compras_resumo$
     (select count(*) from sale_rows)::bigint as total;
 $dashboard_compras_resumo$;
 
+create or replace function public.relatorio_produtos_from_read_model(
+  p_company_ids uuid[],
+  p_vendedor_ids uuid[],
+  p_inicio date,
+  p_fim date
+)
+returns table (
+  produto_id uuid,
+  produto text,
+  tipo text,
+  quantidade bigint,
+  receita numeric,
+  lucro numeric
+)
+language sql
+security definer
+set search_path = public
+as $relatorio_produtos$
+  select
+    produto_id,
+    coalesce(nullif(trim(produto_nome), ''), 'Produto nao informado') as produto,
+    case when bool_or(is_seguro) then 'Seguro' else 'Produto' end as tipo,
+    count(distinct concat_ws('|', venda_key, coalesce(recibo_id::text, recibo_numero, ''), data_recibo::text))::bigint as quantidade,
+    round(coalesce(sum(valor_bruto), 0)::numeric, 2) as receita,
+    round(coalesce(sum(valor_taxas), 0)::numeric, 2) as lucro
+  from public.ranking_recibo_contribuicoes
+  where data_recibo >= p_inicio
+    and data_recibo <= p_fim
+    and (
+      coalesce(array_length(p_company_ids, 1), 0) = 0
+      or company_id = any(p_company_ids)
+    )
+    and (
+      coalesce(array_length(p_vendedor_ids, 1), 0) = 0
+      or vendedor_id = any(p_vendedor_ids)
+    )
+  group by
+    produto_id,
+    coalesce(nullif(trim(produto_nome), ''), 'Produto nao informado')
+  order by receita desc;
+$relatorio_produtos$;
+
+create or replace function public.relatorio_destinos_from_read_model(
+  p_company_ids uuid[],
+  p_vendedor_ids uuid[],
+  p_inicio date,
+  p_fim date
+)
+returns table (
+  destino text,
+  quantidade bigint,
+  receita numeric
+)
+language sql
+security definer
+set search_path = public
+as $relatorio_destinos$
+  select
+    coalesce(nullif(trim(destino_nome), ''), 'Destino nao informado') as destino,
+    count(distinct coalesce(nullif(venda_key, ''), recibo_id::text, concat_ws('|', recibo_numero, data_recibo::text)))::bigint as quantidade,
+    round(coalesce(sum(valor_bruto), 0)::numeric, 2) as receita
+  from public.ranking_recibo_contribuicoes
+  where data_recibo >= p_inicio
+    and data_recibo <= p_fim
+    and (
+      coalesce(array_length(p_company_ids, 1), 0) = 0
+      or company_id = any(p_company_ids)
+    )
+    and (
+      coalesce(array_length(p_vendedor_ids, 1), 0) = 0
+      or vendedor_id = any(p_vendedor_ids)
+    )
+  group by coalesce(nullif(trim(destino_nome), ''), 'Destino nao informado')
+  order by receita desc;
+$relatorio_destinos$;
+
+create or replace function public.relatorio_clientes_from_read_model(
+  p_company_ids uuid[],
+  p_vendedor_ids uuid[],
+  p_inicio date,
+  p_fim date
+)
+returns table (
+  cliente_id uuid,
+  total_compras bigint,
+  total_gasto numeric,
+  ultima_compra date
+)
+language sql
+security definer
+set search_path = public
+as $relatorio_clientes$
+  with grouped as (
+    select
+      coalesce(
+        cliente_id::text,
+        'sem-cliente:' || coalesce(nullif(venda_key, ''), recibo_id::text, concat_ws('|', recibo_numero, data_recibo::text))
+      ) as cliente_key,
+      (array_agg(cliente_id order by data_recibo desc nulls last))[1] as cliente_id,
+      count(distinct coalesce(nullif(venda_key, ''), recibo_id::text, concat_ws('|', recibo_numero, data_recibo::text)))::bigint as total_compras,
+      round(coalesce(sum(valor_bruto), 0)::numeric, 2) as total_gasto,
+      max(data_recibo)::date as ultima_compra
+    from public.ranking_recibo_contribuicoes
+    where data_recibo >= p_inicio
+      and data_recibo <= p_fim
+      and (
+        coalesce(array_length(p_company_ids, 1), 0) = 0
+        or company_id = any(p_company_ids)
+      )
+      and (
+        coalesce(array_length(p_vendedor_ids, 1), 0) = 0
+        or vendedor_id = any(p_vendedor_ids)
+      )
+    group by coalesce(
+      cliente_id::text,
+      'sem-cliente:' || coalesce(nullif(venda_key, ''), recibo_id::text, concat_ws('|', recibo_numero, data_recibo::text))
+    )
+  )
+  select
+    grouped.cliente_id,
+    grouped.total_compras,
+    grouped.total_gasto,
+    grouped.ultima_compra
+  from grouped
+  order by grouped.total_gasto desc;
+$relatorio_clientes$;
+
 grant execute on function public.dashboard_vendas_summary_from_read_model(uuid[], uuid[], uuid[], date, date) to service_role;
 grant execute on function public.dashboard_empresa_comparativo_from_read_model(uuid[], date, date, date, date) to service_role;
 grant execute on function public.dashboard_metas_summary(uuid[], uuid[], date, date) to service_role;
 grant execute on function public.dashboard_compras_resumo_from_read_model(uuid[], uuid[], date, date, integer) to service_role;
+grant execute on function public.relatorio_produtos_from_read_model(uuid[], uuid[], date, date) to service_role;
+grant execute on function public.relatorio_destinos_from_read_model(uuid[], uuid[], date, date) to service_role;
+grant execute on function public.relatorio_clientes_from_read_model(uuid[], uuid[], date, date) to service_role;

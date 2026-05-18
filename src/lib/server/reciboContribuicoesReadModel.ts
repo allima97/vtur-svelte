@@ -87,6 +87,28 @@ export type ReadModelComprasResumo = {
   total: number;
 };
 
+export type ReadModelProdutoRelatorioRow = {
+  produto_id: string | null;
+  produto: string;
+  tipo: string;
+  quantidade: number;
+  receita: number;
+  lucro: number;
+};
+
+export type ReadModelDestinoRelatorioRow = {
+  destino: string;
+  quantidade: number;
+  receita: number;
+};
+
+export type ReadModelClienteRelatorioRow = {
+  cliente_id: string | null;
+  total_compras: number;
+  total_gasto: number;
+  ultima_compra: string | null;
+};
+
 type DashboardSummaryRpcRow = {
   total_vendas?: number | string | null;
   total_taxas?: number | string | null;
@@ -116,6 +138,28 @@ type ComprasResumoRpcRow = {
   top_clientes?: unknown;
   ultimas_compras?: unknown;
   total?: number | string | null;
+};
+
+type ProdutoRelatorioRpcRow = {
+  produto_id?: string | null;
+  produto?: string | null;
+  tipo?: string | null;
+  quantidade?: number | string | null;
+  receita?: number | string | null;
+  lucro?: number | string | null;
+};
+
+type DestinoRelatorioRpcRow = {
+  destino?: string | null;
+  quantidade?: number | string | null;
+  receita?: number | string | null;
+};
+
+type ClienteRelatorioRpcRow = {
+  cliente_id?: string | null;
+  total_compras?: number | string | null;
+  total_gasto?: number | string | null;
+  ultima_compra?: string | null;
 };
 
 type StatusRow = {
@@ -970,6 +1014,139 @@ export async function fetchDashboardComprasResumoRpc(
   } catch (error) {
     if (!isRpcUnavailableError(error)) {
       logServerError("[read-model] erro ao executar RPC de compras do dashboard; usando fallback.", error);
+    }
+    return null;
+  }
+}
+
+export async function fetchRelatorioProdutosReadModelRpc(
+  _client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+  },
+): Promise<ReadModelProdutoRelatorioRow[] | null> {
+  if (readModelUnavailable) return null;
+
+  try {
+    const { data, error } = await getAdminClient().rpc(
+      "relatorio_produtos_from_read_model",
+      {
+        p_company_ids: rpcIdArray(params.companyIds),
+        p_vendedor_ids: rpcIdArray(params.vendedorIds),
+        p_inicio: params.dataInicio,
+        p_fim: params.dataFim,
+      },
+    );
+
+    if (error) {
+      if (!isRpcUnavailableError(error)) {
+        logServerError("[read-model] RPC relatorio_produtos_from_read_model falhou; usando fallback.", error);
+      }
+      return null;
+    }
+
+    return ((data || []) as ProdutoRelatorioRpcRow[])
+      .map((row) => ({
+        produto_id: normalizeNullableString(row.produto_id),
+        produto: toStr(row.produto) || "Produto nao informado",
+        tipo: toStr(row.tipo) || "Produto",
+        quantidade: Math.max(0, Math.round(toNum(row.quantidade))),
+        receita: toNum(row.receita),
+        lucro: toNum(row.lucro),
+      }));
+  } catch (error) {
+    if (!isRpcUnavailableError(error)) {
+      logServerError("[read-model] erro ao executar RPC de produtos; usando fallback.", error);
+    }
+    return null;
+  }
+}
+
+export async function fetchRelatorioDestinosReadModelRpc(
+  _client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+  },
+): Promise<ReadModelDestinoRelatorioRow[] | null> {
+  if (readModelUnavailable) return null;
+
+  try {
+    const { data, error } = await getAdminClient().rpc(
+      "relatorio_destinos_from_read_model",
+      {
+        p_company_ids: rpcIdArray(params.companyIds),
+        p_vendedor_ids: rpcIdArray(params.vendedorIds),
+        p_inicio: params.dataInicio,
+        p_fim: params.dataFim,
+      },
+    );
+
+    if (error) {
+      if (!isRpcUnavailableError(error)) {
+        logServerError("[read-model] RPC relatorio_destinos_from_read_model falhou; usando fallback.", error);
+      }
+      return null;
+    }
+
+    return ((data || []) as DestinoRelatorioRpcRow[])
+      .map((row) => ({
+        destino: toStr(row.destino) || "Destino nao informado",
+        quantidade: Math.max(0, Math.round(toNum(row.quantidade))),
+        receita: toNum(row.receita),
+      }));
+  } catch (error) {
+    if (!isRpcUnavailableError(error)) {
+      logServerError("[read-model] erro ao executar RPC de destinos; usando fallback.", error);
+    }
+    return null;
+  }
+}
+
+export async function fetchRelatorioClientesReadModelRpc(
+  _client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+  },
+): Promise<ReadModelClienteRelatorioRow[] | null> {
+  if (readModelUnavailable) return null;
+
+  try {
+    const { data, error } = await getAdminClient().rpc(
+      "relatorio_clientes_from_read_model",
+      {
+        p_company_ids: rpcIdArray(params.companyIds),
+        p_vendedor_ids: rpcIdArray(params.vendedorIds),
+        p_inicio: params.dataInicio,
+        p_fim: params.dataFim,
+      },
+    );
+
+    if (error) {
+      if (!isRpcUnavailableError(error)) {
+        logServerError("[read-model] RPC relatorio_clientes_from_read_model falhou; usando fallback.", error);
+      }
+      return null;
+    }
+
+    return ((data || []) as ClienteRelatorioRpcRow[])
+      .map((row) => ({
+        cliente_id: normalizeNullableString(row.cliente_id),
+        total_compras: Math.max(0, Math.round(toNum(row.total_compras))),
+        total_gasto: toNum(row.total_gasto),
+        ultima_compra: normalizeNullableString(row.ultima_compra),
+      }));
+  } catch (error) {
+    if (!isRpcUnavailableError(error)) {
+      logServerError("[read-model] erro ao executar RPC de clientes; usando fallback.", error);
     }
     return null;
   }

@@ -18,6 +18,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
+import { fetchRelatorioDestinosReadModelRpc } from "$lib/server/reciboContribuicoesReadModel";
 
 const DEFAULT_ITEMS_LIMIT = 250;
 const MAX_ITEMS_LIMIT = 1000;
@@ -114,6 +115,59 @@ export async function GET(event) {
       ttlMs: 300_000,
       staleTtlMs: 1_800_000,
       loader: async () => {
+        const rpcItems = await fetchRelatorioDestinosReadModelRpc(client, {
+          dataInicio,
+          dataFim,
+          companyIds,
+          vendedorIds,
+        });
+
+        if (rpcItems) {
+          const totalReceita = rpcItems.reduce(
+            (sum, item) => sum + Number(item.receita || 0),
+            0,
+          );
+          const items = rpcItems
+            .map((destinoItem) => ({
+              ...destinoItem,
+              destino_id: null,
+              destino: destinoItem.destino,
+              destino_nome: destinoItem.destino,
+              destino_display: destinoItem.destino,
+              destino_short: String(destinoItem.destino ?? "").slice(0, 20),
+              destino_display_name: String(destinoItem.destino ?? ""),
+              destino_display_short: String(destinoItem.destino ?? "").slice(
+                0,
+                12,
+              ),
+              destino_slug: String(destinoItem.destino ?? "")
+                .toLowerCase()
+                .replace(/\s+/g, "-")
+                .replace(/[^a-z0-9-]/g, ""),
+              destino_codigo: String(destinoItem.destino ?? "")
+                .replace(/[^A-Za-z0-9]/g, "")
+                .toUpperCase(),
+              ticket_medio:
+                destinoItem.quantidade > 0
+                  ? destinoItem.receita / destinoItem.quantidade
+                  : 0,
+              percentual:
+                totalReceita > 0
+                  ? (destinoItem.receita / totalReceita) * 100
+                  : 0,
+            }))
+            .sort((left, right) => right.receita - left.receita);
+
+          return {
+            items,
+            total: items.length,
+            periodo: {
+              data_inicio: dataInicio,
+              data_fim: dataFim,
+            },
+          };
+        }
+
         const { contributions } = await fetchVendasKpiReciboContributions(client, {
           dataInicio,
           dataFim,
