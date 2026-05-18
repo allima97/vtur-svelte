@@ -20,7 +20,7 @@ import {
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
-import { fetchSaleForScope } from "$lib/server/salesScope";
+import { fetchSaleForScope, isSaleInScope } from "$lib/server/salesScope";
 import { chunkArray } from "$lib/utils/array";
 import { toUserMessage } from "$lib/utils/errors";
 
@@ -145,15 +145,20 @@ async function fetchVendaPagamentos(client: SupabaseClient, id: string) {
   return data || [];
 }
 
-async function fetchVendaPayload(client: SupabaseClient, id: string, opts: { lite?: boolean } = {}) {
+async function hydrateVendaPayload(
+  client: SupabaseClient,
+  id: string,
+  data: unknown,
+  opts: { lite?: boolean } = {},
+) {
+  if (!data) return null;
+
   const lite = opts.lite === true;
-  const [data, recibos, pagamentos] = await Promise.all([
-    fetchVendaBase(client, id, lite),
+  const [recibos, pagamentos] = await Promise.all([
     fetchVendaRecibos(client, id, lite),
-    fetchVendaPagamentos(client, id),
+    lite ? Promise.resolve([]) : fetchVendaPagamentos(client, id),
   ]);
 
-  if (!data) return null;
   const vendaData = data as unknown as Record<string, unknown>;
 
   return {
@@ -162,14 +167,6 @@ async function fetchVendaPayload(client: SupabaseClient, id: string, opts: { lit
     pagamentos,
     ...(lite ? { _lite: true } : {}),
   };
-}
-
-async function fetchVendaLite(client: SupabaseClient, id: string) {
-  return fetchVendaPayload(client, id, { lite: true });
-}
-
-async function fetchVendaDetail(client: SupabaseClient, id: string) {
-  return fetchVendaPayload(client, id);
 }
 
 function mapSyncChildrenError(err: unknown) {
@@ -295,16 +292,13 @@ export async function GET(event) {
       scope,
       event.url.searchParams.get("vendedor_id"),
     );
-    const scopedSale = await fetchSaleForScope({ client, scope, saleId: id, companyIds, vendedorIds });
-    if (!scopedSale) throw error(404, "Venda não encontrada.");
-
-    if (event.url.searchParams.get("lite") === "1") {
-      const liteData = await fetchVendaLite(client, id);
-      if (!liteData) throw error(404, "Venda não encontrada.");
-      return json(liteData, { headers: NO_STORE_HEADERS });
+    const lite = event.url.searchParams.get("lite") === "1";
+    const vendaBase = await fetchVendaBase(client, id, lite);
+    if (!vendaBase || !isSaleInScope(vendaBase, { scope, companyIds, vendedorIds })) {
+      throw error(404, "Venda não encontrada.");
     }
 
-    const data = await fetchVendaDetail(client, id);
+    const data = await hydrateVendaPayload(client, id, vendaBase, { lite });
     if (!data) throw error(404, "Venda não encontrada.");
     return json(data, { headers: NO_STORE_HEADERS });
   } catch (err) {

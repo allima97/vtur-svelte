@@ -643,6 +643,9 @@ export async function GET(event) {
       0,
       1_000_000,
     );
+    const includeSummary = String(
+      searchParams.get("include_summary") ?? searchParams.get("summary") ?? "1",
+    ).trim() !== "0";
     const accessibleClientIds =
       !scope.isAdmin &&
       !scope.isMaster &&
@@ -1269,19 +1272,22 @@ export async function GET(event) {
       ? filteredRows.filter((row) => getVendaStatus(row) === statusFilter)
       : filteredRows;
 
-    const [naoComissionadoPorVenda, receiptCommissionMap] = await Promise.all([
-      fetchNaoComissionadoPorVenda(client, rowIds),
-      resolveGroupedReceiptCommissions(client, {
-        companyIds,
-        rows: statusFilteredRows,
-      }),
-    ]);
-
     const detailRows =
       itemsLimit > 0
         ? statusFilteredRows.slice(itemsOffset, itemsOffset + itemsLimit)
         : statusFilteredRows;
     const detailRowIds = uniqueCleanStrings(detailRows.map((row) => row?.id));
+    const summaryRows = includeSummary ? statusFilteredRows : detailRows;
+    const naoComissionadoVendaIds = includeSummary ? rowIds : detailRowIds;
+
+    const [naoComissionadoPorVenda, receiptCommissionMap] = await Promise.all([
+      fetchNaoComissionadoPorVenda(client, naoComissionadoVendaIds),
+      resolveGroupedReceiptCommissions(client, {
+        companyIds,
+        rows: summaryRows,
+      }),
+    ]);
+
     const reciboVendedorIds = Array.from(
       new Set(
         detailRows
@@ -1528,6 +1534,30 @@ export async function GET(event) {
         .filter(Boolean) as typeof items;
     }
 
+    const totalItems = statusFilteredRows.length;
+    const pagedItems = items;
+
+    if (!includeSummary) {
+      return json(
+        {
+          items: pagedItems,
+          total: totalItems,
+          periodo: {
+            data_inicio: dataInicio,
+            data_fim: dataFim,
+          },
+          pagination: {
+            offset: itemsOffset,
+            limit: itemsLimit,
+            returned: pagedItems.length,
+            total: totalItems,
+            truncated: itemsOffset + pagedItems.length < totalItems,
+          },
+        },
+        { headers: DYNAMIC_READ_HEADERS },
+      );
+    }
+
     const vendedores = Array.from(
       new Map(
         statusFilteredRows
@@ -1612,8 +1642,6 @@ export async function GET(event) {
       sumRankingEntriesBetween(seriesRankingEntries, dataInicio, dataFim).toFixed(2),
     );
     const ticketMedio = totalVendas > 0 ? totalValor / totalVendas : 0;
-    const totalItems = totalVendas;
-    const pagedItems = items;
 
     return json(
       {

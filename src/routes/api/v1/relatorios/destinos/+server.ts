@@ -17,6 +17,45 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
+
+const DEFAULT_ITEMS_LIMIT = 250;
+const MAX_ITEMS_LIMIT = 1000;
+const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
+
+type DestinoRelatorioItem = {
+  destino: string;
+  quantidade: number;
+  receita: number;
+  ticket_medio: number;
+  percentual: number;
+};
+
+function parseItemsWindow(searchParams: URLSearchParams) {
+  const rawLimit = Number(searchParams.get("items_limit") || DEFAULT_ITEMS_LIMIT);
+  const rawOffset = Number(searchParams.get("items_offset") || 0);
+  const limit = Math.min(
+    MAX_ITEMS_LIMIT,
+    Math.max(1, Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : DEFAULT_ITEMS_LIMIT),
+  );
+  const offset = Math.max(0, Number.isFinite(rawOffset) ? Math.trunc(rawOffset) : 0);
+  return { limit, offset };
+}
+
+function sortDestinos(items: DestinoRelatorioItem[], ordenacao: string) {
+  return [...items].sort((left, right) => {
+    if (ordenacao === "quantidade") return right.quantidade - left.quantidade;
+    if (ordenacao === "ticket_medio") return right.ticket_medio - left.ticket_medio;
+    if (ordenacao === "destino") return PT_BR_COLLATOR.compare(left.destino, right.destino);
+    return right.receita - left.receita;
+  });
+}
+
+function applyRecorte(items: DestinoRelatorioItem[], recorte: string) {
+  if (recorte === "top5") return items.slice(0, 5);
+  if (recorte === "top10") return items.slice(0, 10);
+  return items;
+}
 
 export async function GET(event) {
   try {
@@ -50,6 +89,14 @@ export async function GET(event) {
       scope,
       searchParams.get("vendedor_ids") || searchParams.get("vendedor_id"),
     );
+    const ordenacao = String(searchParams.get("ordenacao") || "receita").trim();
+    const recorte = String(searchParams.get("recorte") || "todos").trim();
+    const { limit: itemsLimit, offset: itemsOffset } = parseItemsWindow(searchParams);
+    const tipoNome = String(scope.tipoNome || "").toUpperCase();
+    const useNonBlockingReadModel =
+      (scope.isAdmin || tipoNome.includes("MASTER")) &&
+      companyIds.length > 1 &&
+      vendedorIds.length === 0;
 
     const payload = await getCachedReadModel({
       key: buildReadModelCacheKey("relatorios:destinos", {
@@ -72,7 +119,13 @@ export async function GET(event) {
           dataFim,
           companyIds,
           vendedorIds,
-        });
+        }, useNonBlockingReadModel
+          ? {
+              mode: "stale-while-revalidate",
+              executionContext: getPlatformExecutionContext(event.platform),
+              fallbackToRawOnReadError: false,
+            }
+          : undefined);
 
         const totalReceita = contributions.reduce(
           (sum, contribution) => sum + Number(contribution.bruto || 0),
@@ -163,7 +216,27 @@ export async function GET(event) {
       },
     });
 
-    return json(payload, { headers: DYNAMIC_READ_HEADERS });
+    const allItems = (Array.isArray(payload.items) ? payload.items : []) as DestinoRelatorioItem[];
+    const sortedItems = sortDestinos(allItems, ordenacao);
+    const recorteItems = applyRecorte(sortedItems, recorte);
+    const pagedItems = recorteItems.slice(itemsOffset, itemsOffset + itemsLimit);
+    const totalReceita = recorteItems.reduce((sum, item) => sum + Number(item.receita || 0), 0);
+    const totalVendas = recorteItems.reduce((sum, item) => sum + Number(item.quantidade || 0), 0);
+
+    return json({
+      ...payload,
+      items: pagedItems,
+      total: recorteItems.length,
+      total_completo: allItems.length,
+      truncated: itemsOffset + pagedItems.length < recorteItems.length,
+      items_limit: itemsLimit,
+      items_offset: itemsOffset,
+      summary: {
+        totalReceita,
+        totalVendas,
+        destinoTop: recorteItems[0] || null,
+      },
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar relatorio de destinos.");
   }

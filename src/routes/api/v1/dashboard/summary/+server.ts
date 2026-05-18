@@ -393,18 +393,25 @@ export async function GET(event) {
           client
             .from("metas_vendedor")
             .select(
-              "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
+              "meta_geral, meta_diferenciada",
             )
             .eq("ativo", true)
             .gte("periodo", inicio)
             .lte("periodo", fim)
-            .limit(500);
+            .limit(5000);
 
         const fetchMetasParallel = async (): Promise<DashboardMetaRow[]> => {
           const rows: DashboardMetaRow[] = [];
-          if (vendedorIds.length > 0) {
+          const metasVendedorIds =
+            vendedorIds.length > 0
+              ? vendedorIds
+              : companyIds.length > 0
+                ? await fetchGestorCompanyScopeIds(client, { companyIds })
+                : [];
+
+          if (metasVendedorIds.length > 0) {
             const batchRows = await Promise.all(
-              chunkArray(vendedorIds).map(async (vendedorBatch) => {
+              chunkArray(metasVendedorIds).map(async (vendedorBatch) => {
                 const { data, error: metasError } = await buildMetasQuery().in("vendedor_id", vendedorBatch);
                 if (metasError) throw metasError;
                 return (data || []) as DashboardMetaRow[];
@@ -560,6 +567,29 @@ export async function GET(event) {
           });
         }
 
+        const metaGeralTotal = (metasData || []).reduce(
+          (sum, item) => sum + toNum(item?.meta_geral),
+          0,
+        );
+        const metaDiferenciadaTotal = (metasData || []).reduce(
+          (sum, item) => sum + toNum(item?.meta_diferenciada),
+          0,
+        );
+        const metasResumo =
+          metaGeralTotal > 0 || metaDiferenciadaTotal > 0
+            ? [
+                {
+                  id: "dashboard-summary",
+                  vendedor_id: "",
+                  periodo: inicio,
+                  meta_geral: metaGeralTotal,
+                  meta_diferenciada: metaDiferenciadaTotal,
+                  ativo: true,
+                  scope: "summary",
+                },
+              ]
+            : [];
+
         return {
           inicio,
           fim,
@@ -596,7 +626,7 @@ export async function GET(event) {
               .sort((a, b) => b.value - a.value)
               .slice(0, 6),
           },
-          metas: metasData || [],
+          metas: metasResumo,
           orcamentos,
           widgetPrefs: widgetPrefsData || [],
         };

@@ -17,6 +17,42 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
+
+const DEFAULT_ITEMS_LIMIT = 250;
+const MAX_ITEMS_LIMIT = 1000;
+const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
+
+type ProdutoRelatorioItem = {
+  produto_id: string | null;
+  produto: string;
+  tipo: string;
+  quantidade: number;
+  receita: number;
+  lucro: number;
+  margem: number;
+};
+
+function parseItemsWindow(searchParams: URLSearchParams) {
+  const rawLimit = Number(searchParams.get("items_limit") || DEFAULT_ITEMS_LIMIT);
+  const rawOffset = Number(searchParams.get("items_offset") || 0);
+  const limit = Math.min(
+    MAX_ITEMS_LIMIT,
+    Math.max(1, Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : DEFAULT_ITEMS_LIMIT),
+  );
+  const offset = Math.max(0, Number.isFinite(rawOffset) ? Math.trunc(rawOffset) : 0);
+  return { limit, offset };
+}
+
+function sortProdutos(items: ProdutoRelatorioItem[], ordenacao: string) {
+  return [...items].sort((left, right) => {
+    if (ordenacao === "lucro") return right.lucro - left.lucro;
+    if (ordenacao === "margem") return right.margem - left.margem;
+    if (ordenacao === "quantidade") return right.quantidade - left.quantidade;
+    if (ordenacao === "produto") return PT_BR_COLLATOR.compare(left.produto, right.produto);
+    return right.receita - left.receita;
+  });
+}
 
 export async function GET(event) {
   try {
@@ -50,6 +86,14 @@ export async function GET(event) {
       scope,
       searchParams.get("vendedor_ids") || searchParams.get("vendedor_id"),
     );
+    const tipoFiltro = String(searchParams.get("tipo") || "").trim();
+    const ordenacao = String(searchParams.get("ordenacao") || "receita").trim();
+    const { limit: itemsLimit, offset: itemsOffset } = parseItemsWindow(searchParams);
+    const tipoNome = String(scope.tipoNome || "").toUpperCase();
+    const useNonBlockingReadModel =
+      (scope.isAdmin || tipoNome.includes("MASTER")) &&
+      companyIds.length > 1 &&
+      vendedorIds.length === 0;
 
     const payload = await getCachedReadModel({
       key: buildReadModelCacheKey("relatorios:produtos", {
@@ -72,7 +116,13 @@ export async function GET(event) {
           dataFim,
           companyIds,
           vendedorIds,
-        });
+        }, useNonBlockingReadModel
+          ? {
+              mode: "stale-while-revalidate",
+              executionContext: getPlatformExecutionContext(event.platform),
+              fallbackToRawOnReadError: false,
+            }
+          : undefined);
 
         const byProduto = new Map<
           string,
@@ -180,7 +230,33 @@ export async function GET(event) {
       },
     });
 
-    return json(payload, { headers: DYNAMIC_READ_HEADERS });
+    const allItems = (Array.isArray(payload.items) ? payload.items : []) as ProdutoRelatorioItem[];
+    const tipos = Array.from(new Set(allItems.map((item) => String(item.tipo || "").trim()).filter(Boolean)))
+      .sort((left, right) => PT_BR_COLLATOR.compare(left, right));
+    const filteredItems = tipoFiltro
+      ? allItems.filter((item) => item.tipo === tipoFiltro)
+      : allItems;
+    const sortedItems = sortProdutos(filteredItems, ordenacao);
+    const pagedItems = sortedItems.slice(itemsOffset, itemsOffset + itemsLimit);
+    const totalReceita = sortedItems.reduce((sum, item) => sum + Number(item.receita || 0), 0);
+    const totalLucro = sortedItems.reduce((sum, item) => sum + Number(item.lucro || 0), 0);
+
+    return json({
+      ...payload,
+      items: pagedItems,
+      total: sortedItems.length,
+      total_completo: allItems.length,
+      truncated: itemsOffset + pagedItems.length < sortedItems.length,
+      items_limit: itemsLimit,
+      items_offset: itemsOffset,
+      tipos,
+      summary: {
+        totalReceita,
+        totalLucro,
+        margemMedia: totalReceita > 0 ? (totalLucro / totalReceita) * 100 : 0,
+        produtoTop: sortedItems[0] || null,
+      },
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar relatorio de produtos.");
   }

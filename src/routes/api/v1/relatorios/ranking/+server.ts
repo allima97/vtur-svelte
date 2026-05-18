@@ -24,6 +24,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
 import { chunkArray } from "$lib/utils/array";
 
 const NO_MATCH_USER_ID = "00000000-0000-0000-0000-000000000000";
@@ -85,6 +86,8 @@ type RankingMetaRow = {
   ativo?: boolean | null;
 };
 
+type VendasReadModelOptions = Parameters<typeof fetchVendasKpiReciboContributions>[2];
+
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const diffDays = Math.max(1, (diffDaysISODate(dataInicio, dataFim) ?? 0) + 1);
   const previousEnd = addDaysISODate(dataInicio, -1);
@@ -119,6 +122,7 @@ async function buildRankingSimple(
     companyIds: string[];
     vendedorIds: string[];
   },
+  readModelOptions?: VendasReadModelOptions,
 ): Promise<RankingContributionRow[]> {
   const { dataInicio, dataFim, companyIds, vendedorIds } = params;
   const canonical = await fetchVendasKpiReciboContributions(client, {
@@ -126,7 +130,7 @@ async function buildRankingSimple(
     dataFim,
     companyIds,
     vendedorIds,
-  });
+  }, readModelOptions);
   return canonical.contributions.map((item) => ({
     vendaKey: item.vendaKey,
     reciboId: item.reciboId,
@@ -425,6 +429,18 @@ export async function GET(event) {
     }
 
     // Montagem simplificada do ranking: conciliação + vendas manuais, dedup por recibo
+    const useNonBlockingReadModel =
+      (isAdminByType || isMasterByType) &&
+      companyIds.length > 1 &&
+      !hasRequestedVendedorFilter;
+    const readModelOptions = useNonBlockingReadModel
+      ? {
+          mode: "stale-while-revalidate" as const,
+          executionContext: getPlatformExecutionContext(event.platform),
+          fallbackToRawOnReadError: false,
+        }
+      : undefined;
+
     const [
       currentContributionsResult,
       quotesDataResult,
@@ -451,7 +467,7 @@ export async function GET(event) {
               dataFim,
               companyIds,
               vendedorIds,
-            }),
+            }, readModelOptions),
       }),
       getCachedReadModel<RankingQuoteRow[]>({
           key: buildReadModelCacheKey("ranking:quotes", {

@@ -1032,6 +1032,22 @@ export async function GET(event) {
       effectiveVendedorIds.length <= SUPABASE_IN_BATCH_SIZE &&
       accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE;
 
+    const vendedoresPromise = includeVendedores
+      ? (async () => {
+          const usersData = companyIds.length > 0
+            ? await fetchRankingVendedoresByCompanyIds(client, companyIds)
+            : [];
+
+          return (usersData || [])
+            .map((row) => ({
+              id: String(row.id || ''),
+              nome_completo: String(row.nome_completo || row.email || 'Usuário sem nome')
+            }))
+            .filter((row) => row.id)
+            .sort((a, b) => PT_BR_COLLATOR.compare(a.nome_completo, b.nome_completo));
+        })()
+      : Promise.resolve([] as Array<{ id: string; nome_completo: string }>);
+
     const dataResult = requestedVendedorResolvedEmpty
       ? { rows: [] as VendaRow[], count: 0 }
       : searchPrefilter.applied && searchVendaIds.length === 0
@@ -1099,20 +1115,7 @@ export async function GET(event) {
       ? items
       : items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
-    let vendedores: Array<{ id: string; nome_completo: string }> = [];
-    if (includeVendedores) {
-      const usersData = companyIds.length > 0
-        ? await fetchRankingVendedoresByCompanyIds(client, companyIds)
-        : [];
-
-      vendedores = (usersData || [])
-        .map((row) => ({
-          id: String(row.id || ''),
-          nome_completo: String(row.nome_completo || row.email || 'Usuário sem nome')
-        }))
-        .filter((row) => row.id)
-        .sort((a, b) => PT_BR_COLLATOR.compare(a.nome_completo, b.nome_completo));
-    }
+    const vendedores = await vendedoresPromise;
 
     return json(
       {

@@ -120,15 +120,14 @@ export async function GET(event) {
             user_types (name),
             companies (nome_fantasia, nome_empresa)
           `)
+          .eq('active', true)
           .limit(1000);
 
         if (filters?.ids && filters.ids.length > 0) query = query.in('id', filters.ids);
         if (filters?.companyIds && filters.companyIds.length > 0)
           query = query.in('company_id', filters.companyIds);
 
-        if (enforceCorporateOnly) {
-          query = query.eq('uso_individual', false).eq('active', true);
-        }
+        if (enforceCorporateOnly) query = query.eq('uso_individual', false);
 
         const { data, error } = await query;
         if (error) throw error;

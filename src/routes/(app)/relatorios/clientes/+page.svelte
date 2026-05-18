@@ -40,6 +40,25 @@
     nome: string;
   }
 
+  interface ClientesSummary {
+    totalClientes: number;
+    totalGasto: number;
+    ticketMedioGeral: number;
+    clientesVIP: number;
+    categorias: {
+      vip: number;
+      regular: number;
+      ocasional: number;
+    };
+  }
+
+  interface ClientesRelatorioPayload {
+    items?: ClienteRelatorio[] | null;
+    total?: number | null;
+    truncated?: boolean | null;
+    summary?: Partial<ClientesSummary> | null;
+  }
+
   type PeriodoModo = 'mes' | 'periodo';
 
   function getDefaultRange() {
@@ -53,6 +72,7 @@
 
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
+  const RELATORIO_PAGE_SIZE = 250;
   let clientes: ClienteRelatorio[] = [];
   let empresas: EmpresaFiltro[] = [];
   let vendedores: VendedorFiltro[] = [];
@@ -71,7 +91,18 @@
   let baseAbortController: AbortController | null = null;
   let relatorioRequestSeq = 0;
   let relatorioAbortController: AbortController | null = null;
+  let loadMoreAbortController: AbortController | null = null;
+  let loadingMore = false;
+  let totalRelatorioItems = 0;
+  let relatorioTruncado = false;
   let showFilterSheet = false;
+  let resumoClientes: ClientesSummary = {
+    totalClientes: 0,
+    totalGasto: 0,
+    ticketMedioGeral: 0,
+    clientesVIP: 0,
+    categorias: { vip: 0, regular: 0, ocasional: 0 }
+  };
   const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
   async function loadBase() {
@@ -147,19 +178,37 @@
   async function loadRelatorio(showSuccess = false) {
     const requestSeq = ++relatorioRequestSeq;
     relatorioAbortController?.abort();
+    loadMoreAbortController?.abort();
     const controller = new AbortController();
     relatorioAbortController = controller;
     loading = true;
 
     try {
-      const data = await apiGet<{ items?: ClienteRelatorio[] }>('/api/v1/relatorios/clientes', {
+      const data = await apiGet<ClientesRelatorioPayload>('/api/v1/relatorios/clientes', {
         data_inicio: dataInicio,
         data_fim: dataFim,
         empresa_id: empresaSelecionada || undefined,
-        vendedor_id: vendedorSelecionado || undefined
+        vendedor_id: vendedorSelecionado || undefined,
+        categoria: categoriaSelecionada || undefined,
+        ordenacao,
+        items_limit: RELATORIO_PAGE_SIZE,
+        items_offset: 0
       }, controller.signal, 90_000);
       if (requestSeq !== relatorioRequestSeq) return;
       clientes = data.items || [];
+      totalRelatorioItems = Number(data.total || clientes.length || 0);
+      relatorioTruncado = Boolean(data.truncated);
+      resumoClientes = {
+        totalClientes: Number(data.summary?.totalClientes || totalRelatorioItems || 0),
+        totalGasto: Number(data.summary?.totalGasto || 0),
+        ticketMedioGeral: Number(data.summary?.ticketMedioGeral || 0),
+        clientesVIP: Number(data.summary?.clientesVIP || 0),
+        categorias: {
+          vip: Number(data.summary?.categorias?.vip || 0),
+          regular: Number(data.summary?.categorias?.regular || 0),
+          ocasional: Number(data.summary?.categorias?.ocasional || 0)
+        }
+      };
 
       if (showSuccess) {
         toast.success('Relatorio atualizado!');
@@ -168,6 +217,15 @@
       if (isCanceledApiError(err)) return;
       if (requestSeq !== relatorioRequestSeq) return;
       clientes = [];
+      totalRelatorioItems = 0;
+      relatorioTruncado = false;
+      resumoClientes = {
+        totalClientes: 0,
+        totalGasto: 0,
+        ticketMedioGeral: 0,
+        clientesVIP: 0,
+        categorias: { vip: 0, regular: 0, ocasional: 0 }
+      };
       toast.error(toUserMessage(err, 'Erro ao carregar relatório de clientes'));
     } finally {
       if (requestSeq === relatorioRequestSeq) {
@@ -175,6 +233,39 @@
         if (relatorioAbortController === controller) {
           relatorioAbortController = null;
         }
+      }
+    }
+  }
+
+  async function loadMoreRelatorio() {
+    if (loadingMore || !relatorioTruncado) return;
+    loadMoreAbortController?.abort();
+    const controller = new AbortController();
+    loadMoreAbortController = controller;
+    loadingMore = true;
+
+    try {
+      const data = await apiGet<ClientesRelatorioPayload>('/api/v1/relatorios/clientes', {
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        empresa_id: empresaSelecionada || undefined,
+        vendedor_id: vendedorSelecionado || undefined,
+        categoria: categoriaSelecionada || undefined,
+        ordenacao,
+        items_limit: RELATORIO_PAGE_SIZE,
+        items_offset: clientes.length
+      }, controller.signal, 90_000);
+
+      clientes = [...clientes, ...(data.items || [])];
+      totalRelatorioItems = Number(data.total || totalRelatorioItems || clientes.length);
+      relatorioTruncado = Boolean(data.truncated);
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      toast.error(toUserMessage(err, 'Erro ao carregar mais clientes'));
+    } finally {
+      loadingMore = false;
+      if (loadMoreAbortController === controller) {
+        loadMoreAbortController = null;
       }
     }
   }
@@ -191,6 +282,7 @@
   onDestroy(() => {
     baseAbortController?.abort();
     relatorioAbortController?.abort();
+    loadMoreAbortController?.abort();
     autoReload.cancel();
   });
 
@@ -201,7 +293,9 @@
       dataInicio,
       dataFim,
       empresaSelecionada,
-      vendedorSelecionado
+      vendedorSelecionado,
+      categoriaSelecionada,
+      ordenacao
     ].join('|');
   }
 
@@ -251,38 +345,17 @@
     }
   }
 
-  $: clientesFiltrados = clientes
-    .filter((cliente) => !categoriaSelecionada || cliente.categoria === categoriaSelecionada)
-    .sort((left, right) => {
-      if (ordenacao === 'total_compras') {
-        return right.total_compras - left.total_compras;
-      }
-
-      if (ordenacao === 'ticket_medio') {
-        return right.ticket_medio - left.ticket_medio;
-      }
-
-      if (ordenacao === 'ultima_compra') {
-        return String(right.ultima_compra || '').localeCompare(String(left.ultima_compra || ''));
-      }
-
-      return right.total_gasto - left.total_gasto;
-    });
-
-  $: totalClientes = clientesFiltrados.length;
-  $: clientesAgregados = clientesFiltrados.reduce(
-    (acc, cliente) => {
-      acc.totalGasto += cliente.total_gasto;
-      if (cliente.categoria === 'VIP') acc.vip += 1;
-      if (cliente.categoria === 'Regular') acc.regular += 1;
-      if (cliente.categoria === 'Ocasional') acc.ocasional += 1;
-      return acc;
-    },
-    { totalGasto: 0, vip: 0, regular: 0, ocasional: 0 }
-  );
-  $: totalGasto = clientesAgregados.totalGasto;
-  $: ticketMedioGeral = totalClientes > 0 ? totalGasto / totalClientes : 0;
-  $: clientesVIP = clientesAgregados.vip;
+  $: clientesFiltrados = clientes;
+  $: totalClientes = resumoClientes.totalClientes;
+  $: clientesAgregados = {
+    totalGasto: resumoClientes.totalGasto,
+    vip: resumoClientes.categorias.vip,
+    regular: resumoClientes.categorias.regular,
+    ocasional: resumoClientes.categorias.ocasional
+  };
+  $: totalGasto = resumoClientes.totalGasto;
+  $: ticketMedioGeral = resumoClientes.ticketMedioGeral;
+  $: clientesVIP = resumoClientes.clientesVIP;
 
   $: if (filtroPeriodoModo === 'mes') {
     const range = monthRangeFromKey(mesSelecionado) || defaultRange;
@@ -557,6 +630,15 @@
     <ChartJS type="bar" data={gastoPorClienteData} height={250} />
   </Card>
 </div>
+
+{#if relatorioTruncado}
+  <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+    <span>Exibindo {clientes.length} de {totalRelatorioItems} clientes. Carregue mais somente quando precisar detalhar/exportar mais linhas.</span>
+    <Button variant="secondary" size="sm" disabled={loadingMore} on:click={loadMoreRelatorio}>
+      {loadingMore ? 'Carregando...' : 'Carregar mais'}
+    </Button>
+  </div>
+{/if}
 
 <DataTable
   {columns}

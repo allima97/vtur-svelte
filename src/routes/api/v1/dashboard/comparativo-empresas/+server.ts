@@ -15,6 +15,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { getPlatformExecutionContext } from '$lib/server/readModelRebuild';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
@@ -129,6 +130,7 @@ export async function GET(event) {
       return json({ inicio, fim, empresas: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
 
+    const useNonBlockingReadModel = companyIds.length > 1 && !isUuid(requestedCompanyId);
     const metaInicio = `${inicio.slice(0, 7)}-01`;
     const metaFim = `${fim.slice(0, 7)}-01`;
 
@@ -193,7 +195,13 @@ export async function GET(event) {
           dataFim: fim,
           companyIds,
           vendedorIds: []
-        });
+        }, useNonBlockingReadModel
+          ? {
+              mode: 'stale-while-revalidate',
+              executionContext: getPlatformExecutionContext(event.platform),
+              fallbackToRawOnReadError: false,
+            }
+          : undefined);
 
         const [empresaMap, vendedorCompanyMap, { contributions }] = await Promise.all([
           empresaMapPromise,

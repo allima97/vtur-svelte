@@ -39,6 +39,21 @@
     nome: string;
   }
 
+  interface ProdutosSummary {
+    totalReceita: number;
+    totalLucro: number;
+    margemMedia: number;
+    produtoTop: ProdutoRelatorio | null;
+  }
+
+  interface ProdutosRelatorioPayload {
+    items?: ProdutoRelatorio[] | null;
+    total?: number | null;
+    truncated?: boolean | null;
+    tipos?: string[] | null;
+    summary?: Partial<ProdutosSummary> | null;
+  }
+
   type PeriodoModo = 'mes' | 'periodo';
 
   function getDefaultRange() {
@@ -53,6 +68,7 @@
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
   const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+  const RELATORIO_PAGE_SIZE = 250;
 
   let produtos: ProdutoRelatorio[] = [];
   let empresas: EmpresaFiltro[] = [];
@@ -72,6 +88,17 @@
   let baseAbortController: AbortController | null = null;
   let relatorioRequestSeq = 0;
   let relatorioAbortController: AbortController | null = null;
+  let loadMoreAbortController: AbortController | null = null;
+  let loadingMore = false;
+  let totalRelatorioItems = 0;
+  let relatorioTruncado = false;
+  let tiposDisponiveisPayload: string[] = [];
+  let resumoProdutos: ProdutosSummary = {
+    totalReceita: 0,
+    totalLucro: 0,
+    margemMedia: 0,
+    produtoTop: null
+  };
   let showFilterSheet = false;
   const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
@@ -142,19 +169,33 @@
   async function loadRelatorio(showSuccess = false) {
     const requestSeq = ++relatorioRequestSeq;
     relatorioAbortController?.abort();
+    loadMoreAbortController?.abort();
     const controller = new AbortController();
     relatorioAbortController = controller;
     loading = true;
 
     try {
-      const data = await apiGet<{ items?: ProdutoRelatorio[] }>('/api/v1/relatorios/produtos', {
+      const data = await apiGet<ProdutosRelatorioPayload>('/api/v1/relatorios/produtos', {
         data_inicio: dataInicio,
         data_fim: dataFim,
         empresa_id: empresaSelecionada || undefined,
-        vendedor_id: vendedorSelecionado || undefined
+        vendedor_id: vendedorSelecionado || undefined,
+        tipo: tipoSelecionado || undefined,
+        ordenacao,
+        items_limit: RELATORIO_PAGE_SIZE,
+        items_offset: 0
       }, controller.signal, 90_000);
       if (requestSeq !== relatorioRequestSeq) return;
       produtos = data.items || [];
+      totalRelatorioItems = Number(data.total || produtos.length || 0);
+      relatorioTruncado = Boolean(data.truncated);
+      tiposDisponiveisPayload = data.tipos || [];
+      resumoProdutos = {
+        totalReceita: Number(data.summary?.totalReceita || 0),
+        totalLucro: Number(data.summary?.totalLucro || 0),
+        margemMedia: Number(data.summary?.margemMedia || 0),
+        produtoTop: data.summary?.produtoTop || produtos[0] || null
+      };
 
       if (showSuccess) {
         toast.success('Relatorio atualizado!');
@@ -163,6 +204,10 @@
       if (isCanceledApiError(err)) return;
       if (requestSeq !== relatorioRequestSeq) return;
       produtos = [];
+      totalRelatorioItems = 0;
+      relatorioTruncado = false;
+      tiposDisponiveisPayload = [];
+      resumoProdutos = { totalReceita: 0, totalLucro: 0, margemMedia: 0, produtoTop: null };
       toast.error(toUserMessage(err, 'Erro ao carregar relatório de produtos'));
     } finally {
       if (requestSeq === relatorioRequestSeq) {
@@ -170,6 +215,39 @@
         if (relatorioAbortController === controller) {
           relatorioAbortController = null;
         }
+      }
+    }
+  }
+
+  async function loadMoreRelatorio() {
+    if (loadingMore || !relatorioTruncado) return;
+    loadMoreAbortController?.abort();
+    const controller = new AbortController();
+    loadMoreAbortController = controller;
+    loadingMore = true;
+
+    try {
+      const data = await apiGet<ProdutosRelatorioPayload>('/api/v1/relatorios/produtos', {
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        empresa_id: empresaSelecionada || undefined,
+        vendedor_id: vendedorSelecionado || undefined,
+        tipo: tipoSelecionado || undefined,
+        ordenacao,
+        items_limit: RELATORIO_PAGE_SIZE,
+        items_offset: produtos.length
+      }, controller.signal, 90_000);
+
+      produtos = [...produtos, ...(data.items || [])];
+      totalRelatorioItems = Number(data.total || totalRelatorioItems || produtos.length);
+      relatorioTruncado = Boolean(data.truncated);
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      toast.error(toUserMessage(err, 'Erro ao carregar mais produtos'));
+    } finally {
+      loadingMore = false;
+      if (loadMoreAbortController === controller) {
+        loadMoreAbortController = null;
       }
     }
   }
@@ -186,6 +264,7 @@
   onDestroy(() => {
     baseAbortController?.abort();
     relatorioAbortController?.abort();
+    loadMoreAbortController?.abort();
     autoReload.cancel();
   });
 
@@ -196,7 +275,9 @@
       dataInicio,
       dataFim,
       empresaSelecionada,
-      vendedorSelecionado
+      vendedorSelecionado,
+      tipoSelecionado,
+      ordenacao
     ].join('|');
   }
 
@@ -243,36 +324,17 @@
     void goto(`/relatorios/vendas?${params.toString()}`);
   }
 
-  $: tiposDisponiveis = (() => {
-    const tipos = new Set<string>();
-    for (const produto of produtos) {
-      tipos.add(produto.tipo);
-    }
-    return Array.from(tipos).sort((left, right) => PT_BR_COLLATOR.compare(left, right));
-  })();
+  $: tiposDisponiveis = tiposDisponiveisPayload.length
+    ? tiposDisponiveisPayload
+    : Array.from(new Set(produtos.map((produto) => produto.tipo)))
+        .filter(Boolean)
+        .sort((left, right) => PT_BR_COLLATOR.compare(left, right));
 
-  $: produtosFiltrados = produtos
-    .filter((produto) => !tipoSelecionado || produto.tipo === tipoSelecionado)
-    .sort((left, right) => {
-      if (ordenacao === 'lucro') {
-        return right.lucro - left.lucro;
-      }
-
-      if (ordenacao === 'margem') {
-        return right.margem - left.margem;
-      }
-
-      if (ordenacao === 'quantidade') {
-        return right.quantidade - left.quantidade;
-      }
-
-      return right.receita - left.receita;
-    });
-
-  $: totalReceita = produtosFiltrados.reduce((acc, produto) => acc + produto.receita, 0);
-  $: totalLucro = produtosFiltrados.reduce((acc, produto) => acc + produto.lucro, 0);
-  $: margemMedia = totalReceita > 0 ? (totalLucro / totalReceita) * 100 : 0;
-  $: produtoTop = produtosFiltrados.length > 0 ? produtosFiltrados[0] : null;
+  $: produtosFiltrados = produtos;
+  $: totalReceita = resumoProdutos.totalReceita;
+  $: totalLucro = resumoProdutos.totalLucro;
+  $: margemMedia = resumoProdutos.margemMedia;
+  $: produtoTop = resumoProdutos.produtoTop;
 
   $: if (filtroPeriodoModo === 'mes') {
     const range = monthRangeFromKey(mesSelecionado) || defaultRange;
@@ -557,6 +619,15 @@
     <ChartJS type="bar" data={margemPorProdutoData} height={280} />
   </Card>
 </div>
+
+{#if relatorioTruncado}
+  <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+    <span>Exibindo {produtos.length} de {totalRelatorioItems} produtos. Carregue mais somente quando precisar detalhar/exportar mais linhas.</span>
+    <Button variant="secondary" size="sm" disabled={loadingMore} on:click={loadMoreRelatorio}>
+      {loadingMore ? 'Carregando...' : 'Carregar mais'}
+    </Button>
+  </div>
+{/if}
 
 <DataTable
   {columns}

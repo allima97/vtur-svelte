@@ -22,7 +22,11 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
 import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
+
+const DEFAULT_ITEMS_LIMIT = 250;
+const MAX_ITEMS_LIMIT = 1000;
 
 type ClienteLookupRow = {
   id?: string | null;
@@ -32,6 +36,83 @@ type ClienteLookupRow = {
   telefone?: string | null;
   whatsapp?: string | null;
 };
+
+type ClienteRawItem = {
+  cliente_id: string | null;
+  total_compras: number;
+  total_gasto: number;
+  ultima_compra: string | null;
+  ticket_medio: number;
+  frequencia: number;
+  categoria: "VIP" | "Regular" | "Ocasional";
+};
+
+type ClienteDisplayItem = ClienteRawItem & {
+  cliente: string;
+  cpf: string | null;
+  email: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  cliente_cpf: string | null;
+  cliente_telefone: string | null;
+  cliente_whatsapp: string | null;
+  cliente_display: string;
+  cliente_nome: string;
+  cliente_email: string | null;
+  cliente_display_name: string;
+  cliente_name: string;
+};
+
+function parseItemsWindow(searchParams: URLSearchParams) {
+  const rawLimit = Number(searchParams.get("items_limit") || DEFAULT_ITEMS_LIMIT);
+  const rawOffset = Number(searchParams.get("items_offset") || 0);
+  const limit = Math.min(
+    MAX_ITEMS_LIMIT,
+    Math.max(1, Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : DEFAULT_ITEMS_LIMIT),
+  );
+  const offset = Math.max(0, Number.isFinite(rawOffset) ? Math.trunc(rawOffset) : 0);
+  return { limit, offset };
+}
+
+function sortClientes(items: ClienteRawItem[], ordenacao: string) {
+  return [...items].sort((left, right) => {
+    if (ordenacao === "total_compras") return right.total_compras - left.total_compras;
+    if (ordenacao === "ticket_medio") return right.ticket_medio - left.ticket_medio;
+    if (ordenacao === "ultima_compra") {
+      return String(right.ultima_compra || "").localeCompare(String(left.ultima_compra || ""));
+    }
+    return right.total_gasto - left.total_gasto;
+  });
+}
+
+function toClienteDisplayItem(
+  item: ClienteRawItem,
+  clientesById: Map<string, ClienteLookupRow>,
+): ClienteDisplayItem {
+  const lookup = item.cliente_id ? clientesById.get(item.cliente_id) : null;
+  const cliente = String(lookup?.nome || "").trim() || "Cliente sem nome";
+  const cpf = String(lookup?.cpf || "").trim() || null;
+  const email = String(lookup?.email || "").trim() || null;
+  const telefone = String(lookup?.telefone || "").trim() || null;
+  const whatsapp = String(lookup?.whatsapp || "").trim() || null;
+
+  return {
+    ...item,
+    cliente,
+    cpf,
+    email,
+    telefone,
+    whatsapp,
+    cliente_cpf: cpf,
+    cliente_telefone: telefone,
+    cliente_whatsapp: whatsapp,
+    cliente_display: cliente,
+    cliente_nome: cliente,
+    cliente_email: email,
+    cliente_display_name: cliente,
+    cliente_name: cliente,
+  };
+}
 
 async function fetchClientesByIds(client: SupabaseClient, ids: string[]) {
   const clientesById = new Map<string, ClienteLookupRow>();
@@ -90,6 +171,14 @@ export async function GET(event) {
       scope,
       searchParams.get("vendedor_ids") || searchParams.get("vendedor_id"),
     );
+    const categoriaFiltro = String(searchParams.get("categoria") || "").trim();
+    const ordenacao = String(searchParams.get("ordenacao") || "total_gasto").trim();
+    const { limit: itemsLimit, offset: itemsOffset } = parseItemsWindow(searchParams);
+    const tipoNome = String(scope.tipoNome || "").toUpperCase();
+    const useNonBlockingReadModel =
+      (scope.isAdmin || tipoNome.includes("MASTER")) &&
+      companyIds.length > 1 &&
+      vendedorIds.length === 0;
 
     const payload = await getCachedReadModel({
       key: buildReadModelCacheKey("relatorios:clientes", {
@@ -112,7 +201,13 @@ export async function GET(event) {
           dataFim,
           companyIds,
           vendedorIds,
-        });
+        }, useNonBlockingReadModel
+          ? {
+              mode: "stale-while-revalidate",
+              executionContext: getPlatformExecutionContext(event.platform),
+              fallbackToRawOnReadError: false,
+            }
+          : undefined);
 
         const months = monthSpanInclusive(dataInicio, dataFim);
         const byClient = new Map<
@@ -160,64 +255,30 @@ export async function GET(event) {
           byClient.set(clientKey, current);
         }
 
-        const clientesById = await fetchClientesByIds(
-          client,
-          Array.from(byClient.values())
-            .map((item) => item.cliente_id)
-            .filter((id): id is string => Boolean(id)),
-        );
-
-        const items = Array.from(byClient.values())
+        const rawItems = Array.from(byClient.values())
           .map((item) => {
-            const clienteItem = {
+            const ticketMedio =
+              item.total_compras > 0
+                ? item.total_gasto / item.total_compras
+                : 0;
+            return {
               cliente_id: item.cliente_id,
               total_compras: item.total_compras,
               total_gasto: item.total_gasto,
               ultima_compra: item.ultima_compra,
-            };
-            const lookup = clienteItem.cliente_id
-              ? clientesById.get(clienteItem.cliente_id)
-              : null;
-            const cliente =
-              String(lookup?.nome || "").trim() || "Cliente sem nome";
-            const cpf = String(lookup?.cpf || "").trim() || null;
-            const email = String(lookup?.email || "").trim() || null;
-            const telefone = String(lookup?.telefone || "").trim() || null;
-            const whatsapp = String(lookup?.whatsapp || "").trim() || null;
-            // Parity alias for VTUR-APP: expose client CPF as a direct field
-            const ticketMedio =
-              clienteItem.total_compras > 0
-                ? clienteItem.total_gasto / clienteItem.total_compras
-                : 0;
-            return {
-              ...clienteItem,
-              cliente,
-              cpf,
-              email,
-              telefone,
-              whatsapp,
-              cliente_cpf: cpf,
-              cliente_telefone: telefone,
-              cliente_whatsapp: whatsapp,
-              cliente_display: cliente,
-              // Additional parity aliases for templates
-              cliente_nome: cliente,
-              cliente_email: email,
-              cliente_display_name: cliente,
-              cliente_name: cliente,
               ticket_medio: ticketMedio,
-              frequencia: clienteItem.total_compras / months,
+              frequencia: item.total_compras / months,
               categoria: getClienteCategoria(
-                clienteItem.total_compras,
-                clienteItem.total_gasto,
+                item.total_compras,
+                item.total_gasto,
               ),
             };
           })
           .sort((left, right) => right.total_gasto - left.total_gasto);
 
         return {
-          items,
-          total: items.length,
+          rawItems,
+          total: rawItems.length,
           periodo: {
             data_inicio: dataInicio,
             data_fim: dataFim,
@@ -226,7 +287,54 @@ export async function GET(event) {
       },
     });
 
-    return json(payload, { headers: DYNAMIC_READ_HEADERS });
+    const rawPayload = payload as typeof payload & {
+      rawItems?: ClienteRawItem[];
+      items?: ClienteRawItem[];
+    };
+    const allItems = (Array.isArray(rawPayload.rawItems)
+      ? rawPayload.rawItems
+      : Array.isArray(rawPayload.items)
+        ? rawPayload.items
+        : []) as ClienteRawItem[];
+    const filteredItems = categoriaFiltro
+      ? allItems.filter((item) => item.categoria === categoriaFiltro)
+      : allItems;
+    const sortedItems = sortClientes(filteredItems, ordenacao);
+    const pagedRawItems = sortedItems.slice(itemsOffset, itemsOffset + itemsLimit);
+    const clientesById = await fetchClientesByIds(
+      client,
+      pagedRawItems
+        .map((item) => item.cliente_id)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const items = pagedRawItems.map((item) => toClienteDisplayItem(item, clientesById));
+    const totalGasto = sortedItems.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
+    const categorias = sortedItems.reduce(
+      (acc, item) => {
+        if (item.categoria === "VIP") acc.vip += 1;
+        if (item.categoria === "Regular") acc.regular += 1;
+        if (item.categoria === "Ocasional") acc.ocasional += 1;
+        return acc;
+      },
+      { vip: 0, regular: 0, ocasional: 0 },
+    );
+
+    return json({
+      periodo: payload.periodo,
+      items,
+      total: sortedItems.length,
+      total_completo: allItems.length,
+      truncated: itemsOffset + items.length < sortedItems.length,
+      items_limit: itemsLimit,
+      items_offset: itemsOffset,
+      summary: {
+        totalClientes: sortedItems.length,
+        totalGasto,
+        ticketMedioGeral: sortedItems.length > 0 ? totalGasto / sortedItems.length : 0,
+        clientesVIP: categorias.vip,
+        categorias,
+      },
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar relatorio de clientes.");
   }

@@ -467,7 +467,8 @@
       query: {
         ...Object.fromEntries(params),
         items_limit: RELATORIO_ITEMS_LIMIT,
-        items_offset: offset
+        items_offset: offset,
+        include_summary: offset > 0 ? 0 : 1
       }
     });
   }

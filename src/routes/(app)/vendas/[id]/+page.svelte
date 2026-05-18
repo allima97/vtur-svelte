@@ -105,6 +105,7 @@
     conciliado?: boolean | null;
     notas?: string | null;
     observacoes?: string | null;
+    _lite?: boolean | null;
   };
 
   type RankingReciboRateio = {
@@ -175,6 +176,8 @@
   let rankingRecibos: RankingReciboSnapshot[] = [];
   let rankingTotais: RankingTotaisSnapshot | null = null;
   let rankingLoading = false;
+  let vendaCompletaLoaded = false;
+  let rankingLoadedForVendaId = '';
 
   // Edição por modal de recibo
   let showEditReciboDialog = false;
@@ -339,12 +342,13 @@
   }
 
   async function carregarRankingRecibos() {
-    if (!vendaId) return;
+    if (!vendaId || rankingLoading || rankingLoadedForVendaId === vendaId) return;
     rankingLoading = true;
     try {
       const data = await apiGet<RankingRecibosPayload>(`/api/v1/vendas/${vendaId}/ranking-recibos`);
       rankingRecibos = data.recibos || [];
       rankingTotais = data.totais || null;
+      rankingLoadedForVendaId = vendaId;
     } catch (err) {
       // Não bloqueia a tela principal, mas loga para facilitar diagnóstico
       if (dev) console.warn('[ranking-recibos] erro ao carregar snapshot:', err);
@@ -353,6 +357,11 @@
     } finally {
       rankingLoading = false;
     }
+  }
+
+  function carregarRankingQuandoFichaCompleta() {
+    if (!venda || !vendaCompletaLoaded || venda._lite) return;
+    void carregarRankingRecibos();
   }
 
   async function openMesclarModal() {
@@ -372,7 +381,7 @@
   onMount(async () => {
     await ensureServerSessionCookie();
     await carregarVenda();
-    if (venda) void carregarRankingRecibos();
+    carregarRankingQuandoFichaCompleta();
   });
 
   onDestroy(() => {
@@ -462,6 +471,7 @@
 
     refreshing = preserveData && Boolean(venda);
     if (!preserveData || !venda) loading = true;
+    if (!preserveData) vendaCompletaLoaded = false;
     loadingHint = fromImport
       ? 'Finalizando a abertura da venda importada...'
       : 'Carregando os dados da venda...';
@@ -471,7 +481,7 @@
       startLoadingRecoveryGuard(fromRecentWrite ? 3500 : 7000);
     }
 
-    if (isInitialLoad && fromRecentWrite) {
+    if (isInitialLoad) {
       try {
         loadingHint = fromImport ? 'Abrindo a venda importada...' : 'Abrindo a venda...';
         const liteData = await apiFetch<VendaDetalheView>(`/api/v1/vendas/${vendaId}`, {
@@ -481,6 +491,7 @@
           query: { lite: 1, t: Date.now() }
         });
         await applyVendaData(liteData, { loadProdutos: false });
+        vendaCompletaLoaded = false;
         loading = false;
         refreshing = true;
         stopLoadingRecoveryGuard();
@@ -491,7 +502,9 @@
         loading = true;
         loadingHint = fromImport
           ? 'A venda foi importada. Estamos tentando abrir a ficha completa...'
-          : 'Atualizando os dados da venda...';
+          : fromSave
+            ? 'Atualizando os dados da venda...'
+            : 'Carregando a ficha completa da venda...';
         startLoadingRecoveryGuard(3500);
       }
     }
@@ -505,6 +518,8 @@
           query: { t: Date.now() }
         });
         await applyVendaData(data);
+        vendaCompletaLoaded = !data._lite;
+        carregarRankingQuandoFichaCompleta();
         loading = false;
         refreshing = false;
         stopLoadingRecoveryGuard();

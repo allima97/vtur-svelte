@@ -13,6 +13,7 @@ import {
 } from '$lib/server/v1';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { getPlatformExecutionContext } from '$lib/server/readModelRebuild';
 
 const NO_MATCH_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -87,13 +88,24 @@ export async function GET(event) {
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];
 
+    const useNonBlockingReadModel =
+      (isAdminByType || isMasterByType) &&
+      companyIds.length > 1 &&
+      !hasRequestedVendedorFilter;
+
     const { agg: kpis } = await fetchVendasKpiReciboContributions(client, {
       dataInicio: inicio,
       dataFim: fim,
       companyIds,
       vendedorIds,
       accessibleClientIds
-    });
+    }, useNonBlockingReadModel
+      ? {
+          mode: 'stale-while-revalidate',
+          executionContext: getPlatformExecutionContext(event.platform),
+          fallbackToRawOnReadError: false,
+        }
+      : undefined);
 
     return json({ kpis }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {

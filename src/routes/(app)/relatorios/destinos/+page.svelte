@@ -36,6 +36,19 @@
     nome: string;
   }
 
+  interface DestinosSummary {
+    totalReceita: number;
+    totalVendas: number;
+    destinoTop: DestinoRelatorio | null;
+  }
+
+  interface DestinosRelatorioPayload {
+    items?: DestinoRelatorio[] | null;
+    total?: number | null;
+    truncated?: boolean | null;
+    summary?: Partial<DestinosSummary> | null;
+  }
+
   type PeriodoModo = 'mes' | 'periodo';
 
   function getDefaultRange() {
@@ -49,6 +62,7 @@
 
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
+  const RELATORIO_PAGE_SIZE = 250;
 
   let destinos: DestinoRelatorio[] = [];
   let empresas: EmpresaFiltro[] = [];
@@ -68,6 +82,15 @@
   let baseAbortController: AbortController | null = null;
   let relatorioRequestSeq = 0;
   let relatorioAbortController: AbortController | null = null;
+  let loadMoreAbortController: AbortController | null = null;
+  let loadingMore = false;
+  let totalRelatorioItems = 0;
+  let relatorioTruncado = false;
+  let resumoDestinos: DestinosSummary = {
+    totalReceita: 0,
+    totalVendas: 0,
+    destinoTop: null
+  };
   let showFilterSheet = false;
   const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
@@ -130,19 +153,31 @@
   async function loadRelatorio(showSuccess = false) {
     const requestSeq = ++relatorioRequestSeq;
     relatorioAbortController?.abort();
+    loadMoreAbortController?.abort();
     const controller = new AbortController();
     relatorioAbortController = controller;
     loading = true;
 
     try {
-      const data = await apiGet<{ items?: DestinoRelatorio[] }>('/api/v1/relatorios/destinos', {
+      const data = await apiGet<DestinosRelatorioPayload>('/api/v1/relatorios/destinos', {
         data_inicio: dataInicio,
         data_fim: dataFim,
         empresa_id: empresaSelecionada || undefined,
-        vendedor_id: vendedorSelecionado || undefined
+        vendedor_id: vendedorSelecionado || undefined,
+        ordenacao,
+        recorte,
+        items_limit: RELATORIO_PAGE_SIZE,
+        items_offset: 0
       }, controller.signal, 90_000);
       if (requestSeq !== relatorioRequestSeq) return;
       destinos = data.items || [];
+      totalRelatorioItems = Number(data.total || destinos.length || 0);
+      relatorioTruncado = Boolean(data.truncated);
+      resumoDestinos = {
+        totalReceita: Number(data.summary?.totalReceita || 0),
+        totalVendas: Number(data.summary?.totalVendas || 0),
+        destinoTop: data.summary?.destinoTop || destinos[0] || null
+      };
 
       if (showSuccess) {
         toast.success('Relatorio atualizado!');
@@ -151,6 +186,9 @@
       if (isCanceledApiError(err)) return;
       if (requestSeq !== relatorioRequestSeq) return;
       destinos = [];
+      totalRelatorioItems = 0;
+      relatorioTruncado = false;
+      resumoDestinos = { totalReceita: 0, totalVendas: 0, destinoTop: null };
       toast.error(toUserMessage(err, 'Erro ao carregar relatório de destinos'));
     } finally {
       if (requestSeq === relatorioRequestSeq) {
@@ -158,6 +196,39 @@
         if (relatorioAbortController === controller) {
           relatorioAbortController = null;
         }
+      }
+    }
+  }
+
+  async function loadMoreRelatorio() {
+    if (loadingMore || !relatorioTruncado) return;
+    loadMoreAbortController?.abort();
+    const controller = new AbortController();
+    loadMoreAbortController = controller;
+    loadingMore = true;
+
+    try {
+      const data = await apiGet<DestinosRelatorioPayload>('/api/v1/relatorios/destinos', {
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        empresa_id: empresaSelecionada || undefined,
+        vendedor_id: vendedorSelecionado || undefined,
+        ordenacao,
+        recorte,
+        items_limit: RELATORIO_PAGE_SIZE,
+        items_offset: destinos.length
+      }, controller.signal, 90_000);
+
+      destinos = [...destinos, ...(data.items || [])];
+      totalRelatorioItems = Number(data.total || totalRelatorioItems || destinos.length);
+      relatorioTruncado = Boolean(data.truncated);
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      toast.error(toUserMessage(err, 'Erro ao carregar mais destinos'));
+    } finally {
+      loadingMore = false;
+      if (loadMoreAbortController === controller) {
+        loadMoreAbortController = null;
       }
     }
   }
@@ -174,6 +245,7 @@
   onDestroy(() => {
     baseAbortController?.abort();
     relatorioAbortController?.abort();
+    loadMoreAbortController?.abort();
     autoReload.cancel();
   });
 
@@ -184,7 +256,9 @@
       dataInicio,
       dataFim,
       empresaSelecionada,
-      vendedorSelecionado
+      vendedorSelecionado,
+      ordenacao,
+      recorte
     ].join('|');
   }
 
@@ -229,33 +303,10 @@
     void goto(`/relatorios/vendas?${params.toString()}`);
   }
 
-  $: destinosOrdenados = [...destinos].sort((left, right) => {
-    if (ordenacao === 'quantidade') {
-      return right.quantidade - left.quantidade;
-    }
-
-    if (ordenacao === 'ticket_medio') {
-      return right.ticket_medio - left.ticket_medio;
-    }
-
-    return right.receita - left.receita;
-  });
-
-  $: destinosFiltrados = (() => {
-    if (recorte === 'top5') {
-      return destinosOrdenados.slice(0, 5);
-    }
-
-    if (recorte === 'top10') {
-      return destinosOrdenados.slice(0, 10);
-    }
-
-    return destinosOrdenados;
-  })();
-
-  $: totalReceita = destinosFiltrados.reduce((acc, destino) => acc + destino.receita, 0);
-  $: totalVendas = destinosFiltrados.reduce((acc, destino) => acc + destino.quantidade, 0);
-  $: destinoTop = destinosFiltrados.length > 0 ? destinosFiltrados[0] : null;
+  $: destinosFiltrados = destinos;
+  $: totalReceita = resumoDestinos.totalReceita;
+  $: totalVendas = resumoDestinos.totalVendas;
+  $: destinoTop = resumoDestinos.destinoTop;
 
   $: if (filtroPeriodoModo === 'mes') {
     const range = monthRangeFromKey(mesSelecionado) || defaultRange;
@@ -526,6 +577,15 @@
     <ChartJS type="bar" data={vendasPorQuantidadeData} height={280} />
   </Card>
 </div>
+
+{#if relatorioTruncado}
+  <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+    <span>Exibindo {destinos.length} de {totalRelatorioItems} destinos. Carregue mais somente quando precisar detalhar/exportar mais linhas.</span>
+    <Button variant="secondary" size="sm" disabled={loadingMore} on:click={loadMoreRelatorio}>
+      {loadingMore ? 'Carregando...' : 'Carregar mais'}
+    </Button>
+  </div>
+{/if}
 
 <DataTable
   {columns}
