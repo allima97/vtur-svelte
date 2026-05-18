@@ -579,12 +579,11 @@
     }
 
     try {
-      const isMaster = isMasterDashboard;
       const payload = await apiGet<DashboardCompraPayload>('/api/v1/dashboard/ultimas-compras', {
         inicio: periodoInicio,
         fim: periodoFim,
-        company_id: isMaster ? undefined : empresaSelecionada || undefined,
-        vendedor_ids: isMaster ? undefined : vendedorSelecionado || undefined,
+        company_id: empresaSelecionada || undefined,
+        vendedor_ids: vendedorSelecionado || undefined,
         limit: 5
       }, signal, 60_000);
       if (!isCurrentAuxiliaryRequest(requestSeq)) return;

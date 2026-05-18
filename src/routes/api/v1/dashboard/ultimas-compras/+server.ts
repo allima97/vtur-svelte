@@ -88,6 +88,11 @@ type ClienteAggregate = {
   latest_date?: string | null;
 };
 
+type DashboardCompanyRow = {
+  id?: string | null;
+  active?: boolean | null;
+};
+
 function getMonthRangeFromSearch(value?: string | null) {
   const raw = String(value || '').trim();
   const month = /^\d{4}-\d{2}$/.test(raw) ? raw : todayISODateLocal().slice(0, 7);
@@ -110,23 +115,38 @@ async function resolveDashboardSalesScope(client: ReturnType<typeof getAdminClie
   const isFinanceiroByType = tipoNome.includes('FINANCEIRO');
   const isGestorByType = tipoNome.includes('GESTOR');
   const isMasterByType = tipoNome.includes('MASTER');
+  const hasConfiguredCompanyScope = (scope.companyIds || []).some(isUuid);
 
   let companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
   if (isGestorByType && scope.companyId) companyIds = [scope.companyId];
 
+  const canExpandAllCompanies =
+    isAdminByType || (isMasterByType && !hasConfiguredCompanyScope);
+  if (companyIds.length === 0 && canExpandAllCompanies) {
+    const requestedCompanyIdValue = String(requestedCompanyId || '').trim();
+    if (isUuid(requestedCompanyIdValue)) {
+      companyIds = [requestedCompanyIdValue];
+    } else if (!requestedCompanyIdValue) {
+      companyIds = await fetchAllVisibleCompanyIds(client);
+    }
+  }
+
   if (isAdminByType) {
-    return { companyIds, vendedorIds: requestedVendedorIds };
+    return {
+      companyIds,
+      vendedorIds: hasRequestedVendedorFilter ? requestedVendedorIds : []
+    };
   }
 
   if (isMasterByType || isGestorByType || isFinanceiroByType) {
-    const allowedRows = await fetchRankingVendedoresByCompanyIds(client, companyIds);
-    const allowedIds = uniqueCleanStrings(allowedRows.map((row) => row?.id));
-    const allowedIdSet = cleanStringSet(allowedIds);
     if (hasRequestedVendedorFilter) {
+      const allowedRows = await fetchRankingVendedoresByCompanyIds(client, companyIds);
+      const allowedIds = uniqueCleanStrings(allowedRows.map((row) => row?.id));
+      const allowedIdSet = cleanStringSet(allowedIds);
       const filtered = requestedVendedorIds.filter((id) => allowedIdSet.has(id));
       return { companyIds, vendedorIds: filtered.length > 0 ? filtered : [NO_MATCH_USER_ID] };
     }
-    return { companyIds, vendedorIds: allowedIds };
+    return { companyIds, vendedorIds: [] };
   }
 
   return { companyIds, vendedorIds: [scope.userId] };
@@ -254,6 +274,28 @@ function resolveDestino(item: SaleAggregate, detail?: SaleDetailRow | null) {
 
 function resolveClienteExtraFromDetail(detail?: SaleDetailRow | null) {
   return one(detail?.clientes);
+}
+
+async function fetchAllVisibleCompanyIds(client: ReturnType<typeof getAdminClient>) {
+  return getCachedReadModel<string[]>({
+    key: buildReadModelCacheKey('dashboard:ultimas-compras:all-visible-companies', {}),
+    tags: [READ_MODEL_TAGS.dashboard, READ_MODEL_TAGS.catalog],
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
+    loader: async () => {
+      const { data, error } = await client
+        .from('companies')
+        .select('id, active')
+        .limit(1000);
+
+      if (error) throw error;
+
+      return ((data || []) as DashboardCompanyRow[])
+        .filter((row) => row?.active !== false)
+        .map((row) => String(row?.id || '').trim())
+        .filter(isUuid);
+    }
+  });
 }
 
 export async function GET(event) {
