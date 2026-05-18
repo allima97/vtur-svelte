@@ -1648,7 +1648,7 @@ export async function GET(event) {
           limit: itemsLimit,
           returned: pagedItems.length,
           total: totalItems,
-          truncated: pagedItems.length < totalItems,
+          truncated: itemsOffset + pagedItems.length < totalItems,
         },
       },
       { headers: DYNAMIC_READ_HEADERS },

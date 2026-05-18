@@ -269,7 +269,7 @@
 
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
-  const RELATORIO_ITEMS_LIMIT = 1000;
+  const RELATORIO_ITEMS_LIMIT = 250;
   let vendas: VendaRelatorio[] = [];
   let vendedores: VendedorFiltro[] = [];
   let empresas: EmpresaFiltro[] = [];
@@ -303,6 +303,8 @@
   let baseAbortController: AbortController | null = null;
   let relatorioRequestSeq = 0;
   let relatorioAbortController: AbortController | null = null;
+  let loadMoreAbortController: AbortController | null = null;
+  let loadingMore = false;
   let totalDetalheVendas = 0;
   let detalheTruncado = false;
   let showFilterSheet = false;
@@ -451,7 +453,12 @@
     void loadRelatorio();
   }
 
-  async function fetchRelatorioRange(start: string, end: string, signal?: AbortSignal): Promise<RelatorioPayload> {
+  async function fetchRelatorioRange(
+    start: string,
+    end: string,
+    signal?: AbortSignal,
+    offset = 0
+  ): Promise<RelatorioPayload> {
     const params = buildRelatorioParams(start, end);
     return apiFetch<RelatorioPayload>('/api/v1/relatorios/vendas', {
       method: 'GET',
@@ -459,7 +466,8 @@
       signal,
       query: {
         ...Object.fromEntries(params),
-        items_limit: RELATORIO_ITEMS_LIMIT
+        items_limit: RELATORIO_ITEMS_LIMIT,
+        items_offset: offset
       }
     });
   }
@@ -506,6 +514,32 @@
         if (relatorioAbortController === controller) {
           relatorioAbortController = null;
         }
+      }
+    }
+  }
+
+  async function loadMoreDetalhe() {
+    if (loading || loadingMore || !detalheTruncado) return;
+    const requestKey = buildAutoReloadKey();
+    loadMoreAbortController?.abort();
+    const controller = new AbortController();
+    loadMoreAbortController = controller;
+    loadingMore = true;
+
+    try {
+      const nextPage = await fetchRelatorioRange(dataInicio, dataFim, controller.signal, vendas.length);
+      if (requestKey !== buildAutoReloadKey()) return;
+
+      vendas = [...vendas, ...(nextPage.items || [])];
+      totalDetalheVendas = Number(nextPage.pagination?.total ?? nextPage.total ?? vendas.length);
+      detalheTruncado = Boolean(nextPage.pagination?.truncated);
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      toast.error(toUserMessage(err, 'Erro ao carregar mais vendas'));
+    } finally {
+      loadingMore = false;
+      if (loadMoreAbortController === controller) {
+        loadMoreAbortController = null;
       }
     }
   }
@@ -563,6 +597,7 @@
   onDestroy(() => {
     baseAbortController?.abort();
     relatorioAbortController?.abort();
+    loadMoreAbortController?.abort();
     autoReload.cancel();
   });
 
@@ -978,9 +1013,14 @@
 </div>
 
 {#if detalheTruncado}
-  <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-    Mostrando {vendas.length} de {totalDetalheVendas} vendas no detalhamento para manter a tela responsiva.
-    Use filtros mais específicos para carregar/exportar um conjunto menor.
+  <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+    <span>
+      Mostrando {vendas.length} de {totalDetalheVendas} vendas no detalhamento para manter a tela responsiva.
+      Use filtros mais específicos para carregar/exportar um conjunto menor.
+    </span>
+    <Button variant="secondary" size="sm" on:click={loadMoreDetalhe} disabled={loadingMore}>
+      {loadingMore ? 'Carregando...' : 'Carregar mais'}
+    </Button>
   </div>
 {/if}
 
