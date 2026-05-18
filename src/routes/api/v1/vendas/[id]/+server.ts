@@ -287,13 +287,15 @@ export async function GET(event) {
       scope,
       event.url.searchParams.get("empresa_id"),
     );
-    const vendedorIds = await resolveScopedVendedorIds(
-      client,
-      scope,
-      event.url.searchParams.get("vendedor_id"),
-    );
     const lite = event.url.searchParams.get("lite") === "1";
-    const vendaBase = await fetchVendaBase(client, id, lite);
+    const [vendedorIds, vendaBase] = await Promise.all([
+      resolveScopedVendedorIds(
+        client,
+        scope,
+        event.url.searchParams.get("vendedor_id"),
+      ),
+      fetchVendaBase(client, id, lite),
+    ]);
     if (!vendaBase || !isSaleInScope(vendaBase, { scope, companyIds, vendedorIds })) {
       throw error(404, "Venda não encontrada.");
     }

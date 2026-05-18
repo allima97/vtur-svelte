@@ -217,18 +217,20 @@ export async function GET(event) {
           filterByReceiptDate: Boolean(periodo.dataInicio || periodo.dataFim)
         });
         const rowsForComissao = normalizeRowsToReceiptPeriod(rows);
-        const resolvedByReceiptId = await resolveGroupedReceiptCommissions(client, { companyIds, rows: rowsForComissao });
         const reciboIds = uniqueCleanStrings(
           rowsForComissao
             .flatMap((row) => (Array.isArray(row?.recibos) ? row.recibos : []))
             .map((recibo) => recibo?.id)
         );
-        const persistedSnapshot = await fetchPersistedComissoes(client, {
-          companyIds,
-          vendaIds: rows.map((row) => row.id),
-          reciboIds,
-          vendedorIds: uniqueCleanStrings(rows.map((row) => row.vendedor_id))
-        });
+        const [resolvedByReceiptId, persistedSnapshot] = await Promise.all([
+          resolveGroupedReceiptCommissions(client, { companyIds, rows: rowsForComissao }),
+          fetchPersistedComissoes(client, {
+            companyIds,
+            vendaIds: rows.map((row) => row.id),
+            reciboIds,
+            vendedorIds: uniqueCleanStrings(rows.map((row) => row.vendedor_id))
+          })
+        ]);
         const persistedByKey = new Map(
           persistedSnapshot.rows.map((row) => [
             buildPersistedReciboComissaoKey(row.recibo_id, row.vendedor_id, row.venda_id),

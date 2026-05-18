@@ -3,6 +3,7 @@ import {
   fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   hasModuloAccess,
+  isUuid,
   parseUuidList,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
@@ -10,12 +11,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import {
-  fetchSalesReportRows,
-  getVendaClienteNome,
-  getVendaDestino,
-  getVendaVendedorNome,
-  type ReportVendaRow
-} from '$lib/server/relatorios';
+  fetchVendasKpiReciboContributions,
+  type VendasKpiReciboContribution
+} from '$lib/server/vendas-kpis';
+import { getPlatformExecutionContext } from '$lib/server/readModelRebuild';
 import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import {
@@ -24,17 +23,51 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
+import { chunkArray, cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 const NO_MATCH_USER_ID = '00000000-0000-0000-0000-000000000000';
 
+type MaybeArray<T> = T | T[] | null;
+
 type ClienteExtraRow = {
   id: string | null;
+  nome: string | null;
   email: string | null;
   telefone: string | null;
   whatsapp: string | null;
   nascimento: string | null;
+};
+
+type VendedorNameRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+};
+
+type SaleDetailRow = {
+  id?: string | null;
+  numero_venda?: string | null;
+  cliente_id?: string | null;
+  vendedor_id?: string | null;
+  company_id?: string | null;
+  data_venda?: string | null;
+  data_embarque?: string | null;
+  clientes?: MaybeArray<ClienteExtraRow>;
+  vendedor?: MaybeArray<VendedorNameRow>;
+  destino_cidade?: MaybeArray<{ nome?: string | null }>;
+  destinos?: MaybeArray<{ nome?: string | null }>;
+};
+
+type SaleAggregate = {
+  key: string;
+  venda_id: string | null;
+  cliente_id: string | null;
+  vendedor_id: string | null;
+  company_id: string | null;
+  data_compra: string | null;
+  destino: string;
+  valor: number;
 };
 
 type VendedorAggregate = {
@@ -51,6 +84,8 @@ type ClienteAggregate = {
   destino: string;
   valor: number;
   quantidade: number;
+  latest_sale_id?: string | null;
+  latest_date?: string | null;
 };
 
 function getMonthRangeFromSearch(value?: string | null) {
@@ -59,51 +94,10 @@ function getMonthRangeFromSearch(value?: string | null) {
   return monthRangeFromKey(month) || { inicio: `${month}-01`, fim: todayISODateLocal() };
 }
 
-function rowValue(row: ReportVendaRow) {
-  const recibos = Array.isArray(row.recibos) ? row.recibos : [];
-  const recibosTotal = recibos.reduce((sum, recibo) => sum + toNum(recibo?.valor_total), 0);
-  return recibosTotal || toNum(row.valor_total_pago) || toNum(row.valor_total) || toNum(row.valor_total_bruto);
-}
-
-function rowPurchaseDate(row: ReportVendaRow) {
-  const recibos = Array.isArray(row.recibos) ? row.recibos : [];
-  return (
-    recibos
-      .map((recibo) => String(recibo?.data_venda || '').trim())
-      .filter(Boolean)
-      .sort()
-      .at(-1) ||
-    String(row.data_venda || '').trim() ||
-    ''
-  );
-}
-
 function normalizeLimit(value?: string | null, fallback = 5, max = 100) {
   const parsed = Number(value || fallback);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(1, Math.trunc(parsed)));
-}
-
-function normalizeSale(row: ReportVendaRow, clienteExtra: Map<string, ClienteExtraRow>) {
-  const clienteId = String(row.cliente_id || '').trim();
-  const extra = clienteExtra.get(clienteId);
-  return {
-    id: row.id,
-    numero_venda: row.numero_venda || null,
-    cliente_id: clienteId || null,
-    cliente_nome: getVendaClienteNome(row),
-    cliente_email: String(extra?.email || row.clientes?.email || '').trim() || null,
-    cliente_telefone: String(extra?.whatsapp || extra?.telefone || '').trim() || null,
-    cliente_whatsapp: String(extra?.whatsapp || '').trim() || null,
-    cliente_nascimento: String(extra?.nascimento || '').trim() || null,
-    vendedor_id: String(row.vendedor_id || '').trim() || null,
-    vendedor_nome: getVendaVendedorNome(row),
-    company_id: String(row.company_id || '').trim() || null,
-    data_compra: rowPurchaseDate(row) || row.data_venda || null,
-    data_saida: row.data_embarque || null,
-    destino: getVendaDestino(row),
-    valor: rowValue(row)
-  };
 }
 
 async function resolveDashboardSalesScope(client: ReturnType<typeof getAdminClient>, scope: Awaited<ReturnType<typeof resolveUserScope>>, params: URLSearchParams) {
@@ -138,6 +132,130 @@ async function resolveDashboardSalesScope(client: ReturnType<typeof getAdminClie
   return { companyIds, vendedorIds: [scope.userId] };
 }
 
+function contributionSaleKey(item: VendasKpiReciboContribution) {
+  return String(item.vendaId || item.vendaKey || item.reciboId || '').trim();
+}
+
+function one<T>(value?: MaybeArray<T>) {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function buildSaleAggregates(contributions: VendasKpiReciboContribution[]) {
+  const map = new Map<string, SaleAggregate>();
+  for (const item of contributions || []) {
+    const key = contributionSaleKey(item);
+    const bruto = toNum(item?.bruto);
+    if (!key || bruto <= 0) continue;
+
+    const current = map.get(key) || {
+      key,
+      venda_id: String(item?.vendaId || '').trim() || null,
+      cliente_id: String(item?.clienteId || '').trim() || null,
+      vendedor_id: String(item?.vendedorId || '').trim() || null,
+      company_id: String(item?.companyId || '').trim() || null,
+      data_compra: null,
+      destino: 'Destino não informado',
+      valor: 0
+    };
+    const date = String(item?.reciboDate || '').slice(0, 10);
+    current.valor += bruto;
+    if (date && date >= String(current.data_compra || '')) {
+      current.data_compra = date;
+      current.venda_id = String(item?.vendaId || current.venda_id || '').trim() || null;
+      current.cliente_id = String(item?.clienteId || current.cliente_id || '').trim() || null;
+      current.vendedor_id = String(item?.vendedorId || current.vendedor_id || '').trim() || null;
+      current.company_id = String(item?.companyId || current.company_id || '').trim() || null;
+      current.destino = String(item?.destinoNome || current.destino || 'Destino não informado');
+    }
+    map.set(key, current);
+  }
+
+  return Array.from(map.values());
+}
+
+async function fetchClientesByIds(client: ReturnType<typeof getAdminClient>, ids: string[]) {
+  const rows: ClienteExtraRow[] = [];
+  for (const batch of chunkArray(uniqueCleanStrings(ids))) {
+    if (batch.length === 0) continue;
+    const { data, error } = await client
+      .from('clientes')
+      .select('id, nome, email, telefone, whatsapp, nascimento')
+      .in('id', batch);
+    if (error) throw error;
+    rows.push(...((data || []) as ClienteExtraRow[]));
+  }
+  return new Map(rows.map((row) => [String(row.id), row]));
+}
+
+async function fetchVendedoresByIds(client: ReturnType<typeof getAdminClient>, ids: string[]) {
+  const rows: VendedorNameRow[] = [];
+  for (const batch of chunkArray(uniqueCleanStrings(ids))) {
+    if (batch.length === 0) continue;
+    const { data, error } = await client
+      .from('users')
+      .select('id, nome_completo, email')
+      .in('id', batch);
+    if (error) throw error;
+    rows.push(...((data || []) as VendedorNameRow[]));
+  }
+  return new Map(rows.map((row) => [String(row.id), row]));
+}
+
+async function fetchSaleDetailsByIds(client: ReturnType<typeof getAdminClient>, ids: string[]) {
+  const rows: SaleDetailRow[] = [];
+  for (const batch of chunkArray(uniqueCleanStrings(ids))) {
+    if (batch.length === 0) continue;
+    const { data, error } = await client
+      .from('vendas')
+      .select(`
+        id,
+        numero_venda,
+        cliente_id,
+        vendedor_id,
+        company_id,
+        data_venda,
+        data_embarque,
+        clientes (id, nome, email, telefone, whatsapp, nascimento),
+        vendedor:users!vendedor_id (id, nome_completo, email),
+        destino_cidade:cidades!destino_cidade_id (nome),
+        destinos:produtos!destino_id (nome)
+      `)
+      .in('id', batch);
+    if (error) throw error;
+    rows.push(...((data || []) as SaleDetailRow[]));
+  }
+  return new Map(rows.map((row) => [String(row.id), row]));
+}
+
+function resolveClienteNome(clienteId: string | null, clienteExtra: Map<string, ClienteExtraRow>, detail?: SaleDetailRow | null) {
+  const extra = clienteId ? clienteExtra.get(clienteId) : null;
+  const cliente = one(detail?.clientes);
+  return String(cliente?.nome || extra?.nome || 'Cliente sem nome');
+}
+
+function resolveVendedorNome(vendedorId: string | null, vendedores: Map<string, VendedorNameRow>, detail?: SaleDetailRow | null) {
+  const vendedor = vendedorId ? vendedores.get(vendedorId) : null;
+  const vendedorDetail = one(detail?.vendedor);
+  return String(
+    vendedorDetail?.nome_completo ||
+      vendedor?.nome_completo ||
+      vendedorDetail?.email ||
+      vendedor?.email ||
+      'Vendedor não informado'
+  );
+}
+
+function resolveDestino(item: SaleAggregate, detail?: SaleDetailRow | null) {
+  const destinoCidade = one(detail?.destino_cidade);
+  const destinoProduto = one(detail?.destinos);
+  return String(destinoCidade?.nome || destinoProduto?.nome || item.destino || 'Destino não informado');
+}
+
+function resolveClienteExtraFromDetail(detail?: SaleDetailRow | null) {
+  return one(detail?.clientes);
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -154,6 +272,12 @@ export async function GET(event) {
     const fim = String(searchParams.get('fim') || range.fim).trim();
     const limit = normalizeLimit(searchParams.get('limit'), 5, 100);
     const { companyIds, vendedorIds } = await resolveDashboardSalesScope(client, scope, searchParams);
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
+    const isAdminByType = tipoNome.includes('ADMIN');
+    const isMasterByType = tipoNome.includes('MASTER');
+    const hasRequestedVendedorFilter = String(searchParams.get('vendedor_ids') || searchParams.get('vendedor_id') || '').trim().length > 0;
+    const useNonBlockingReadModel =
+      (scope.isAdmin || isAdminByType || isMasterByType) && companyIds.length > 1 && !hasRequestedVendedorFilter;
 
     const payload = await getCachedReadModel({
       key: buildReadModelCacheKey('dashboard:ultimas-compras', {
@@ -174,73 +298,148 @@ export async function GET(event) {
       ttlMs: 120_000,
       staleTtlMs: 900_000,
       loader: async () => {
-        const rows = await fetchSalesReportRows(client, {
-          dataInicio: inicio,
-          dataFim: fim,
-          companyIds,
-          vendedorIds,
-          filterByReceiptDate: true,
-          selectMode: 'basic'
-        });
+        const { contributions } = await fetchVendasKpiReciboContributions(
+          client,
+          {
+            dataInicio: inicio,
+            dataFim: fim,
+            companyIds,
+            vendedorIds,
+            accessibleClientIds: []
+          },
+          useNonBlockingReadModel
+            ? {
+                mode: 'stale-while-revalidate',
+                executionContext: getPlatformExecutionContext(event.platform),
+                fallbackToRawOnReadError: false
+              }
+            : undefined
+        );
 
-        const clienteIds = uniqueCleanStrings(rows.map((row) => row.cliente_id));
-        const clienteExtra = new Map<string, ClienteExtraRow>();
-        if (clienteIds.length > 0) {
-          const { data, error } = await client
-            .from('clientes')
-            .select('id, email, telefone, whatsapp, nascimento')
-            .in('id', clienteIds);
-          if (error) throw error;
-          for (const row of data || []) {
-            clienteExtra.set(String(row.id), row as ClienteExtraRow);
-          }
-        }
-
-        const sales = rows.map((row) => normalizeSale(row, clienteExtra));
+        const sales = buildSaleAggregates(contributions);
 
         const vendedorMap = new Map<string, VendedorAggregate>();
+        const clienteMap = new Map<string, ClienteAggregate>();
+
         for (const item of sales) {
-          const id = item.vendedor_id || 'sem-vendedor';
-          const current = vendedorMap.get(id) || {
-            vendedor_id: id,
-            vendedor_nome: item.vendedor_nome || 'Vendedor não informado',
+          const vendedorId = item.vendedor_id || 'sem-vendedor';
+          const vendedor = vendedorMap.get(vendedorId) || {
+            vendedor_id: vendedorId,
+            vendedor_nome: '',
             valor: 0,
             quantidade: 0
           };
-          current.valor += item.valor;
-          current.quantidade += 1;
-          vendedorMap.set(id, current);
-        }
+          vendedor.valor += item.valor;
+          vendedor.quantidade += 1;
+          vendedorMap.set(vendedorId, vendedor);
 
-        const clienteMap = new Map<string, ClienteAggregate>();
-        for (const item of sales) {
-          const id = item.cliente_id || `sem-cliente:${item.cliente_nome}`;
-          const current = clienteMap.get(id) || {
+          const clienteKey = item.cliente_id || `sem-cliente:${item.key}`;
+          const cliente = clienteMap.get(clienteKey) || {
             cliente_id: item.cliente_id,
-            cliente_nome: item.cliente_nome,
-            data_saida: item.data_saida,
+            cliente_nome: '',
+            data_saida: null,
             destino: item.destino,
             valor: 0,
-            quantidade: 0
+            quantidade: 0,
+            latest_sale_id: item.venda_id,
+            latest_date: item.data_compra
           };
-          current.valor += item.valor;
-          current.quantidade += 1;
-          if (String(item.data_saida || '') > String(current.data_saida || '')) {
-            current.data_saida = item.data_saida;
-            current.destino = item.destino;
+          cliente.valor += item.valor;
+          cliente.quantidade += 1;
+          if (String(item.data_compra || '') >= String(cliente.latest_date || '')) {
+            cliente.latest_date = item.data_compra;
+            cliente.latest_sale_id = item.venda_id;
+            cliente.destino = item.destino;
           }
-          clienteMap.set(id, current);
+          clienteMap.set(clienteKey, cliente);
         }
 
-        const ultimasCompras = sales
+        const recentSales = [...sales]
           .sort((left, right) => String(right.data_compra || '').localeCompare(String(left.data_compra || '')))
           .slice(0, limit);
+        const topVendedorRows = Array.from(vendedorMap.values()).sort((a, b) => b.valor - a.valor).slice(0, 3);
+        const topClienteRows = Array.from(clienteMap.values()).sort((a, b) => b.valor - a.valor).slice(0, 5);
+
+        const saleIds = uniqueCleanStrings([
+          ...recentSales.map((item) => item.venda_id),
+          ...topClienteRows.map((item) => item.latest_sale_id)
+        ]).filter(isUuid);
+        const clienteIds = uniqueCleanStrings([
+          ...recentSales.map((item) => item.cliente_id),
+          ...topClienteRows.map((item) => item.cliente_id)
+        ]).filter(isUuid);
+        const vendedorNameIds = uniqueCleanStrings([
+          ...recentSales.map((item) => item.vendedor_id),
+          ...topVendedorRows.map((item) => item.vendedor_id)
+        ]).filter(isUuid);
+
+        const [clienteExtra, vendedorNames, saleDetails] = await Promise.all([
+          fetchClientesByIds(client, clienteIds),
+          fetchVendedoresByIds(client, vendedorNameIds),
+          fetchSaleDetailsByIds(client, saleIds)
+        ]);
+
+        const topVendedores = topVendedorRows.map((item) => ({
+          ...item,
+          vendedor_nome: resolveVendedorNome(item.vendedor_id, vendedorNames)
+        }));
+
+        const topClientes = topClienteRows.map((item) => {
+          const detail = item.latest_sale_id ? saleDetails.get(item.latest_sale_id) : null;
+          const clienteId = String(detail?.cliente_id || item.cliente_id || '').trim() || null;
+          return {
+            ...item,
+            cliente_id: clienteId,
+            cliente_nome: resolveClienteNome(clienteId, clienteExtra, detail),
+            data_saida: detail?.data_embarque || null,
+            destino: resolveDestino(
+              {
+                key: item.latest_sale_id || String(clienteId || item.cliente_id || ''),
+                venda_id: item.latest_sale_id || null,
+                cliente_id: clienteId,
+                vendedor_id: null,
+                company_id: null,
+                data_compra: item.latest_date || null,
+                destino: item.destino,
+                valor: item.valor
+              },
+              detail
+            )
+          };
+        });
+
+        const ultimasCompras = recentSales.map((item) => {
+          const detail = item.venda_id ? saleDetails.get(item.venda_id) : null;
+          const clienteId = String(detail?.cliente_id || item.cliente_id || '').trim() || null;
+          const vendedorId = String(detail?.vendedor_id || item.vendedor_id || '').trim() || null;
+          const extra = clienteId ? clienteExtra.get(clienteId) : null;
+          const clienteDetail = resolveClienteExtraFromDetail(detail);
+          return {
+            id: item.venda_id || item.key,
+            numero_venda: detail?.numero_venda || null,
+            cliente_id: clienteId,
+            cliente_nome: resolveClienteNome(clienteId, clienteExtra, detail),
+            cliente_email: String(clienteDetail?.email || extra?.email || '').trim() || null,
+            cliente_telefone: String(
+              clienteDetail?.whatsapp || clienteDetail?.telefone || extra?.whatsapp || extra?.telefone || ''
+            ).trim() || null,
+            cliente_whatsapp: String(clienteDetail?.whatsapp || extra?.whatsapp || '').trim() || null,
+            cliente_nascimento: String(clienteDetail?.nascimento || extra?.nascimento || '').trim() || null,
+            vendedor_id: vendedorId,
+            vendedor_nome: resolveVendedorNome(vendedorId, vendedorNames, detail),
+            company_id: String(detail?.company_id || item.company_id || '').trim() || null,
+            data_compra: item.data_compra || detail?.data_venda || null,
+            data_saida: detail?.data_embarque || null,
+            destino: resolveDestino(item, detail),
+            valor: item.valor
+          };
+        });
 
         return {
           inicio,
           fim,
-          topVendedores: Array.from(vendedorMap.values()).sort((a, b) => b.valor - a.valor).slice(0, 3),
-          topClientes: Array.from(clienteMap.values()).sort((a, b) => b.valor - a.valor).slice(0, 5),
+          topVendedores,
+          topClientes,
           ultimasCompras,
           total: sales.length
         };

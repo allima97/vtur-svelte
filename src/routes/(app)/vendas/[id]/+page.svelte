@@ -520,7 +520,7 @@
         const data = await apiFetch<VendaDetalheView>(`/api/v1/vendas/${vendaId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
-          timeoutMs: 15_000,
+          timeoutMs: 30_000,
           query: { t: Date.now() }
         });
         await applyVendaData(data);

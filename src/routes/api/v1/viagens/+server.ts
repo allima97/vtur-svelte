@@ -2,6 +2,7 @@ import { json } from "@sveltejs/kit";
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -9,8 +10,9 @@ import {
 } from "$lib/server/v1";
 import { addDaysISODate, todayISODateLocal } from "$lib/date";
 import { normalizeViagemStatus } from "$lib/viagens/status";
-import { syncViagensStatus } from "$lib/server/viagensStatus";
+import { resolveStatusFromViagemRow, syncViagensStatus } from "$lib/server/viagensStatus";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
+import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -333,13 +335,12 @@ export async function GET(event) {
           limitRows: number,
         ) => {
           const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
-          const rows: ViagemListRow[] = [];
-          for (const batch of companyBatches) {
+          const batchRows = await Promise.all(companyBatches.map(async (batch) => {
             const result = await configure(buildQuery(selectFields, batch)).limit(limitRows);
             if (result.error) throw result.error;
-            rows.push(...((result.data as ViagemListRow[] | null) || []));
-          }
-          return rows;
+            return ((result.data as ViagemListRow[] | null) || []);
+          }));
+          return batchRows.flat();
         };
 
         let scopedData: ViagemListRow[] = [];
@@ -381,87 +382,100 @@ export async function GET(event) {
           scopedData = (data as ViagemListRow[] | null) || [];
         }
 
-        const resolvedStatuses = await syncViagensStatus(
-          client,
-          scopedData,
-        );
+        const resolvedStatuses = new Map<string, ReturnType<typeof resolveStatusFromViagemRow>>();
+        for (const row of scopedData) {
+          const id = String(row?.id || "").trim();
+          if (id) resolvedStatuses.set(id, resolveStatusFromViagemRow(row));
+        }
+
+        const syncPromise = syncViagensStatus(client, scopedData).catch((error) => {
+          logServerError("[viagens] sincronização de status em background falhou", error);
+        });
+        const executionContext = getPlatformExecutionContext(event.platform);
+        if (executionContext) executionContext.waitUntil(syncPromise);
+        else void syncPromise;
 
         const clienteIdSet = new Set<string>();
+        const responsavelIdSet = new Set<string>();
+        const viagemIdSet = new Set<string>();
+        const vendaIdSet = new Set<string>();
         for (const viagem of scopedData || []) {
           if (viagem.cliente_id) clienteIdSet.add(viagem.cliente_id);
-        }
-        const clienteIds = Array.from(clienteIdSet);
-        const clientesMap = new Map<string, string>();
-        if (clienteIds.length > 0) {
-          for (const batch of chunkArray(clienteIds)) {
-            const { data: clientesData, error: clientesError } = await client
-              .from("clientes")
-              .select("id, nome")
-              .in("id", batch);
-            if (clientesError) throw clientesError;
-            for (const c of clientesData || []) {
-              clientesMap.set(c.id, c.nome);
-            }
-          }
+          if (viagem.responsavel_user_id) responsavelIdSet.add(viagem.responsavel_user_id);
+          if (viagem.id) viagemIdSet.add(viagem.id);
+          if (viagem.venda_id) vendaIdSet.add(viagem.venda_id);
         }
 
-        const responsavelIdSet = new Set<string>();
-        for (const viagem of scopedData || []) {
-          if (viagem.responsavel_user_id) responsavelIdSet.add(viagem.responsavel_user_id);
-        }
-        const responsavelIds = Array.from(responsavelIdSet);
-        const responsaveisMap = new Map<string, string>();
-        if (responsavelIds.length > 0) {
-          for (const batch of chunkArray(responsavelIds)) {
-            const { data: responsaveisData, error: responsaveisError } =
-              await client
+        const [
+          clientesMap,
+          responsaveisMap,
+          passageirosCountMap,
+          vendasMap,
+        ] = await Promise.all([
+          (async () => {
+            const map = new Map<string, string>();
+            const ids = Array.from(clienteIdSet);
+            for (const batch of chunkArray(ids)) {
+              const { data, error } = await client
+                .from("clientes")
+                .select("id, nome")
+                .in("id", batch);
+              if (error) throw error;
+              for (const c of data || []) {
+                map.set(c.id, c.nome);
+              }
+            }
+            return map;
+          })(),
+          (async () => {
+            const map = new Map<string, string>();
+            const ids = Array.from(responsavelIdSet);
+            for (const batch of chunkArray(ids)) {
+              const { data, error } = await client
                 .from("users")
                 .select("id, nome_completo")
                 .in("id", batch);
-            if (responsaveisError) throw responsaveisError;
-            for (const u of responsaveisData || []) {
-              responsaveisMap.set(u.id, u.nome_completo);
+              if (error) throw error;
+              for (const u of data || []) {
+                map.set(u.id, u.nome_completo);
+              }
             }
-          }
-        }
-
-        const viagemIds = (scopedData || []).map((v) => v.id).filter((id): id is string => Boolean(id));
-        const passageirosCountMap = new Map<string, number>();
-        if (viagemIds.length > 0) {
-          for (const batch of chunkArray(viagemIds)) {
-            const { data: passageirosData, error: passageirosError } =
-              await client
+            return map;
+          })(),
+          (async () => {
+            const map = new Map<string, number>();
+            const ids = Array.from(viagemIdSet);
+            for (const batch of chunkArray(ids)) {
+              const { data, error } = await client
                 .from("viagem_passageiros")
                 .select("viagem_id")
                 .in("viagem_id", batch);
-            if (passageirosError) throw passageirosError;
-            for (const p of passageirosData || []) {
-              passageirosCountMap.set(
-                p.viagem_id,
-                (passageirosCountMap.get(p.viagem_id) || 0) + 1,
-              );
+              if (error) throw error;
+              for (const p of data || []) {
+                map.set(
+                  p.viagem_id,
+                  (map.get(p.viagem_id) || 0) + 1,
+                );
+              }
             }
-          }
-        }
-
-        const vendaIdSet = new Set<string>();
-        for (const viagem of scopedData || []) {
-          if (viagem.venda_id) vendaIdSet.add(viagem.venda_id);
-        }
-        const vendaIds = Array.from(vendaIdSet);
-        const vendasMap = new Map<string, number>();
-        if (vendaIds.length > 0) {
-          for (const batch of chunkArray(vendaIds)) {
-            const { data: vendasData, error: vendasError } = await client
-              .from("vendas")
-              .select("id, valor_total")
-              .in("id", batch);
-            if (vendasError) throw vendasError;
-            for (const v of vendasData || []) {
-              vendasMap.set(v.id, v.valor_total);
+            return map;
+          })(),
+          (async () => {
+            const map = new Map<string, number>();
+            const ids = Array.from(vendaIdSet);
+            for (const batch of chunkArray(ids)) {
+              const { data, error } = await client
+                .from("vendas")
+                .select("id, valor_total")
+                .in("id", batch);
+              if (error) throw error;
+              for (const v of data || []) {
+                map.set(v.id, v.valor_total);
+              }
             }
-          }
-        }
+            return map;
+          })(),
+        ]);
 
         const items = (scopedData || [])
           .map((row): ViagemListItem => {

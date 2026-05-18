@@ -362,6 +362,12 @@ export async function GET(event) {
       vendedorIds: [...vendedorIds].sort(),
     });
 
+    const useCompanyWideSalesScope =
+      !hasRequestedVendedorFilter &&
+      companyIds.length > 0 &&
+      (isAdminByType || isMasterByType || isFinanceiroByType || isGestorByType);
+    const salesVendedorIds = useCompanyWideSalesScope ? [] : vendedorIds;
+
     const payload = await getCachedReadModel({
       key: dashboardCacheKey,
       ttlMs: 300_000,
@@ -496,7 +502,7 @@ export async function GET(event) {
               dataInicio: inicio,
               dataFim: fim,
               companyIds,
-              vendedorIds,
+              vendedorIds: salesVendedorIds,
               accessibleClientIds,
             }, useNonBlockingReadModel ? {
               mode: "stale-while-revalidate",
