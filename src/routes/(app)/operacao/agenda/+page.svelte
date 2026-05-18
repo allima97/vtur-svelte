@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -11,7 +11,7 @@
   import { diffDaysISODate, formatISODateBR, todayISODateLocal, toISODateLocal } from '$lib/date';
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import {
     CalendarDays,
@@ -146,6 +146,8 @@
   let showFilterSheet = false;
   let currentView: CalendarView = 'timeGridDay';
   let initializingCalendar = false;
+  let rangeRequestSeq = 0;
+  let rangeAbortController: AbortController | null = null;
 
   function changeView(view: CalendarView) {
     currentView = view;
@@ -211,23 +213,44 @@
   }
 
   async function loadRange(inicio: string, fim: string, silent = false) {
+    const requestSeq = ++rangeRequestSeq;
+    rangeAbortController?.abort();
+    const controller = new AbortController();
+    rangeAbortController = controller;
     if (!silent) loading = true;
     refreshing = true;
 
     try {
-      const payload = await apiGet<{ items?: AgendaItem[] }>('/api/v1/agenda/range', { inicio, fim });
+      const payload = await apiGet<{ items?: AgendaItem[] }>(
+        '/api/v1/agenda/range',
+        { inicio, fim },
+        controller.signal,
+        60_000
+      );
+      if (requestSeq !== rangeRequestSeq) return;
       visibleRange = { inicio, fim };
       items = Array.isArray(payload?.items) ? payload.items : [];
       await syncCalendarEvents();
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
+      if (requestSeq !== rangeRequestSeq) return;
       toast.error(toUserMessage(error, 'Erro ao carregar agenda.'));
       items = [];
       await syncCalendarEvents();
     } finally {
-      loading = false;
-      refreshing = false;
+      if (requestSeq === rangeRequestSeq) {
+        loading = false;
+        refreshing = false;
+        if (rangeAbortController === controller) {
+          rangeAbortController = null;
+        }
+      }
     }
   }
+
+  onDestroy(() => {
+    rangeAbortController?.abort();
+  });
 
   async function initializeCalendar() {
     if (!calendarEl || calendar || initializingCalendar) return;

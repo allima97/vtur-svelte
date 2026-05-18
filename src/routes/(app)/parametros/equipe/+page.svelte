@@ -6,7 +6,8 @@
   import { FieldInput, LoadingState, SimpleTable } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Users, RefreshCw, UserCheck, UserX, Search } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
@@ -42,25 +43,29 @@
   let loading = true;
   let savingId = '';
   let busca = '';
+  const loadGuard = createLoadGuard();
 
   $: buscaNormalizada = busca.trim().toLowerCase();
   $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('equipe', 'edit') || permissoes.can('parametros', 'edit');
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
       const payload = await apiGet<{
         usuarios?: Usuario[];
         relacoes?: Relacao[];
         convites?: Convite[];
-      }>('/api/v1/parametros/equipe');
+      }>('/api/v1/parametros/equipe', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       usuarios = payload.usuarios || [];
       relacoes = payload.relacoes || [];
       convites = payload.convites || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar equipe.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

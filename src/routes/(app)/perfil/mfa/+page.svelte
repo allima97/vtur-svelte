@@ -8,7 +8,8 @@
   import { FieldInput, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiFetch, apiGet, apiPost } from '$lib/services/api';
+  import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
   import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
   import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode, Fingerprint } from 'lucide-svelte';
@@ -55,29 +56,36 @@
   // Enrollment state
   let enrollmentData: { factorId: string; qrCode: string; secret: string } | null = null;
   let verificationCode = '';
+  const factorsGuard = createLoadGuard();
+  const passkeysGuard = createLoadGuard();
 
   async function loadFactors() {
+    const request = factorsGuard.next();
     loading = true;
     try {
       const { data, error: factorsError } = await supabase.auth.mfa.listFactors();
       if (factorsError) throw factorsError;
+      if (!factorsGuard.isCurrent(request.seq)) return;
       factors = data?.totp || [];
     } catch (err: unknown) {
       error = toUserMessage(err, 'Erro ao carregar fatores 2FA.');
     } finally {
-      loading = false;
+      if (factorsGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
   async function loadPasskeys() {
+    const request = passkeysGuard.next();
     passkeysLoading = true;
     try {
-      const payload = await apiGet<PasskeysResponse>('/api/auth/passkeys');
+      const payload = await apiGet<PasskeysResponse>('/api/auth/passkeys', undefined, request.signal);
+      if (!passkeysGuard.isCurrent(request.seq)) return;
       passkeys = payload.passkeys || [];
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
       error = toUserMessage(err, 'Erro ao carregar passkeys.');
     } finally {
-      passkeysLoading = false;
+      if (passkeysGuard.isCurrent(request.seq)) passkeysLoading = false;
     }
   }
 

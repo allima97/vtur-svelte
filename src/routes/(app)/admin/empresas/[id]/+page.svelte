@@ -6,10 +6,11 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, FieldCheckbox } from '$lib/components/ui';
-  import { ApiError, apiFetch, apiPost } from '$lib/services/api';
+  import { ApiError, apiFetch, apiPost, isCanceledApiError } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   const emptyForm = {
     id: '',
@@ -91,13 +92,16 @@
     status: 'approved'
   };
   let lastLoadedId = '';
+  const pageGuard = createLoadGuard();
 
   $: isCreateMode = $page.params.id === 'nova';
 
   async function loadPage() {
+    const request = pageGuard.next();
     loading = true;
     try {
       await ensureServerSessionCookie();
+      if (!pageGuard.isCurrent(request.seq)) return;
       if (isCreateMode) {
         form = { ...emptyForm };
         plans = [];
@@ -108,7 +112,8 @@
         try {
           payload = await apiFetch<EmpresaPayload>(`/api/v1/admin/empresas/${$page.params.id}`, {
             redirectOnForbidden: false,
-            redirectOnUnauthorized: false
+            redirectOnUnauthorized: false,
+            signal: request.signal
           });
         } catch (err) {
           if (err instanceof ApiError) {
@@ -133,6 +138,7 @@
           throw err;
         }
 
+        if (!pageGuard.isCurrent(request.seq)) return;
         form = {
           id: payload.empresa.id,
           nome_empresa: payload.empresa.nome_empresa || '',
@@ -155,10 +161,11 @@
         mastersDisponiveis = payload.masters_disponiveis || [];
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error(err);
       toast.error('Nao foi possivel carregar a empresa.');
     } finally {
-      loading = false;
+      if (pageGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

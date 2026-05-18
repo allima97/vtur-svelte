@@ -9,7 +9,8 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { descobrirModulo } from '$lib/config/modulos';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Save, RefreshCw } from 'lucide-svelte';
 
   const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
@@ -152,6 +153,7 @@
   let saving = false;
   let feedbackMessage = '';
   let feedbackType: 'success' | 'error' | 'info' = 'info';
+  const loadGuard = createLoadGuard();
 
   function setFeedback(message: string, type: 'success' | 'error' | 'info' = 'info') {
     feedbackMessage = message;
@@ -159,15 +161,18 @@
   }
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<MenuPrefsResponse>('/api/v1/menu/prefs');
+      const payload = await apiGet<MenuPrefsResponse>('/api/v1/menu/prefs', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       const hidden = Array.isArray(payload?.prefs?.hidden) ? payload.prefs.hidden : [];
       prefs = { hidden };
       localStorage.setItem(MENU_PREFS_KEY, JSON.stringify({ hidden }));
       window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
       setFeedback('Preferências do menu carregadas.', 'info');
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       const stored = localStorage.getItem(MENU_PREFS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as MenuPrefs;
@@ -175,7 +180,7 @@
       }
       setFeedback('Não foi possível validar o perfil. Preferências locais mantidas.', 'info');
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

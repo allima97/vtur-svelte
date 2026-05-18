@@ -106,13 +106,14 @@ async function fetchBatched<T>(
   values: string[],
   loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
 ) {
-  const rows: T[] = [];
-  for (const batch of chunkArray(values, SUPABASE_IN_BATCH_SIZE)) {
-    const { data, error } = await loader(batch);
-    if (error) throw error;
-    rows.push(...(data || []));
-  }
-  return rows;
+  const batchResults = await Promise.all(
+    chunkArray(values, SUPABASE_IN_BATCH_SIZE).map(async (batch) => {
+      const { data, error } = await loader(batch);
+      if (error) throw error;
+      return data || [];
+    })
+  );
+  return batchResults.flat();
 }
 
 export async function GET(event) {
@@ -154,8 +155,8 @@ export async function GET(event) {
           userId: scope.userId
         })
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const vendaSelect =
           'id, cliente_id, vendedor_id, company_id, data_lancamento, data_embarque, destino_cidade_id, destino:produtos!vendas_destino_id_fkey(nome, cidade_id)';

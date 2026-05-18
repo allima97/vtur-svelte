@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Badge, FieldSelect, LoadingState } from '$lib/components/ui';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { Building2, FileCheck2, FileText, PlugZap, ReceiptText, Settings } from 'lucide-svelte';
 
   type EmpresaOption = {
@@ -17,6 +17,8 @@
   let empresas: EmpresaOption[] = [];
   let empresaId = '';
   let loadingContext = true;
+  let contextController: AbortController | null = null;
+  let contextSeq = 0;
 
   $: empresaOptions = empresas.map((empresa) => ({
     value: empresa.id,
@@ -29,25 +31,36 @@
     'empresa selecionada';
 
   async function loadUserContext() {
+    contextController?.abort();
+    const controller = new AbortController();
+    contextController = controller;
+    const seq = ++contextSeq;
     loadingContext = true;
     try {
       const data = await apiGet<{
         company_id?: string | null;
         empresas?: EmpresaOption[];
-      }>('/api/v1/user/context');
+      }>('/api/v1/user/context', undefined, controller.signal);
 
+      if (seq !== contextSeq) return;
       empresas = Array.isArray(data.empresas) ? data.empresas : [];
       empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       empresas = [];
       empresaId = '';
     } finally {
-      loadingContext = false;
+      if (seq === contextSeq) loadingContext = false;
     }
   }
 
   onMount(() => {
     void loadUserContext();
+  });
+
+  onDestroy(() => {
+    contextSeq += 1;
+    contextController?.abort();
   });
 </script>
 

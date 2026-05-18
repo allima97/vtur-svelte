@@ -135,13 +135,20 @@ async function fetchBatched<T>(
   values: string[],
   loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
 ) {
-  const rows: T[] = [];
-  for (const batch of chunkArray(values, SUPABASE_IN_BATCH_SIZE)) {
-    const { data, error } = await loader(batch);
-    if (error) return { data: rows, error };
-    rows.push(...(data || []));
+  const batchResults = await Promise.all(
+    chunkArray(values, SUPABASE_IN_BATCH_SIZE).map(async (batch) => {
+      const { data, error } = await loader(batch);
+      return { data: data || [], error };
+    })
+  );
+  const failed = batchResults.find((result) => result.error);
+  if (failed) {
+    return {
+      data: batchResults.flatMap((result) => result.data || []),
+      error: failed.error
+    };
   }
-  return { data: rows, error: null };
+  return { data: batchResults.flatMap((result) => result.data || []), error: null };
 }
 
 function getCommissionPeriod(row: Pick<ReportVendaRow, 'data_venda'>): string {
@@ -476,12 +483,18 @@ async function fetchRegras(client: SupabaseClient, companyIds: string[]): Promis
     }
 
     if (!error) {
-      for (const batch of chunkArray(scopedCompanyIds, SUPABASE_IN_BATCH_SIZE)) {
-        const batchResult = await baseQuery(selectWithCompany).in('company_id', batch);
-        error = batchResult.error;
-        if (error) break;
-        for (const row of (batchResult.data || []) as unknown as CommissionRuleRow[]) {
-          if (row?.id) rowsById.set(String(row.id), row);
+      const companyRuleResults = await Promise.all(
+        chunkArray(scopedCompanyIds, SUPABASE_IN_BATCH_SIZE).map((batch) =>
+          baseQuery(selectWithCompany).in('company_id', batch)
+        )
+      );
+      const failed = companyRuleResults.find((result) => result.error);
+      error = failed?.error || null;
+      if (!error) {
+        for (const batchResult of companyRuleResults) {
+          for (const row of (batchResult.data || []) as unknown as CommissionRuleRow[]) {
+            if (row?.id) rowsById.set(String(row.id), row);
+          }
         }
       }
     }
@@ -694,8 +707,8 @@ export async function fetchCommissionContext(
       READ_MODEL_TAGS.users,
       ...scopeCacheTags({ companyIds, vendedorIds })
     ],
-    ttlMs: 15_000,
-    staleTtlMs: 60_000,
+    ttlMs: 120_000,
+    staleTtlMs: 600_000,
     loader: async () => {
       // vtur-app busca tipo_produtos, regras de produto e pacote SEM filtro (busca tudo)
       const [
@@ -1131,16 +1144,20 @@ export async function resolveGroupedVendaCommissions(
   const result = new Map<string, ResolvedVendaCommission>();
   const companyIds = uniqueIds(params.companyIds || []);
 
-  for (const groupRows of groupRowsByVendedorPeriod(params.rows || [])) {
-    const vendedorIds = uniqueIds(groupRows.map((row) => row.vendedor_id));
-    const periodo = getCommissionPeriod(groupRows[0]);
-    const context = await fetchCommissionContext(client, {
-      companyIds,
-      vendedorIds,
-      periodo,
-      rows: groupRows
-    });
-    const groupResolved = resolveVendaCommissions(groupRows, context);
+  const groupResults = await Promise.all(
+    groupRowsByVendedorPeriod(params.rows || []).map(async (groupRows) => {
+      const vendedorIds = uniqueIds(groupRows.map((row) => row.vendedor_id));
+      const periodo = getCommissionPeriod(groupRows[0]);
+      const context = await fetchCommissionContext(client, {
+        companyIds,
+        vendedorIds,
+        periodo,
+        rows: groupRows
+      });
+      return resolveVendaCommissions(groupRows, context);
+    })
+  );
+  for (const groupResolved of groupResults) {
     for (const [vendaId, commission] of groupResolved.entries()) {
       result.set(vendaId, commission);
     }
@@ -1159,16 +1176,20 @@ export async function resolveGroupedReceiptCommissions(
   const result = new Map<string, ResolvedReceiptCommission>();
   const companyIds = uniqueIds(params.companyIds || []);
 
-  for (const groupRows of groupRowsByVendedorPeriod(params.rows || [])) {
-    const vendedorIds = uniqueIds(groupRows.map((row) => row.vendedor_id));
-    const periodo = getCommissionPeriod(groupRows[0]);
-    const context = await fetchCommissionContext(client, {
-      companyIds,
-      vendedorIds,
-      periodo,
-      rows: groupRows
-    });
-    const groupResolved = resolveReceiptCommissions(groupRows, context);
+  const groupResults = await Promise.all(
+    groupRowsByVendedorPeriod(params.rows || []).map(async (groupRows) => {
+      const vendedorIds = uniqueIds(groupRows.map((row) => row.vendedor_id));
+      const periodo = getCommissionPeriod(groupRows[0]);
+      const context = await fetchCommissionContext(client, {
+        companyIds,
+        vendedorIds,
+        periodo,
+        rows: groupRows
+      });
+      return resolveReceiptCommissions(groupRows, context);
+    })
+  );
+  for (const groupResolved of groupResults) {
     for (const [receiptId, commission] of groupResolved.entries()) {
       result.set(receiptId, commission);
     }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -8,7 +8,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
   import { CalendarDays, RefreshCw, Gift, SlidersHorizontal } from 'lucide-svelte';
   import { escapeHtml } from '$lib/utils/html';
@@ -36,6 +36,8 @@
   let diasAfrente = 30;
   let diasAfrenteFiltro = '30';
   let showFilterSheet = false;
+  let loadController: AbortController | null = null;
+  let loadSeq = 0;
 
   const MONTH_NAME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
     month: 'long',
@@ -81,20 +83,30 @@
   ];
 
   async function load() {
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     loading = true;
     try {
       const payload = await apiGet<AniversariantesResponse>('/api/v1/dashboard/aniversariantes', {
         dias: diasAfrente
-      });
+      }, controller.signal);
+      if (seq !== loadSeq) return;
       aniversariantes = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar aniversariantes.'));
     } finally {
-      loading = false;
+      if (seq === loadSeq) loading = false;
     }
   }
 
   onMount(load);
+
+  onDestroy(() => {
+    loadController?.abort();
+  });
 
   $: diasAfrente = Number(diasAfrenteFiltro);
 

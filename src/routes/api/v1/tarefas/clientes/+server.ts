@@ -78,8 +78,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.clients,
         ...scopeCacheTags({ companyIds, userId: user.id }),
       ],
-      ttlMs: search ? 15_000 : 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: search ? 60_000 : 300_000,
+      staleTtlMs: search ? 300_000 : 1_800_000,
       loader: async () => {
         const buildQuery = (companyIdsFilter = companyIds) => {
           let query = client

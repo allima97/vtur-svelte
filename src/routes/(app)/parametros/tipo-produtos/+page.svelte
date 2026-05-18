@@ -7,7 +7,8 @@
   import { FieldInput, FieldSelect, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -26,6 +27,7 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
+  const loadGuard = createLoadGuard();
 
   let form = createForm();
 
@@ -77,14 +79,17 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: TipoProduto[] }>('/api/v1/tipo-produtos', { all: 1 });
+      const payload = await apiGet<{ items?: TipoProduto[] }>('/api/v1/tipo-produtos', { all: 1 }, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       tipos = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar tipos de produto.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

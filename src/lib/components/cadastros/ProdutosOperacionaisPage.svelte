@@ -7,8 +7,9 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Package, MapPin, Globe2, Hotel, Plus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   export let mode: 'produtos' | 'destinos' = 'produtos';
 
@@ -47,9 +48,11 @@
   let filtroTipo = '';
   let filtroStatus = '';
   let filtroAbrangencia = '';
+  const loadGuard = createLoadGuard();
   $: normalizedSearch = search.trim().toLowerCase();
 
   async function loadBase() {
+    const request = loadGuard.next();
     loading = true;
     try {
       const data = await apiGet<{
@@ -57,15 +60,17 @@
         tipos?: Option[];
         cidades?: Option[];
         fornecedores?: Option[];
-      }>('/api/v1/produtos/base', { all: 1, page: 1, pageSize: 500 });
+      }>('/api/v1/produtos/base', { all: 1, page: 1, pageSize: 500 }, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       produtos = data.produtos || [];
       tipos = data.tipos || [];
       cidades = data.cidades || [];
       fornecedores = data.fornecedores || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error('Erro ao carregar base de produtos.');
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

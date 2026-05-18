@@ -165,8 +165,8 @@ async function loadScopedVendedores(
     return getCachedReadModel<RankingUserRow[]>({
       key: buildReadModelCacheKey("parametros-metas:vendedores-admin", {}),
       tags: [READ_MODEL_TAGS.users, READ_MODEL_TAGS.metas],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const { data, error } = await client
           .from("users")
@@ -206,8 +206,8 @@ async function loadProdutosDiferenciados(client: SupabaseClient) {
   return getCachedReadModel<ProdutoDiferenciadoRow[]>({
     key: buildReadModelCacheKey("parametros-metas:produtos-diferenciados", {}),
     tags: [READ_MODEL_TAGS.catalog, READ_MODEL_TAGS.metas, READ_MODEL_TAGS.comissoes],
-    ttlMs: 60_000,
-    staleTtlMs: 300_000,
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
     loader: async () => {
       const fullCols =
         "id, nome, tipo, ativo, soma_na_meta, regra_comissionamento, usa_meta_produto, meta_produto_valor";
@@ -255,8 +255,8 @@ async function loadProdutoMetas(client: SupabaseClient, metaIds: string[]) {
       metaIds: [...metaIds].sort(),
     }),
     tags: [READ_MODEL_TAGS.metas, READ_MODEL_TAGS.catalog],
-    ttlMs: 45_000,
-    staleTtlMs: 180_000,
+    ttlMs: 120_000,
+    staleTtlMs: 600_000,
     loader: async () => {
       const rows: ProdutoMetaRow[] = [];
       for (const metaBatch of chunkArray(metaIds)) {

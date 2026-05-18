@@ -37,8 +37,8 @@ export async function GET(event: RequestEvent) {
     const data = await getCachedReadModel<CidadeBuscaRow[]>({
       key: buildReadModelCacheKey('relatorios:cidades-busca:query', { query, limite }),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 600_000,
+      staleTtlMs: 3_600_000,
       loader: async () => {
         const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });
         if (error) throw error;

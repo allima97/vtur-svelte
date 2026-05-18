@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -7,7 +7,7 @@
   import { AlertMessage, FieldInput, FieldTextarea, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import type { PassagemAereaFonte } from '$lib/quote/passagemAereaQuoteImport';
   import type { QuoteDraft, QuoteItemDraft, QuoteSegmentDraft } from '$lib/quote/types';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
@@ -137,6 +137,11 @@
   let buscandoCidade = false;
   let mostrarSugestoesCidade = false;
   let cidadeBuscaTimer: ReturnType<typeof setTimeout> | null = null;
+  let clientesController: AbortController | null = null;
+  let cidadeController: AbortController | null = null;
+  let clientesSeq = 0;
+  let cidadeSeq = 0;
+  let destroyed = false;
 
   // ── Datas ─────────────────────────────────────────────────────────────────
 
@@ -255,13 +260,20 @@
   // ── Carregar clientes ─────────────────────────────────────────────────────
 
   async function carregarClientes() {
+    clientesController?.abort();
+    const controller = new AbortController();
+    clientesController = controller;
+    const seq = ++clientesSeq;
     carregandoClientes = true;
     try {
-      clientes = await apiGet('/api/v1/orcamentos/clientes');
-    } catch {
+      const data = await apiGet<ClienteOption[]>('/api/v1/orcamentos/clientes', undefined, controller.signal);
+      if (seq !== clientesSeq || destroyed) return;
+      clientes = data;
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error('Não foi possível carregar os clientes.');
     } finally {
-      carregandoClientes = false;
+      if (seq === clientesSeq && !destroyed) carregandoClientes = false;
     }
   }
 
@@ -273,18 +285,35 @@
     cidadeNome = '';
     mostrarSugestoesCidade = true;
     if (cidadeBuscaTimer) clearTimeout(cidadeBuscaTimer);
-    if (!valor.trim()) { cidadeResultados = []; return; }
+    if (!valor.trim()) {
+      cidadeController?.abort();
+      cidadeSeq += 1;
+      cidadeResultados = [];
+      buscandoCidade = false;
+      return;
+    }
     cidadeBuscaTimer = setTimeout(() => buscarCidade(valor), 280);
   }
 
   async function buscarCidade(q: string) {
+    cidadeController?.abort();
+    const controller = new AbortController();
+    cidadeController = controller;
+    const seq = ++cidadeSeq;
     buscandoCidade = true;
     try {
-      cidadeResultados = await apiGet('/api/v1/orcamentos/cidades-busca', { q, limite: 15 });
-    } catch {
+      const data = await apiGet<CidadeOption[]>(
+        '/api/v1/orcamentos/cidades-busca',
+        { q, limite: 15 },
+        controller.signal
+      );
+      if (seq !== cidadeSeq || destroyed) return;
+      cidadeResultados = data;
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       cidadeResultados = [];
     } finally {
-      buscandoCidade = false;
+      if (seq === cidadeSeq && !destroyed) buscandoCidade = false;
     }
   }
 
@@ -514,6 +543,15 @@
 
   onMount(() => {
     void carregarClientes();
+  });
+
+  onDestroy(() => {
+    destroyed = true;
+    clientesSeq += 1;
+    cidadeSeq += 1;
+    clientesController?.abort();
+    cidadeController?.abort();
+    if (cidadeBuscaTimer) clearTimeout(cidadeBuscaTimer);
   });
 </script>
 

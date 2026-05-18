@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -15,7 +15,7 @@
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
   import { formatViagemStatus, resolveViagemStatus, type StatusViagem } from '$lib/viagens/status';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
 
   interface Viagem {
     id: string;
@@ -45,6 +45,8 @@
   let viagensFiltradas: Viagem[] = [];
   let loading = true;
   let errorMessage: string | null = null;
+  let viagensRequestSeq = 0;
+  let viagensAbortController: AbortController | null = null;
   
   type PeriodoEmbarque = '' | 'semana' | 'quinzena' | 'mes';
   type OrdenacaoViagem = 'embarque_asc' | 'embarque_desc' | 'retorno_asc' | 'cadastro_desc';
@@ -90,6 +92,10 @@
   });
 
   async function loadViagens() {
+    const requestSeq = ++viagensRequestSeq;
+    viagensAbortController?.abort();
+    const controller = new AbortController();
+    viagensAbortController = controller;
     loading = true;
     errorMessage = null;
     try {
@@ -98,7 +104,8 @@
         periodo: filtroPeriodo || undefined,
         ordenar: ordenacao,
         limit: 500
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== viagensRequestSeq) return;
       viagens = (data.items || []).map((v) => ({
         id: String(v.id || ''),
         codigo: v.venda_id ? `VND-${String(v.venda_id).slice(0, 8)}` : String(v.id || '').slice(0, 8),
@@ -122,14 +129,25 @@
       }));
       viagensFiltradas = viagens;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== viagensRequestSeq) return;
       errorMessage = `Erro ao carregar viagens: ${toUserMessage(err, 'falha inesperada')}`;
       toast.error(errorMessage);
       viagens = [];
       viagensFiltradas = [];
     } finally {
-      loading = false;
+      if (requestSeq === viagensRequestSeq) {
+        loading = false;
+        if (viagensAbortController === controller) {
+          viagensAbortController = null;
+        }
+      }
     }
   }
+
+  onDestroy(() => {
+    viagensAbortController?.abort();
+  });
 
   function calcularDias(inicio: string, fim: string): number {
     const diff = diffDaysISODate(inicio, fim);

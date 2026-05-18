@@ -37,8 +37,8 @@ export async function GET(event: RequestEvent) {
     const data = await getCachedReadModel<OrcamentoTipoProdutoRow[]>({
       key: buildReadModelCacheKey('orcamentos:tipos-produtos', {}),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         const { data, error } = await client
           .from('tipo_produtos')

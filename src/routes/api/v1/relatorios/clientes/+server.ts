@@ -36,19 +36,23 @@ type ClienteLookupRow = {
 async function fetchClientesByIds(client: SupabaseClient, ids: string[]) {
   const clientesById = new Map<string, ClienteLookupRow>();
   const cleanIds = uniqueCleanStrings(ids);
+  if (cleanIds.length === 0) return clientesById;
 
-  for (const batch of chunkArray(cleanIds)) {
-    const { data, error } = await client
-      .from("clientes")
-      .select("id, nome, email, cpf, telefone, whatsapp")
-      .in("id", batch);
+  const batchRows = await Promise.all(
+    chunkArray(cleanIds).map(async (batch) => {
+      const { data, error } = await client
+        .from("clientes")
+        .select("id, nome, email, cpf, telefone, whatsapp")
+        .in("id", batch);
 
-    if (error) throw error;
+      if (error) throw error;
+      return (data || []) as ClienteLookupRow[];
+    })
+  );
 
-    for (const row of (data || []) as ClienteLookupRow[]) {
-      const id = String(row?.id || "").trim();
-      if (id) clientesById.set(id, row);
-    }
+  for (const row of batchRows.flat()) {
+    const id = String(row?.id || "").trim();
+    if (id) clientesById.set(id, row);
   }
 
   return clientesById;
@@ -100,8 +104,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.clients,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
-      ttlMs: 180_000,
-      staleTtlMs: 900_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         const { contributions } = await fetchVendasKpiReciboContributions(client, {
           dataInicio,

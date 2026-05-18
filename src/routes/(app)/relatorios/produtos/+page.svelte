@@ -68,20 +68,38 @@
   let ordenacao = 'receita';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
+  let baseRequestSeq = 0;
+  let baseAbortController: AbortController | null = null;
   let relatorioRequestSeq = 0;
   let relatorioAbortController: AbortController | null = null;
   let showFilterSheet = false;
   const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
   async function loadBase() {
+    const requestSeq = ++baseRequestSeq;
+    baseAbortController?.abort();
+    const controller = new AbortController();
+    baseAbortController = controller;
     try {
-      const data = await apiGet<{ empresas?: EmpresaFiltro[]; vendedores?: VendedorFiltro[] }>('/api/v1/relatorios/base');
+      const data = await apiGet<{ empresas?: EmpresaFiltro[]; vendedores?: VendedorFiltro[] }>(
+        '/api/v1/relatorios/base',
+        undefined,
+        controller.signal,
+        60_000
+      );
+      if (requestSeq !== baseRequestSeq) return;
       empresas = data.empresas || [];
       vendedores = data.vendedores || [];
-    } catch (_err) {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== baseRequestSeq) return;
       empresas = [];
       vendedores = [];
       toast.error('Erro ao carregar filtros do relatório');
+    } finally {
+      if (requestSeq === baseRequestSeq && baseAbortController === controller) {
+        baseAbortController = null;
+      }
     }
   }
 
@@ -166,6 +184,7 @@
   });
 
   onDestroy(() => {
+    baseAbortController?.abort();
     relatorioAbortController?.abort();
     autoReload.cancel();
   });

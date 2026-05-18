@@ -114,14 +114,12 @@
 
   async function testarConexao(id: string) {
     testando = true;
-    await new Promise(resolve => setTimeout(resolve, 1000));
     toast.success(`Conexão com ${id} testada com sucesso!`);
     testando = false;
   }
 
   async function salvarConfiguracoes() {
     saving = true;
-    await new Promise(resolve => setTimeout(resolve, 800));
     toast.success('Configurações de integrações salvas!');
     saving = false;
   }

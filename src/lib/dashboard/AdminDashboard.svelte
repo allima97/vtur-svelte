@@ -23,7 +23,8 @@
     Users,
     Wrench
   } from 'lucide-svelte';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type SummaryPayload = {
     counts?: {
@@ -69,6 +70,7 @@
 
   let loading = true;
   let summary: SummaryPayload | null = null;
+  const dashboardGuard = createLoadGuard();
 
   const resumoCards: ResumoCard[] = [
     {
@@ -130,18 +132,22 @@
     { title: 'Documentação', href: '/documentacao', icon: BookOpen, description: 'Guias e instruções' }
   ];
 
-  async function loadSummary() {
-    summary = await apiGet<SummaryPayload>('/api/v1/admin/summary');
+  async function loadSummary(signal?: AbortSignal) {
+    return apiGet<SummaryPayload>('/api/v1/admin/summary', undefined, signal);
   }
 
   async function loadDashboard() {
+    const request = dashboardGuard.next();
     loading = true;
     try {
-      await loadSummary();
+      const payload = await loadSummary(request.signal);
+      if (!dashboardGuard.isCurrent(request.seq)) return;
+      summary = payload;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error('Não foi possível carregar o dashboard administrativo.');
     } finally {
-      loading = false;
+      if (dashboardGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

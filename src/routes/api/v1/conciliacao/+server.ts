@@ -134,8 +134,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.ranking,
         ...scopeCacheTags({ companyIds, userId: user.id })
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const dataRows: ConciliacaoListRow[] = [];
         const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];

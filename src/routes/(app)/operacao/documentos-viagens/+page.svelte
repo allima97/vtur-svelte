@@ -12,7 +12,8 @@
   import { escapeHtml } from '$lib/utils/html';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet } from '$lib/services/api';
+  import { apiDelete, apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   type Documento = {
     id: string;
     file_name: string;
@@ -29,6 +30,7 @@
   let documentos: Documento[] = [];
   let loading = true;
   let deletingId = '';
+  const loadGuard = createLoadGuard();
 
   $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('documentos_viagens', 'delete') || permissoes.can('operacao', 'delete');
 
@@ -89,14 +91,17 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Documento[] }>('/api/v1/operacao/documentos-viagens');
+      const payload = await apiGet<{ items?: Documento[] }>('/api/v1/operacao/documentos-viagens', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       documentos = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar documentos.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

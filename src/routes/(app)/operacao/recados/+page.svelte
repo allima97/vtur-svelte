@@ -1,7 +1,8 @@
 <script lang="ts">
   import { dev } from '$app/environment';
   import { onMount } from 'svelte';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -82,6 +83,8 @@
   let lastLoadedCompanyId = '';
   let lastReadKey = '';
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  const bootstrapGuard = createLoadGuard();
+  const recadosGuard = createLoadGuard();
 
   const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
@@ -113,10 +116,12 @@
   }
 
   async function loadBootstrap() {
+    const request = bootstrapGuard.next();
     loading = true;
     errorMessage = null;
     try {
-      const payload = await apiGet<BootstrapPayload>('/api/v1/mural/bootstrap');
+      const payload = await apiGet<BootstrapPayload>('/api/v1/mural/bootstrap', undefined, request.signal);
+      if (!bootstrapGuard.isCurrent(request.seq)) return;
       userId = payload.userId ? String(payload.userId) : null;
       userCompanyId = payload.companyId ? String(payload.companyId) : null;
       userTypeName = String(payload.userTypeName || '');
@@ -128,48 +133,57 @@
       lastLoadedCompanyId = companyContextId();
       startPoller();
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       errorMessage = toUserMessage(err, 'Erro ao carregar mural.');
       toast.error(errorMessage);
     } finally {
-      loading = false;
+      if (bootstrapGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
   async function loadCompanyData(companyId: string) {
     if (!companyId) {
+      recadosGuard.abort();
       usuariosEmpresa = [];
       recados = [];
       return;
     }
+    const request = recadosGuard.next();
     recadosLoading = true;
     try {
-      const payload = await apiGet<CompanyPayload>('/api/v1/mural/company', { company_id: companyId });
+      const payload = await apiGet<CompanyPayload>('/api/v1/mural/company', { company_id: companyId }, request.signal);
+      if (!recadosGuard.isCurrent(request.seq)) return;
       usuariosEmpresa = payload.usuariosEmpresa || [];
       supportsAttachments = payload.supportsAttachments !== false;
       recados = getVisibleRecados(payload.recados || []);
       startPoller();
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao trocar empresa.'));
     } finally {
-      recadosLoading = false;
+      if (recadosGuard.isCurrent(request.seq)) recadosLoading = false;
     }
   }
 
   async function loadRecados() {
     const companyId = companyContextId();
     if (!companyId) {
+      recadosGuard.abort();
       recados = [];
       return;
     }
+    const request = recadosGuard.next();
     recadosLoading = true;
     try {
-      const payload = await apiGet<RecadosPayload>('/api/v1/mural/recados', { company_id: companyId });
+      const payload = await apiGet<RecadosPayload>('/api/v1/mural/recados', { company_id: companyId }, request.signal);
+      if (!recadosGuard.isCurrent(request.seq)) return;
       supportsAttachments = payload.supportsAttachments !== false;
       recados = getVisibleRecados(payload.recados || []);
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao atualizar recados.'));
     } finally {
-      recadosLoading = false;
+      if (recadosGuard.isCurrent(request.seq)) recadosLoading = false;
     }
   }
 

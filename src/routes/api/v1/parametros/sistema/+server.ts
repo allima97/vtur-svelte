@@ -13,9 +13,14 @@ import {
   type ParametrosConciliacaoShape,
 } from "$lib/utils/conciliacao";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_PARAMETROS_SISTEMA_BODY_BYTES = 256 * 1024;
+const TEXT_NO_STORE_HEADERS = {
+  "Content-Type": "text/plain; charset=utf-8",
+  ...NO_STORE_HEADERS,
+};
 
 const DEFAULT_PARAMS = {
   company_id: null,
@@ -213,6 +218,7 @@ export async function GET(event) {
     if (!canAccessParametros(scope)) {
       return new Response("Sem acesso aos parametros do sistema.", {
         status: 403,
+        headers: TEXT_NO_STORE_HEADERS,
       });
     }
 
@@ -261,7 +267,7 @@ export async function GET(event) {
         ultima_atualizacao: null,
         origem: "default",
         owner_nome: ownerNome,
-      });
+      }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const conciliacaoContext: ParametrosConciliacaoShape = {
@@ -326,19 +332,22 @@ export async function GET(event) {
       exportacao_excel: Boolean(paramsRow.exportacao_excel),
     };
 
-    return json({
-      params: {
-        ...normalizedParams,
-        conciliacao_faixas_loja: sanitizeConciliacaoBandRules(
-          paramsRow.conciliacao_faixas_loja,
-          conciliacaoContext,
-        ),
+    return json(
+      {
+        params: {
+          ...normalizedParams,
+          conciliacao_faixas_loja: sanitizeConciliacaoBandRules(
+            paramsRow.conciliacao_faixas_loja,
+            conciliacaoContext,
+          ),
+        },
+        ultima_atualizacao:
+          paramsRow.updated_at || paramsRow.created_at || null,
+        origem: "banco",
+        owner_nome: ownerUserNome,
       },
-      ultima_atualizacao:
-        paramsRow.updated_at || paramsRow.created_at || null,
-      origem: "banco",
-      owner_nome: ownerUserNome,
-    });
+      { headers: DYNAMIC_READ_HEADERS },
+    );
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar parametros do sistema.");
   }
@@ -365,6 +374,7 @@ export async function POST(event) {
     ) {
       return new Response("Sem permissao para editar parametros do sistema.", {
         status: 403,
+        headers: TEXT_NO_STORE_HEADERS,
       });
     }
 
@@ -439,7 +449,7 @@ export async function POST(event) {
     return json({
       id: result?.id || null,
       owner_nome: ownerNome,
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao salvar parametros do sistema.");
   }

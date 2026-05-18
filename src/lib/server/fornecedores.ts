@@ -97,8 +97,8 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
       scopeId: scope.userId
     }),
     tags: [READ_MODEL_TAGS.catalog, ...scopeCacheTags({ companyIds, userId: scope.userId })],
-    ttlMs: 30_000,
-    staleTtlMs: 120_000,
+    ttlMs: 120_000,
+    staleTtlMs: 600_000,
     loader: async () => {
       const buildBaseQuery = (companyIdsFilter = companyIds) => {
         let query = client

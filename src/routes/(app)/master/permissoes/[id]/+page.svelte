@@ -6,9 +6,10 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import { Checkbox, FieldSelect } from '$lib/components/ui';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type PermissionEntry = {
     label: string;
@@ -45,23 +46,31 @@
   ];
 
   let lastLoadedId = '';
+  const pageGuard = createLoadGuard();
 
   function entriesForSection(section: Pick<PermissionSection, 'modulos'>) {
     return permissions.filter((entry) => section.modulos.includes(entry.label));
   }
 
   async function loadPage() {
+    const request = pageGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<PermissionDetailResponse>(`/api/v1/admin/permissoes/${$page.params.id}`);
+      const payload = await apiGet<PermissionDetailResponse>(
+        `/api/v1/admin/permissoes/${$page.params.id}`,
+        undefined,
+        request.signal
+      );
+      if (!pageGuard.isCurrent(request.seq)) return;
       userInfo = payload.user || null;
       permissions = payload.permissions || [];
       sections = payload.sections || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error(err);
       toast.error(toUserMessage(err, 'Nao foi possivel carregar a matriz de permissoes do master.'));
     } finally {
-      loading = false;
+      if (pageGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

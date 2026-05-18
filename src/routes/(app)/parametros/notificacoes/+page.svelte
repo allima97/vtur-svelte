@@ -37,7 +37,6 @@
 
   async function handleSubmit() {
     saving = true;
-    await new Promise(resolve => setTimeout(resolve, 800));
     toast.success('Configurações de notificações salvas!');
     saving = false;
   }

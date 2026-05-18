@@ -6,8 +6,9 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Settings, CheckCircle, XCircle } from 'lucide-svelte';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type ModuloItem = {
     key: string;
@@ -25,14 +26,19 @@
   let loading = true;
   let savingKey = '';
   let tableMissing = false;
+  const loadGuard = createLoadGuard();
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
       const payload = await apiGet<{ table_missing?: boolean; catalog?: ModuloCatalogItem[]; disabled?: string[] }>(
-        '/api/v1/admin/modulos-sistema'
+        '/api/v1/admin/modulos-sistema',
+        undefined,
+        request.signal
       );
 
+      if (!loadGuard.isCurrent(request.seq)) return;
       tableMissing = Boolean(payload.table_missing);
       const catalog = payload.catalog || [];
       const disabled = new Set((payload.disabled || []).map((k: string) => k.toLowerCase()));
@@ -44,9 +50,10 @@
         reason: ''
       }));
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar módulos.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

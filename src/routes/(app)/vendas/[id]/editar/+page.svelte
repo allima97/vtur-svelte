@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel, LoadingState } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
@@ -9,7 +9,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
-  import { ApiError, apiFetch, apiGet, apiPatch } from '$lib/services/api';
+  import { ApiError, apiFetch, apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
 
   let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
@@ -175,6 +175,11 @@
   let tiposPacote: Option[] = [];
   let formasPagamento: Option[] = [];
   let vendedoresEquipe: Option[] = [];
+  let loadController: AbortController | null = null;
+  let lookupController: AbortController | null = null;
+  let loadSeq = 0;
+  let lookupSeq = 0;
+  let destroyed = false;
 
   let venda = {
     vendedor_id: '',
@@ -262,8 +267,8 @@
     recibos = recibos.map((item, index) => ({ ...item, principal: index === 0 }));
   }
 
-  async function loadBase() {
-    const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
+  async function loadBase(signal?: AbortSignal) {
+    const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base', undefined, signal);
     currentUser = data.user ?? null;
     vendedoresEquipe = data.vendedoresEquipe || [];
     clientes = data.clientes || [];
@@ -276,13 +281,15 @@
 
   // Busca os dados brutos da venda via HTTP — não usa nenhum dado de loadBase.
   // Pode ser disparado em paralelo com loadBase().
-  async function fetchVendaData(): Promise<VendaEditPayload> {
+  async function fetchVendaData(signal?: AbortSignal): Promise<VendaEditPayload> {
     try {
       return await apiFetch<VendaEditPayload>(`/api/v1/vendas/${vendaId}`, {
         redirectOnUnauthorized: false,
-        redirectOnForbidden: false
+        redirectOnForbidden: false,
+        signal
       });
     } catch (error) {
+      if (isCanceledApiError(error)) return null;
       if (error instanceof ApiError && error.status === 401) {
         toast.error('Sessão expirada. Faça login novamente para continuar.');
         const next = `${$page.url.pathname}${$page.url.search}`;
@@ -304,7 +311,8 @@
   }
 
   // Processa os dados da venda após loadBase() ter populado produtos/cidades/clientes/etc.
-  async function processVendaData(data: VendaEditPayload) {
+  async function processVendaData(data: VendaEditPayload, signal?: AbortSignal) {
+    if (destroyed) return;
     if (!data) return;
 
     const sale = data;
@@ -404,8 +412,8 @@
           cidadesFaltantes.add(r.destino_cidade_id);
         }
       }
-      await Promise.all(Array.from(produtosFaltantes).map((id) => ensureProdutoLoaded(id)));
-      await Promise.all(Array.from(cidadesFaltantes).map((id) => ensureCidadeLoaded(id)));
+      await Promise.all(Array.from(produtosFaltantes).map((id) => ensureProdutoLoaded(id, signal)));
+      await Promise.all(Array.from(cidadesFaltantes).map((id) => ensureCidadeLoaded(id, signal)));
     }
 
     const paymentsData = Array.isArray(sale?.pagamentos) ? sale.pagamentos : [];
@@ -457,7 +465,7 @@
     }
 
     if (venda.destino_id) {
-      await ensureProdutoLoaded(venda.destino_id);
+      await ensureProdutoLoaded(venda.destino_id, signal);
       if (!venda.destino_cidade_id) {
         const produtoDestino = produtos.find((p) => String(p.id) === String(venda.destino_id));
         if (produtoDestino?.cidade_id) {
@@ -465,7 +473,7 @@
         }
       }
       if (venda.destino_cidade_id) {
-        await ensureCidadeLoaded(venda.destino_cidade_id);
+        await ensureCidadeLoaded(venda.destino_cidade_id, signal);
       }
     }
 
@@ -473,19 +481,33 @@
   }
 
   onMount(async () => {
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     loading = true;
     try {
       await ensureServerSessionCookie();
       // Disparar as duas chamadas HTTP em paralelo: loadBase carrega o catálogo
       // e fetchVendaData busca os dados da venda. A rede não espera — só o
       // processamento da venda aguarda o catálogo estar pronto.
-      const [, vendaRaw] = await Promise.all([loadBase(), fetchVendaData()]);
-      await processVendaData(vendaRaw);
+      const [, vendaRaw] = await Promise.all([loadBase(controller.signal), fetchVendaData(controller.signal)]);
+      if (seq !== loadSeq || destroyed) return;
+      await processVendaData(vendaRaw, controller.signal);
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar dados da venda.'));
     } finally {
-      loading = false;
+      if (seq === loadSeq && !destroyed) loading = false;
     }
+  });
+
+  onDestroy(() => {
+    destroyed = true;
+    loadSeq += 1;
+    lookupSeq += 1;
+    loadController?.abort();
+    lookupController?.abort();
   });
 
   function addRecibo() {
@@ -777,30 +799,47 @@
     cidades = sortCidades(Array.from(byId.values()));
   }
 
-  async function ensureCidadeLoaded(cidadeId: string) {
+  async function ensureCidadeLoaded(cidadeId: string, signal?: AbortSignal) {
     const id = String(cidadeId || '').trim();
     if (!id) return;
     if (cidades.some((item) => String(item.id) === id)) return;
     if (ensuringCidadeId === id) return;
+    let seq = lookupSeq;
+    if (!signal) {
+      lookupController?.abort();
+      lookupController = new AbortController();
+      signal = lookupController.signal;
+      seq = ++lookupSeq;
+    }
     ensuringCidadeId = id;
     try {
-      const payload = await apiGet<CidadeLookupPayload>('/api/v1/vendas/cidades-busca', { id });
+      const payload = await apiGet<CidadeLookupPayload>('/api/v1/vendas/cidades-busca', { id }, signal);
+      if (destroyed || seq !== lookupSeq) return;
       if (payload?.id) mergeCidades([payload]);
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       // Mantem a tela funcionando mesmo sem prefetch complementar.
     } finally {
-      if (ensuringCidadeId === id) ensuringCidadeId = '';
+      if (ensuringCidadeId === id && !destroyed) ensuringCidadeId = '';
     }
   }
 
-  async function ensureProdutoLoaded(produtoId: string) {
+  async function ensureProdutoLoaded(produtoId: string, signal?: AbortSignal) {
     const id = String(produtoId || '').trim();
     if (!id) return;
     if (produtos.some((item) => String(item.id) === id)) return;
     if (ensuringProdutoId === id) return;
+    let seq = lookupSeq;
+    if (!signal) {
+      lookupController?.abort();
+      lookupController = new AbortController();
+      signal = lookupController.signal;
+      seq = ++lookupSeq;
+    }
     ensuringProdutoId = id;
     try {
-      const payload = await apiGet<ProdutoLookupPayload>(`/api/v1/produtos/${encodeURIComponent(id)}`);
+      const payload = await apiGet<ProdutoLookupPayload>(`/api/v1/produtos/${encodeURIComponent(id)}`, undefined, signal);
+      if (destroyed || seq !== lookupSeq) return;
       if (payload?.id) {
         const todasAsCidades =
           payload.todas_as_cidades === true ||
@@ -817,10 +856,11 @@
           }
         ];
       }
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       // Mantem a tela funcionando mesmo sem prefetch complementar.
     } finally {
-      if (ensuringProdutoId === id) ensuringProdutoId = '';
+      if (ensuringProdutoId === id && !destroyed) ensuringProdutoId = '';
     }
   }
 

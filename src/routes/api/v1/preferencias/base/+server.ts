@@ -29,8 +29,8 @@ export async function GET(event) {
           companyIds: scope.companyId ? [scope.companyId] : [],
         }),
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 180_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: () => fetchPreferenciasBase(client, scope, user.id),
     });
     return buildJsonResponse(payload, 200, 30);

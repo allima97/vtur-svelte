@@ -42,8 +42,8 @@ export async function GET(event: RequestEvent) {
       const items = await getCachedReadModel<CidadeBuscaItem[]>({
         key: buildReadModelCacheKey('viagens:cidades-busca:iniciais', { limite }),
         tags: [READ_MODEL_TAGS.catalog],
-        ttlMs: 60_000,
-        staleTtlMs: 300_000,
+        ttlMs: 600_000,
+        staleTtlMs: 3_600_000,
         loader: async () => {
           const { data, error } = await client.from('cidades').select('nome').order('nome').limit(limite);
           if (error) throw error;
@@ -60,8 +60,8 @@ export async function GET(event: RequestEvent) {
     const items = await getCachedReadModel<CidadeBuscaItem[]>({
       key: buildReadModelCacheKey('viagens:cidades-busca:query', { query, limite }),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 600_000,
+      staleTtlMs: 3_600_000,
       loader: async () => {
         try {
           const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });

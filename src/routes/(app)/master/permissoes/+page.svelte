@@ -6,9 +6,10 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Users, LayoutGrid, XCircle } from 'lucide-svelte';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type UserPermissionRow = {
     id: string;
@@ -33,6 +34,7 @@
   let rows: UserPermissionRow[] = [];
   let globalModules: Array<{ module_key: string; enabled: boolean }> = [];
   let systemModuleCatalog: SystemModuleCatalogItem[] = [];
+  const pageGuard = createLoadGuard();
 
   const columns = [
     {
@@ -67,13 +69,15 @@
   );
 
   async function loadPage() {
+    const request = pageGuard.next();
     loading = true;
     try {
       const payload = await apiGet<{
         items?: UserPermissionRow[];
         global_modules?: GlobalModuleSetting[];
         system_module_catalog?: SystemModuleCatalogItem[];
-      }>('/api/v1/admin/permissoes');
+      }>('/api/v1/admin/permissoes', undefined, request.signal);
+      if (!pageGuard.isCurrent(request.seq)) return;
       rows = payload.items || [];
       globalModules = (payload.global_modules || []).map((item) => ({
         module_key: item.module_key,
@@ -81,12 +85,13 @@
       }));
       systemModuleCatalog = payload.system_module_catalog || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Nao foi possivel carregar o painel de permissoes do master.'));
       rows = [];
       globalModules = [];
       systemModuleCatalog = [];
     } finally {
-      loading = false;
+      if (pageGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

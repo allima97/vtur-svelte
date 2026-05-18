@@ -8,7 +8,8 @@
   import { BottomSheet, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw, SlidersHorizontal, Users, UserCheck, UserX, UserCog } from 'lucide-svelte';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -38,6 +39,7 @@
   let filtroEmpresa = '';
   let filtroEscopo = '';
   let showFilterSheet = false;
+  const loadGuard = createLoadGuard();
 
   const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'short',
@@ -121,15 +123,18 @@
   ];
 
   async function loadUsuarios() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Usuario[] }>('/api/v1/admin/usuarios');
+      const payload = await apiGet<{ items?: Usuario[] }>('/api/v1/admin/usuarios', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       usuarios = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Nao foi possivel carregar os usuarios administrativos.'));
       usuarios = [];
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

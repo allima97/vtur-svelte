@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -11,7 +11,8 @@
   import { Plus, Trash2, RefreshCw, Star, Search } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { escapeHtml } from '$lib/utils/html';
   type Preferencia = {
     id: string;
@@ -49,6 +50,8 @@
   let cidadeResultados: CidadeSugestao[] = [];
   let buscandoCidade = false;
   let cidadeTimer: ReturnType<typeof setTimeout> | null = null;
+  const loadGuard = createLoadGuard();
+  const cidadeGuard = createLoadGuard();
 
   let form = createForm();
 
@@ -99,31 +102,41 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Preferencia[]; tipos?: TipoProduto[] }>('/api/v1/operacao/preferencias');
+      const payload = await apiGet<{ items?: Preferencia[]; tipos?: TipoProduto[] }>('/api/v1/operacao/preferencias', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       preferencias = payload.items || [];
       tipos = payload.tipos || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar preferências.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
   async function buscarCidade(q: string) {
-    if (q.length < 2) { cidadeResultados = []; return; }
+    if (q.length < 2) {
+      cidadeGuard.abort();
+      cidadeResultados = [];
+      return;
+    }
+    const request = cidadeGuard.next();
     buscandoCidade = true;
     try {
       const payload = await apiGet<CidadesBuscaResponse | CidadeSugestao[]>('/api/v1/vendas/cidades-busca', {
         q,
         limite: 10
-      });
+      }, request.signal);
+      if (!cidadeGuard.isCurrent(request.seq)) return;
       cidadeResultados = Array.isArray(payload) ? payload : payload.items || [];
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       // City autocomplete is optional; keep the form usable if lookup fails.
     } finally {
-      buscandoCidade = false;
+      if (cidadeGuard.isCurrent(request.seq)) buscandoCidade = false;
     }
   }
 
@@ -201,6 +214,10 @@
   }
 
   onMount(load);
+
+  onDestroy(() => {
+    if (cidadeTimer) clearTimeout(cidadeTimer);
+  });
 </script>
 
 <svelte:head>

@@ -6,13 +6,16 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldRadioGroup, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { apiGet, apiPatch } from '$lib/services/api';
+  import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Save, CheckCircle, User, Phone, MapPin } from 'lucide-svelte';
 
   let loading = true;
   let saving = false;
   let cepStatus: string | null = null;
+  const loadGuard = createLoadGuard();
+  const cepGuard = createLoadGuard();
 
   type PerfilOnboarding = {
     nome_completo?: string | null;
@@ -51,9 +54,11 @@
   const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const perfil = await apiGet<PerfilOnboarding>('/api/v1/user/profile');
+      const perfil = await apiGet<PerfilOnboarding>('/api/v1/user/profile', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       form = {
         nome_completo: perfil.nome_completo || '',
         cpf: perfil.cpf || '',
@@ -68,21 +73,29 @@
         uso_individual: perfil.uso_individual ?? null
       };
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar perfil.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
   async function buscarCep() {
     const digits = String(form.cep || '').replace(/\D/g, '');
-    if (digits.length !== 8) { cepStatus = null; return; }
+    if (digits.length !== 8) {
+      cepGuard.abort();
+      cepStatus = null;
+      return;
+    }
+    const request = cepGuard.next();
     cepStatus = 'Buscando CEP...';
     try {
-      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits });
+      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits }, request.signal);
+      if (!cepGuard.isCurrent(request.seq)) return;
       form = { ...form, endereco: data.logradouro || form.endereco, cidade: data.localidade || form.cidade, estado: data.uf || form.estado };
       cepStatus = 'Endereço carregado.';
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       cepStatus = 'CEP não encontrado.';
     }
   }

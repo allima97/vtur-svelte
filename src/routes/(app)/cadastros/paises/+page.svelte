@@ -7,7 +7,8 @@
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -33,6 +34,7 @@
   let editingId: string | null = null;
 
   let form = { nome: '', codigo_iso: '', continente: '' };
+  const loadGuard = createLoadGuard();
 
   const columns = [
     { key: 'nome', label: 'País', sortable: true },
@@ -41,14 +43,17 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<PaisesResponse>('/api/v1/paises');
+      const payload = await apiGet<PaisesResponse>('/api/v1/paises', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       paises = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar países.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

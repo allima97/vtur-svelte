@@ -33,7 +33,8 @@
   import { formatDate as formatDateValue } from "$lib/utils/formatters";
   import { toUserMessage } from "$lib/utils/errors";
   import type { VoucherRecord, VoucherAssetRecord } from "$lib/vouchers/types";
-  import { apiDelete, apiGet, apiPatch, apiPost } from "$lib/services/api";
+  import { apiDelete, apiGet, apiPatch, apiPost, isCanceledApiError } from "$lib/services/api";
+  import { createLoadGuard } from "$lib/utils/loadGuard";
 
   let voucher: VoucherRecord | null = null;
   let assets: VoucherAssetRecord[] = [];
@@ -47,6 +48,9 @@
   let loadingEditorModal = false;
   let loadingPreviewModal = false;
   let assetsLoaded = false;
+  const contextGuard = createLoadGuard();
+  const voucherGuard = createLoadGuard();
+  const assetsGuard = createLoadGuard();
 
   const providerConfig: Record<
     string,
@@ -96,38 +100,59 @@
   });
 
   async function loadUserContext() {
+    const request = contextGuard.next();
     try {
-      const data = await apiGet<{ company_id?: string | null }>("/api/v1/user/context");
+      const data = await apiGet<{ company_id?: string | null }>(
+        "/api/v1/user/context",
+        undefined,
+        request.signal,
+      );
+      if (!contextGuard.isCurrent(request.seq)) return;
       companyId = data.company_id || null;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       companyId = null;
     }
   }
 
   async function carregarVoucher(id: string) {
+    const request = voucherGuard.next();
     loading = true;
     try {
-      const data = await apiGet<{ item?: VoucherRecord }>(`/api/v1/vouchers/${id}`);
+      const data = await apiGet<{ item?: VoucherRecord }>(
+        `/api/v1/vouchers/${id}`,
+        undefined,
+        request.signal,
+      );
+      if (!voucherGuard.isCurrent(request.seq)) return;
       voucher = data.item || null;
       if (!voucher) {
         toast.error("Voucher não encontrado");
         goto("/operacao/vouchers");
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, "Erro ao carregar voucher"));
       goto("/operacao/vouchers");
     } finally {
-      loading = false;
+      if (voucherGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
   async function carregarAssets() {
     if (assetsLoaded) return;
+    const request = assetsGuard.next();
     try {
-      const data = await apiGet<{ items?: VoucherAssetRecord[] }>("/api/v1/voucher-assets");
+      const data = await apiGet<{ items?: VoucherAssetRecord[] }>(
+        "/api/v1/voucher-assets",
+        undefined,
+        request.signal,
+      );
+      if (!assetsGuard.isCurrent(request.seq)) return;
       assets = data.items || [];
       assetsLoaded = true;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       assets = [];
     }
   }

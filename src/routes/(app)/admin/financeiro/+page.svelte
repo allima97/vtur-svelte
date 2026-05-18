@@ -8,10 +8,11 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, DollarSign, Building2 } from 'lucide-svelte';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
   import { diffDaysISODate, formatISODateBR, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type BillingRow = {
     id: string;
@@ -60,6 +61,7 @@
   let modalOpen = false;
   let saving = false;
   let selectedBilling: BillingRow | null = null;
+  const loadGuard = createLoadGuard();
 
   let form = { status: 'active', valor_mensal: '', ultimo_pagamento: '', proximo_vencimento: '' };
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -101,9 +103,15 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: AdminCompanyItem[] }>('/api/v1/admin/empresas');
+      const payload = await apiGet<{ items?: AdminCompanyItem[] }>(
+        '/api/v1/admin/empresas',
+        undefined,
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       billings = (payload.items || []).map((item) => {
         const billing = Array.isArray(item.billing) ? item.billing[0] || null : item.billing || null;
         const plan = Array.isArray(billing?.plan) ? billing.plan[0] || null : billing?.plan || null;
@@ -120,9 +128,10 @@
         };
       });
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar dados financeiros.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

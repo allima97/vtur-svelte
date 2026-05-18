@@ -276,8 +276,8 @@ export async function GET(event) {
           userId: user.id,
         }),
       ],
-      ttlMs: 20_000,
-      staleTtlMs: 90_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const normalizedStatus = normalizeViagemStatus(status);
         const hasStatusFilter =

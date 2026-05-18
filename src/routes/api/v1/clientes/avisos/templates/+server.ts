@@ -7,6 +7,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { ensureClienteModuloAccess } from '$lib/server/clientes';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 function inferTipo(nome: string) {
   const value = String(nome || '').trim().toLowerCase();
@@ -148,7 +149,7 @@ export async function GET(event) {
 
     return json({
       items
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar templates de aviso.');
   }

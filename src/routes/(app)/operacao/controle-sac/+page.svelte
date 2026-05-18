@@ -14,7 +14,8 @@
   import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   type SacRegistro = {
     id: string;
     recibo: string | null;
@@ -42,6 +43,7 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
+  const loadGuard = createLoadGuard();
 
   let form = createForm();
 
@@ -143,14 +145,17 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: SacRegistro[] }>('/api/v1/operacao/sac');
+      const payload = await apiGet<{ items?: SacRegistro[] }>('/api/v1/operacao/sac', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       registros = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar registros SAC.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

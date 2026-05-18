@@ -107,38 +107,44 @@ export async function GET(event) {
         READ_MODEL_TAGS.metas,
         ...scopeCacheTags({ companyIds, userId: user.id })
       ],
-      ttlMs: 180_000,
-      staleTtlMs: 900_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         const empresaMapPromise = (async () => {
           const map = new Map<string, string>();
-          for (const batch of chunks(companyIds)) {
-            const { data, error } = await client
-              .from('companies')
-              .select('id, nome_fantasia, nome_empresa')
-              .in('id', batch)
-              .limit(500);
-            if (error) throw error;
-            for (const row of data || []) {
-              map.set(String(row.id), companyLabel(row as CompanyRow));
-            }
+          const batchRows = await Promise.all(
+            chunks(companyIds).map(async (batch) => {
+              const { data, error } = await client
+                .from('companies')
+                .select('id, nome_fantasia, nome_empresa')
+                .in('id', batch)
+                .limit(500);
+              if (error) throw error;
+              return (data || []) as CompanyRow[];
+            })
+          );
+          for (const row of batchRows.flat()) {
+            map.set(String(row.id), companyLabel(row as CompanyRow));
           }
           return map;
         })();
 
         const vendedorCompanyMapPromise = (async () => {
           const map = new Map<string, string>();
-          for (const batch of chunks(companyIds)) {
-            const { data, error } = await client
-              .from('users')
-              .select('id, company_id')
-              .in('company_id', batch)
-              .eq('active', true)
-              .limit(5000);
-            if (error) throw error;
-            for (const row of (data || []) as VendedorCompanyRow[]) {
-              map.set(String(row.id), String(row.company_id));
-            }
+          const batchRows = await Promise.all(
+            chunks(companyIds).map(async (batch) => {
+              const { data, error } = await client
+                .from('users')
+                .select('id, company_id')
+                .in('company_id', batch)
+                .eq('active', true)
+                .limit(5000);
+              if (error) throw error;
+              return (data || []) as VendedorCompanyRow[];
+            })
+          );
+          for (const row of batchRows.flat()) {
+            map.set(String(row.id), String(row.company_id));
           }
           return map;
         })();
@@ -173,21 +179,24 @@ export async function GET(event) {
         const metaMap = new Map<string, number>();
         const allVendedorIds = Array.from(vendedorCompanyMap.keys());
         if (allVendedorIds.length > 0) {
-          for (const batch of chunks(allVendedorIds)) {
-            const { data, error } = await client
-              .from('metas_vendedor')
-              .select('vendedor_id, meta_geral')
-              .eq('ativo', true)
-              .gte('periodo', inicio.slice(0, 7))
-              .lte('periodo', fim.slice(0, 7))
-              .in('vendedor_id', batch)
-              .limit(2000);
-            if (error) throw error;
-            for (const row of (data || []) as MetaVendedorRow[]) {
-              const cid = vendedorCompanyMap.get(String(row.vendedor_id)) || '';
-              if (!cid) continue;
-              metaMap.set(cid, (metaMap.get(cid) ?? 0) + toNum(row.meta_geral));
-            }
+          const batchRows = await Promise.all(
+            chunks(allVendedorIds).map(async (batch) => {
+              const { data, error } = await client
+                .from('metas_vendedor')
+                .select('vendedor_id, meta_geral')
+                .eq('ativo', true)
+                .gte('periodo', inicio.slice(0, 7))
+                .lte('periodo', fim.slice(0, 7))
+                .in('vendedor_id', batch)
+                .limit(2000);
+              if (error) throw error;
+              return (data || []) as MetaVendedorRow[];
+            })
+          );
+          for (const row of batchRows.flat()) {
+            const cid = vendedorCompanyMap.get(String(row.vendedor_id)) || '';
+            if (!cid) continue;
+            metaMap.set(cid, (metaMap.get(cid) ?? 0) + toNum(row.meta_geral));
           }
         }
 

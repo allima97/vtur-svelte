@@ -199,8 +199,12 @@
   let lastAppliedFilterKey = '';
   let lastBaseCompanyId = '';
   let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
+  let baseRequestSeq = 0;
+  let baseAbortController: AbortController | null = null;
   let dashboardRequestSeq = 0;
   let dashboardAbortController: AbortController | null = null;
+  let operacionalRequestSeq = 0;
+  let operacionalAbortController: AbortController | null = null;
 
   let vendasAgg: VendasAgg = {
     totalVendas: 0,
@@ -513,22 +517,36 @@
   }
 
   async function loadBase() {
+    const requestSeq = ++baseRequestSeq;
+    baseAbortController?.abort();
+    const controller = new AbortController();
+    baseAbortController = controller;
     try {
       const data = await apiGet<{ empresas: { id: string; nome: string }[]; vendedores: { id: string; nome: string }[] }>(
         '/api/v1/dashboard/base',
-        { empresa_id: empresaSelecionada || undefined }
+        { empresa_id: empresaSelecionada || undefined },
+        controller.signal,
+        60_000
       );
+      if (requestSeq !== baseRequestSeq) return;
       empresas = data.empresas || [];
       vendedoresFiltro = data.vendedores || [];
       if (vendedorSelecionado && !vendedoresFiltro.some((item) => item.id === vendedorSelecionado)) {
         vendedorSelecionado = '';
       }
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== baseRequestSeq) return;
       empresas = [];
       vendedoresFiltro = [];
       vendedorSelecionado = '';
     } finally {
-      lastBaseCompanyId = empresaSelecionada;
+      if (requestSeq === baseRequestSeq) {
+        lastBaseCompanyId = empresaSelecionada;
+        if (baseAbortController === controller) {
+          baseAbortController = null;
+        }
+      }
     }
   }
 
@@ -609,6 +627,10 @@
   }
 
   async function loadOperacional() {
+    const requestSeq = ++operacionalRequestSeq;
+    operacionalAbortController?.abort();
+    const controller = new AbortController();
+    operacionalAbortController = controller;
     const params: Record<string, string> = {};
     if (empresaSelecionada) params.empresa_id = empresaSelecionada;
     if (vendedorSelecionado) params.vendedor_id = vendedorSelecionado;
@@ -621,9 +643,11 @@
           const d = await apiGet<{ items: Aniversariante[] }>('/api/v1/dashboard/aniversariantes', {
             ...params,
             limit: 8
-          });
+          }, controller.signal, 60_000);
+          if (requestSeq !== operacionalRequestSeq) return;
           aniversariantes = d.items || [];
-        } catch {
+        } catch (err) {
+          if (isCanceledApiError(err) || requestSeq !== operacionalRequestSeq) return;
           aniversariantes = [];
         }
       })());
@@ -638,7 +662,8 @@
             ...params,
             limit: 8,
             em_andamento_limit: 8
-          });
+          }, controller.signal, 60_000);
+          if (requestSeq !== operacionalRequestSeq) return;
           if (Array.isArray(d.items)) {
             viagens = d.items;
           } else {
@@ -653,7 +678,8 @@
               status: 'confirmada'
             }));
           }
-        } catch {
+        } catch (err) {
+          if (isCanceledApiError(err) || requestSeq !== operacionalRequestSeq) return;
           viagens = [];
         }
       })());
@@ -667,7 +693,8 @@
           const d = await apiGet<{ items: FollowUpRow[] }>('/api/v1/dashboard/follow-ups', {
             ...params,
             limit: 8
-          });
+          }, controller.signal, 60_000);
+          if (requestSeq !== operacionalRequestSeq) return;
           followUps = (d.items || []).map((item) => ({
             id: String(item.id || ''),
             venda_id: item.venda_id ? String(item.venda_id) : null,
@@ -679,7 +706,8 @@
             follow_up_fechado: Boolean(item.follow_up_fechado),
             updated_at: item.updated_at ? String(item.updated_at) : null
           }));
-        } catch {
+        } catch (err) {
+          if (isCanceledApiError(err) || requestSeq !== operacionalRequestSeq) return;
           followUps = [];
         }
       })());
@@ -693,9 +721,11 @@
           const d = await apiGet<{ items: Consultoria[] }>('/api/v1/dashboard/consultorias', {
             ...params,
             limit: 8
-          });
+          }, controller.signal, 60_000);
+          if (requestSeq !== operacionalRequestSeq) return;
           consultorias = d.items || [];
-        } catch {
+        } catch (err) {
+          if (isCanceledApiError(err) || requestSeq !== operacionalRequestSeq) return;
           consultorias = [];
         }
       })());
@@ -704,6 +734,9 @@
     }
 
     await Promise.allSettled(tasks);
+    if (requestSeq === operacionalRequestSeq && operacionalAbortController === controller) {
+      operacionalAbortController = null;
+    }
   }
 
   async function atualizar() {
@@ -794,7 +827,9 @@
   });
 
   onDestroy(() => {
+    baseAbortController?.abort();
     dashboardAbortController?.abort();
+    operacionalAbortController?.abort();
     if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
   });
 

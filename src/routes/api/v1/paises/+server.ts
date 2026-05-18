@@ -61,8 +61,8 @@ export async function GET(event) {
     const items = await getCachedReadModel<PaisRow[]>({
       key: buildReadModelCacheKey('paises:list', { q }),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         const { data, error: queryError } = await client
           .from('paises')

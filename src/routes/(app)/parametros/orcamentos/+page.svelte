@@ -6,11 +6,13 @@
   import { FieldInput, FieldTextarea, FileDropzone, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Save, RefreshCw, FileText, Upload, ImageIcon, X } from 'lucide-svelte';
   import { toUserMessage } from '$lib/utils/errors';
 
   const LOGO_BUCKET = 'quotes';
+  const loadGuard = createLoadGuard();
 
   let loading = true;
   let saving = false;
@@ -119,9 +121,15 @@
   }
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ settings?: Partial<typeof settings> }>('/api/v1/parametros/orcamentos-pdf');
+      const payload = await apiGet<{ settings?: Partial<typeof settings> }>(
+        '/api/v1/parametros/orcamentos-pdf',
+        undefined,
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       if (payload.settings) {
         const s = payload.settings;
         settings = {
@@ -147,6 +155,7 @@
 
         if (s.logo_path) {
           const { data } = await supabase.storage.from(LOGO_BUCKET).createSignedUrl(s.logo_path, 3600);
+          if (!loadGuard.isCurrent(request.seq)) return;
           logoPreview = data?.signedUrl || s.logo_url || null;
         } else if (s.logo_url) {
           logoPreview = s.logo_url;
@@ -154,15 +163,17 @@
 
         if (s.imagem_complementar_path) {
           const { data } = await supabase.storage.from(LOGO_BUCKET).createSignedUrl(s.imagem_complementar_path, 3600);
+          if (!loadGuard.isCurrent(request.seq)) return;
           complementoPreview = data?.signedUrl || s.imagem_complementar_url || null;
         } else if (s.imagem_complementar_url) {
           complementoPreview = s.imagem_complementar_url;
         }
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar parâmetros.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

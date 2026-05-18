@@ -37,8 +37,6 @@
     }
     
     saving = true;
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
     toast.success('Circuito cadastrado com sucesso!');
     goto('/cadastros/circuitos');
   }

@@ -86,19 +86,22 @@ export async function GET(event) {
       const companyBatches =
         !scope.isAdmin && scope.companyIds.length > 0 ? chunkArray(scope.companyIds) : [null];
 
-      for (const companyBatch of companyBatches) {
-        let query = client
-          .from('companies')
-          .select('id, nome_fantasia, nome_empresa, active')
-          .order('nome_fantasia', { ascending: true })
-          .limit(500);
+      const batchRows = await Promise.all(
+        companyBatches.map(async (companyBatch) => {
+          let query = client
+            .from('companies')
+            .select('id, nome_fantasia, nome_empresa, active')
+            .order('nome_fantasia', { ascending: true })
+            .limit(500);
 
-        if (companyBatch) query = query.in('id', companyBatch);
+          if (companyBatch) query = query.in('id', companyBatch);
 
-        const { data, error } = await query;
-        if (error) throw error;
-        rows.push(...((data || []) as CompanyFilterRow[]));
-      }
+          const { data, error } = await query;
+          if (error) throw error;
+          return (data || []) as CompanyFilterRow[];
+        })
+      );
+      rows.push(...batchRows.flat());
       return rows;
     };
 
@@ -133,13 +136,11 @@ export async function GET(event) {
       };
 
       if (!scope.isAdmin && scopedTeamIds.length > 0) {
-        for (const idBatch of chunkArray(scopedTeamIds)) {
-          await runQuery({ ids: idBatch });
-        }
+        await Promise.all(chunkArray(scopedTeamIds).map((idBatch) => runQuery({ ids: idBatch })));
       } else if (!scope.isAdmin && companyIdsForUsers.length > 0) {
-        for (const companyBatch of chunkArray(companyIdsForUsers)) {
-          await runQuery({ companyIds: companyBatch });
-        }
+        await Promise.all(
+          chunkArray(companyIdsForUsers).map((companyBatch) => runQuery({ companyIds: companyBatch }))
+        );
       } else {
         await runQuery();
       }
@@ -165,8 +166,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.catalog,
         ...scopeCacheTags({ companyIds: scope.companyIds, userId: user.id })
       ],
-      ttlMs: 120_000,
-      staleTtlMs: 900_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         const [companiesRows, usersRows] = await Promise.all([fetchCompanies(), fetchUsers()]);
 
@@ -200,14 +201,14 @@ export async function GET(event) {
           .sort((left, right) => PT_BR_COLLATOR.compare(left.nome, right.nome));
 
         return {
-        empresas,
-        vendedores,
-        statusVendas: [
-          { value: 'confirmada', label: 'Confirmada' },
-          { value: 'pendente', label: 'Pendente' },
-          { value: 'concluida', label: 'Concluída' },
-          { value: 'cancelada', label: 'Cancelada' }
-        ]
+          empresas,
+          vendedores,
+          statusVendas: [
+            { value: 'confirmada', label: 'Confirmada' },
+            { value: 'pendente', label: 'Pendente' },
+            { value: 'concluida', label: 'Concluída' },
+            { value: 'cancelada', label: 'Cancelada' }
+          ]
         };
       }
     });

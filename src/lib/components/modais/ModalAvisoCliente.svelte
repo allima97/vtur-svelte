@@ -3,13 +3,14 @@
   import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dialog, FieldInput, FieldTextarea, FieldSelect, LoadingState } from '$lib/components/ui';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { formatDateTime } from '$lib/utils/formatters';
   import { downloadBlob, fetchPreviewPngBlob } from '$lib/utils/browser-images';
   import { toUserMessage } from '$lib/utils/errors';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { safeOpenNewTab } from '$lib/security/url';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type CanalAviso = 'whatsapp' | 'email';
 
@@ -126,6 +127,8 @@
   let historicoIndisponivel = false;
   let lastTemaSelecionado = 'all';
   let lastTemplateSelecionado = '';
+  const templatesGuard = createLoadGuard();
+  const historicoGuard = createLoadGuard();
 
   const TEMA_LABELS: Record<string, string> = {
     all: 'Todos',
@@ -279,6 +282,10 @@
 
   $: if (!open && modalReady) {
     modalReady = false;
+    templatesGuard.abort();
+    historicoGuard.abort();
+    carregandoTemplates = false;
+    carregandoHistorico = false;
   }
 
   async function prepararModal() {
@@ -296,10 +303,16 @@
   }
 
   async function carregarTemplates() {
+    const request = templatesGuard.next();
     carregandoTemplates = true;
     erroTemplates = '';
     try {
-      const libraryData = await apiGet<CrmLibraryResponse>('/api/v1/crm/library');
+      const libraryData = await apiGet<CrmLibraryResponse>(
+        '/api/v1/crm/library',
+        undefined,
+        request.signal
+      );
+      if (!templatesGuard.isCurrent(request.seq)) return;
       const categorias = Array.isArray(libraryData?.categories) ? libraryData.categories : [];
       const temas = Array.isArray(libraryData?.themes) ? libraryData.themes : [];
       const mensagens = Array.isArray(libraryData?.messages) ? libraryData.messages : [];
@@ -412,27 +425,35 @@
           .sort((a, b) => PT_BR_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
       }
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error('Erro ao carregar templates:', err);
       templates = [];
       erroTemplates = toUserMessage(err, 'Falha ao carregar templates');
     } finally {
-      carregandoTemplates = false;
+      if (templatesGuard.isCurrent(request.seq)) carregandoTemplates = false;
     }
   }
 
   async function carregarHistorico() {
     if (!clienteId) return;
+    const request = historicoGuard.next();
     carregandoHistorico = true;
     historicoIndisponivel = false;
     try {
-      const data = await apiGet<AvisoHistoricoResponse>('/api/v1/clientes/avisos/history', { cliente_id: clienteId });
+      const data = await apiGet<AvisoHistoricoResponse>(
+        '/api/v1/clientes/avisos/history',
+        { cliente_id: clienteId },
+        request.signal
+      );
+      if (!historicoGuard.isCurrent(request.seq)) return;
       historico = Array.isArray(data?.items) ? data.items : [];
       historicoIndisponivel = data?.unavailable === true;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error('Erro ao carregar histórico:', err);
       historico = [];
     } finally {
-      carregandoHistorico = false;
+      if (historicoGuard.isCurrent(request.seq)) carregandoHistorico = false;
     }
   }
 

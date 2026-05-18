@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -19,7 +19,7 @@
   import { todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
 
   interface Movimentacao {
     id: string;
@@ -78,6 +78,12 @@
   let showMovimentacaoDialog = false;
   let processando = false;
   let showFilterSheet = false;
+  let contextoRequestSeq = 0;
+  let contextoAbortController: AbortController | null = null;
+  let dadosRequestSeq = 0;
+  let dadosAbortController: AbortController | null = null;
+  let formasRequestSeq = 0;
+  let formasAbortController: AbortController | null = null;
 
   let novaMovimentacao = {
     tipo: 'entrada' as 'entrada' | 'saida',
@@ -132,17 +138,37 @@
   });
 
   async function carregarContexto() {
+    const requestSeq = ++contextoRequestSeq;
+    contextoAbortController?.abort();
+    const controller = new AbortController();
+    contextoAbortController = controller;
     try {
-      const data = await apiGet<{ company_id?: string; empresas?: EmpresaOption[] }>('/api/v1/user/context');
+      const data = await apiGet<{ company_id?: string; empresas?: EmpresaOption[] }>(
+        '/api/v1/user/context',
+        undefined,
+        controller.signal,
+        60_000
+      );
+      if (requestSeq !== contextoRequestSeq) return;
       empresas = data.empresas || [];
       empresaId = String(data.company_id || empresas[0]?.id || '').trim();
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== contextoRequestSeq) return;
       empresas = [];
       empresaId = '';
+    } finally {
+      if (requestSeq === contextoRequestSeq && contextoAbortController === controller) {
+        contextoAbortController = null;
+      }
     }
   }
 
   async function carregarDados() {
+    const requestSeq = ++dadosRequestSeq;
+    dadosAbortController?.abort();
+    const controller = new AbortController();
+    dadosAbortController = controller;
     loading = true;
     try {
       const data = await apiGet<{
@@ -154,31 +180,58 @@
         data_inicio: dataInicio || undefined,
         data_fim: dataFim || undefined,
         empresa_id: empresaId || undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== dadosRequestSeq) return;
       if (data.resumo) resumo = data.resumo;
       movimentacoes = data.movimentacoes || [];
       porFormaPagamento = data.porFormaPagamento || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== dadosRequestSeq) return;
       toast.error(toUserMessage(err, 'Erro ao carregar dados'));
     } finally {
-      loading = false;
+      if (requestSeq === dadosRequestSeq) {
+        loading = false;
+        if (dadosAbortController === controller) {
+          dadosAbortController = null;
+        }
+      }
     }
   }
 
   async function carregarFormasPagamento() {
+    const requestSeq = ++formasRequestSeq;
+    formasAbortController?.abort();
+    const controller = new AbortController();
+    formasAbortController = controller;
     try {
       const data = await apiGet<{ items?: Array<{ id: string; nome: string }> }>(
         '/api/v1/financeiro/formas-pagamento',
-        { ativas: true, empresa_id: empresaId || undefined }
+        { ativas: true, empresa_id: empresaId || undefined },
+        controller.signal,
+        60_000
       );
+      if (requestSeq !== formasRequestSeq) return;
       formasPagamento = (data.items || []).map((fp) => ({
         id: fp.id,
         nome: fp.nome
       }));
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== formasRequestSeq) return;
       formasPagamento = [];
+    } finally {
+      if (requestSeq === formasRequestSeq && formasAbortController === controller) {
+        formasAbortController = null;
+      }
     }
   }
+
+  onDestroy(() => {
+    contextoAbortController?.abort();
+    dadosAbortController?.abort();
+    formasAbortController?.abort();
+  });
 
   function formatCurrency(value: number): string {
     return BRL_CURRENCY_FORMATTER.format(value || 0);

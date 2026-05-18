@@ -106,8 +106,8 @@ export async function GET(event) {
           READ_MODEL_TAGS.sales,
           ...scopeCacheTags({ companyIds, userId: user.id })
         ],
-        ttlMs: 30_000,
-        staleTtlMs: 120_000,
+        ttlMs: 120_000,
+        staleTtlMs: 600_000,
         loader: async () => {
           const rows: PagamentoCaixaRow[] = [];
           const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
@@ -128,8 +128,8 @@ export async function GET(event) {
       getCachedReadModel<MovimentoCaixaRow[]>({
         key: buildReadModelCacheKey('caixa:movimentacoes', { companyIds, inicio, fim }),
         tags: [READ_MODEL_TAGS.finance, ...scopeCacheTags({ companyIds, userId: user.id })],
-        ttlMs: 30_000,
-        staleTtlMs: 120_000,
+        ttlMs: 120_000,
+        staleTtlMs: 600_000,
         loader: async () => {
           const rows: MovimentoCaixaRow[] = [];
           const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];

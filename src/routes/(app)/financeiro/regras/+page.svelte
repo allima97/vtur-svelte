@@ -14,10 +14,11 @@
     Plus,
     Trash2
   } from 'lucide-svelte';
-  import { apiFetch, apiGet } from '$lib/services/api';
+  import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type RuleType = 'GERAL' | 'ESCALONAVEL';
   type FaixaType = 'PRE' | 'POS';
@@ -102,6 +103,8 @@
     { value: 'PRE', label: 'PRE' },
     { value: 'POS', label: 'POS' }
   ];
+  const contextGuard = createLoadGuard();
+  const rulesGuard = createLoadGuard();
   $: empresaOptions = empresas.map((empresa) => ({
     value: empresa.id,
     label: empresa.nome_fantasia || empresa.nome || empresa.razao_social || empresa.id
@@ -145,11 +148,13 @@
 
   async function requestApi<T = unknown>(
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    signal?: AbortSignal
   ): Promise<T | null> {
     return apiFetch<T | null>('/api/v1/parametros/commission-rules', {
       method,
       query: method === 'GET' ? { empresa_id: empresaId || undefined } : undefined,
+      signal,
       body:
         method === 'GET'
           ? undefined
@@ -161,35 +166,47 @@
   }
 
   async function loadUserContext() {
+    const request = contextGuard.next();
     try {
       const data = await apiGet<{
         company_id?: string | null;
         empresas?: EmpresaOption[];
-      }>('/api/v1/user/context');
+      }>(
+        '/api/v1/user/context',
+        undefined,
+        request.signal
+      );
 
+      if (!contextGuard.isCurrent(request.seq)) return false;
       empresas = Array.isArray(data.empresas) ? data.empresas : [];
       empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
-    } catch {
+      return true;
+    } catch (err) {
+      if (isCanceledApiError(err)) return false;
       empresas = [];
       empresaId = '';
+      return true;
     }
   }
 
   async function loadRules(opts: { silent?: boolean } = {}) {
+    const request = rulesGuard.next();
     const silent = opts.silent ?? false;
     if (!silent) loading = true;
     errorMessage = '';
 
     try {
-      const data = await requestApi<Rule[]>('GET');
+      const data = await requestApi<Rule[]>('GET', undefined, request.signal);
+      if (!rulesGuard.isCurrent(request.seq)) return;
       rules = Array.isArray(data) ? data.map((rule) => normalizeRule(rule)) : [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       const message = toUserMessage(err, 'Erro ao carregar regras de comissão.');
       errorMessage = message;
       rules = [];
       toast.error(message);
     } finally {
-      loading = false;
+      if (rulesGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
@@ -200,8 +217,11 @@
   }
 
   onMount(async () => {
-    await loadUserContext();
-    await loadRules();
+    if (await loadUserContext()) {
+      await loadRules();
+    } else {
+      loading = false;
+    }
   });
 
   $: rulesResumo = rules.reduce(

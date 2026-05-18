@@ -10,7 +10,8 @@
   import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   export let mode: 'produtos' | 'destinos' = 'produtos';
   export let produtoId: string | null = null;
@@ -120,6 +121,7 @@
   let melhoresEpocasSugestoes: string[] = [];
   let form = { ...initialForm };
   let tarifas: Tarifa[] = [];
+  const loadGuard = createLoadGuard();
 
   $: isCreateMode = !produtoId;
   $: routeBase = mode === 'destinos' ? '/cadastros/destinos' : '/cadastros/produtos';
@@ -141,13 +143,13 @@
     form.valor_em_reais = Number(form.valor_venda || 0) * Number(form.cambio || 1);
   }
 
-  async function loadBase() {
+  async function loadBase(signal?: AbortSignal) {
     const data = await apiGet<{
       tipos?: Option[];
       cidades?: Option[];
       fornecedores?: Option[];
       destinosProdutos?: DestinoProdutoSugestao[];
-    }>('/api/v1/produtos/base', { all: 1, page: 1, pageSize: 500 });
+    }>('/api/v1/produtos/base', { all: 1, page: 1, pageSize: 500 }, signal);
     tipos = data.tipos || [];
     cidades = data.cidades || [];
     fornecedores = data.fornecedores || [];
@@ -171,9 +173,9 @@
     melhoresEpocasSugestoes = Array.from(melhorEpocaSet);
   }
 
-  async function loadProduto() {
+  async function loadProduto(signal?: AbortSignal) {
     if (!produtoId) return;
-    const data = await apiGet<ProdutoDetalhe>(`/api/v1/produtos/${produtoId}`);
+    const data = await apiGet<ProdutoDetalhe>(`/api/v1/produtos/${produtoId}`, undefined, signal);
     const fornecedorLabel = data?.fornecedor?.nome_fantasia || data?.fornecedor?.nome_completo || '';
     form = {
       nome: data.nome || '',
@@ -215,16 +217,18 @@
   }
 
   onMount(async () => {
+    const request = loadGuard.next();
     loading = true;
     try {
-      await loadBase();
-      await loadProduto();
+      await Promise.all([loadBase(request.signal), loadProduto(request.signal)]);
+      if (!loadGuard.isCurrent(request.seq)) return;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error(err);
       toast.error('Erro ao carregar cadastro de produto.');
       goto(routeBase);
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   });
 

@@ -2,11 +2,12 @@
   import { MessageCircle, Phone, Mail, Calendar, Send, Clock } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dialog, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
-  import { apiFetch, apiGet } from '$lib/services/api';
+  import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
   import { onMount } from 'svelte';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   
   // Props
   export let open: boolean = false;
@@ -26,6 +27,8 @@
   let loading = false;
   let salvando = false;
   let interacoes: InteracaoQuote[] = [];
+  let lastLoadKey = '';
+  const loadGuard = createLoadGuard();
   
   let novaInteracao = {
     tipo: 'ligacao' as 'ligacao' | 'email' | 'whatsapp' | 'reuniao' | 'outro',
@@ -56,16 +59,30 @@
       await carregarInteracoes();
     }
   });
+  $: if (open && orcamentoId) {
+    void carregarInteracoes();
+  }
   
   async function carregarInteracoes() {
+    if (!orcamentoId) return;
+    const loadKey = `${open}:${orcamentoId}`;
+    if (loadKey === lastLoadKey && interacoes.length > 0) return;
+    lastLoadKey = loadKey;
+    const request = loadGuard.next();
     loading = true;
     try {
-      const data = await apiGet<{ interacoes?: InteracaoQuote[] }>('/api/v1/orcamentos/interacao', { quote_id: orcamentoId });
+      const data = await apiGet<{ interacoes?: InteracaoQuote[] }>(
+        '/api/v1/orcamentos/interacao',
+        { quote_id: orcamentoId },
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       interacoes = data.interacoes || [];
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar interações.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
   
@@ -126,6 +143,12 @@
     const found = tiposInteracao.find(t => t.value === tipo);
     return found?.label || tipo;
   }
+
+  function handleClose() {
+    lastLoadKey = '';
+    loadGuard.abort();
+    onClose();
+  }
 </script>
 
 <Dialog
@@ -135,7 +158,7 @@
   color="clientes"
   size="lg"
   cancelText="Fechar"
-  onclose={onClose}
+  onclose={handleClose}
 >
   <div class="space-y-6">
         <!-- Nova Interação -->

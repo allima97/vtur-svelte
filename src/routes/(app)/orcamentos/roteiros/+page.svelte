@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -13,7 +13,7 @@
   import { formatDate } from '$lib/utils/formatters';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   type Roteiro = {
     id: string;
     nome: string;
@@ -30,6 +30,8 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
+  let loadController: AbortController | null = null;
+  let loadSeq = 0;
 
   let form = { nome: '', duracao: '', inicio_cidade: '', fim_cidade: '' };
 
@@ -65,14 +67,20 @@
 
   async function load(opts: { silent?: boolean } = {}) {
     const silent = opts.silent ?? false;
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     if (!silent) loading = true;
     try {
-      const payload = await apiGet<{ roteiros?: Roteiro[] }>('/api/v1/roteiros');
+      const payload = await apiGet<{ roteiros?: Roteiro[] }>('/api/v1/roteiros', undefined, controller.signal);
+      if (seq !== loadSeq) return;
       roteiros = payload.roteiros || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar roteiros.'));
     } finally {
-      loading = false;
+      if (seq === loadSeq) loading = false;
     }
   }
 
@@ -129,6 +137,10 @@
   }
 
   onMount(load);
+
+  onDestroy(() => {
+    loadController?.abort();
+  });
 </script>
 
 <svelte:head>

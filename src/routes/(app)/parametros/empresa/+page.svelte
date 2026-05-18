@@ -6,7 +6,8 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { Building2, Save } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet, apiPatch } from '$lib/services/api';
+  import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { toUserMessage } from '$lib/utils/errors';
 
   type Empresa = {
@@ -32,6 +33,7 @@
   let loading = true;
   let saving = false;
   let empresa: Empresa | null = null;
+  const loadGuard = createLoadGuard();
 
   let form = {
     nome_empresa: '',
@@ -54,9 +56,11 @@
   const estados = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      empresa = await apiGet<Empresa>('/api/v1/parametros/empresa');
+      empresa = await apiGet<Empresa>('/api/v1/parametros/empresa', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       if (empresa) {
         form = {
           nome_empresa: empresa.nome_empresa || '',
@@ -77,9 +81,10 @@
         };
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar dados da empresa.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

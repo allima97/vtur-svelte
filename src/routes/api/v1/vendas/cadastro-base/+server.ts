@@ -144,8 +144,8 @@ export async function GET(event: RequestEvent) {
           companyIds: activeCompanyIds
         }),
         tags: [READ_MODEL_TAGS.users, ...cacheScopeTags],
-        ttlMs: 30_000,
-        staleTtlMs: 120_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: () => fetchRankingVendedoresByCompanyIds(client, activeCompanyIds)
       });
       vendedoresEquipe = (data || [])
@@ -191,8 +191,8 @@ export async function GET(event: RequestEvent) {
     const cidadesQuery = getCachedReadModel({
       key: buildReadModelCacheKey('vendas-cadastro-base:cidades', {}),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 600_000,
+      staleTtlMs: 3_600_000,
       loader: async () =>
         await client
           .from('cidades')
@@ -204,8 +204,8 @@ export async function GET(event: RequestEvent) {
     const produtosQuery = getCachedReadModel({
       key: buildReadModelCacheKey('vendas-cadastro-base:produtos', {}),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 600_000,
+      staleTtlMs: 3_600_000,
       loader: async () =>
         await client
           .from('produtos')
@@ -216,15 +216,15 @@ export async function GET(event: RequestEvent) {
     const tiposQuery = getCachedReadModel({
       key: buildReadModelCacheKey('vendas-cadastro-base:tipos-produto', {}),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 600_000,
+      staleTtlMs: 3_600_000,
       loader: async () => await client.from('tipo_produtos').select('id, nome, tipo').order('nome', { ascending: true }).limit(200)
     });
     const pacotesQuery = getCachedReadModel({
       key: buildReadModelCacheKey('vendas-cadastro-base:tipos-pacote', {}),
       tags: [READ_MODEL_TAGS.catalog, READ_MODEL_TAGS.comissoes],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 600_000,
+      staleTtlMs: 3_600_000,
       loader: async () => await client.from('tipo_pacotes').select('id, nome, ativo').order('nome', { ascending: true }).limit(200)
     });
     const buildFormasQuery = (idsFilter: string[]) => {
@@ -299,8 +299,8 @@ export async function GET(event: RequestEvent) {
           canLoadClientes
         }),
         tags: [READ_MODEL_TAGS.clients, ...cacheScopeTags],
-        ttlMs: 30_000,
-        staleTtlMs: 120_000,
+        ttlMs: 120_000,
+        staleTtlMs: 600_000,
         loader: fetchClientesBase
       }),
       cidadesQuery,
@@ -312,8 +312,8 @@ export async function GET(event: RequestEvent) {
           companyIds: activeCompanyIds
         }),
         tags: [READ_MODEL_TAGS.payments, READ_MODEL_TAGS.finance, ...cacheScopeTags],
-        ttlMs: 30_000,
-        staleTtlMs: 120_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: fetchFormasBase
       }),
       getCachedReadModel({
@@ -321,8 +321,8 @@ export async function GET(event: RequestEvent) {
           companyIds: activeCompanyIds
         }),
         tags: [READ_MODEL_TAGS.users, ...cacheScopeTags],
-        ttlMs: 30_000,
-        staleTtlMs: 120_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: fetchEmpresasBase
       })
     ]);

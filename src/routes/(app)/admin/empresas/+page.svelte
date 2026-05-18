@@ -6,7 +6,8 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw, Building2, CheckCircle, CreditCard, Network } from 'lucide-svelte';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -28,6 +29,7 @@
 
   let loading = true;
   let rows: Empresa[] = [];
+  const loadGuard = createLoadGuard();
 
   function badge(label: string, tone: 'green' | 'yellow' | 'red' | 'gray') {
     const classes = {
@@ -84,14 +86,17 @@
   ];
 
   async function loadPage() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Empresa[] }>('/api/v1/admin/empresas');
+      const payload = await apiGet<{ items?: Empresa[] }>('/api/v1/admin/empresas', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       rows = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Nao foi possivel carregar as empresas.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

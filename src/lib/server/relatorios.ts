@@ -258,58 +258,80 @@ export async function fetchSalesReportRows(
     ],
     // Query pesada usada por KPIs, ranking e relatórios. Em Cloudflare o cache é
     // por instância, então TTL curto causa recálculo frequente sem ganho real.
-    ttlMs: 120_000,
-    staleTtlMs: 900_000,
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
     loader: async () => {
       const executeQuery = async (selectClause: string) => {
         const rowsById = new Map<string, ReportVendaRow>();
+        const companyBatches = filterBatches(companyIds);
+        const vendedorBatches = filterBatches(vendedorIds);
+        const vendaBatches = filterBatches(vendaIds);
 
-        for (const companyIdBatch of filterBatches(companyIds)) {
-          for (const vendedorIdBatch of filterBatches(vendedorIds)) {
-            for (const vendaIdBatch of filterBatches(vendaIds)) {
-              for (let offset = 0; offset < SALES_REPORT_MAX_ROWS; offset += SALES_REPORT_PAGE_SIZE) {
-                let query = client
-                  .from('vendas')
-                  .select(selectClause)
-                  .order('data_venda', { ascending: false })
-                  .range(offset, offset + SALES_REPORT_PAGE_SIZE - 1);
+        const queryBatch = async (
+          companyIdBatch: string[],
+          vendedorIdBatch: string[],
+          vendaIdBatch: string[],
+        ) => {
+          const batchRows: ReportVendaRow[] = [];
+          for (let offset = 0; offset < SALES_REPORT_MAX_ROWS; offset += SALES_REPORT_PAGE_SIZE) {
+            let query = client
+              .from('vendas')
+              .select(selectClause)
+              .order('data_venda', { ascending: false })
+              .range(offset, offset + SALES_REPORT_PAGE_SIZE - 1);
 
-                if (!includeCancelled) {
-                  query = query.eq('cancelada', false);
-                }
+            if (!includeCancelled) {
+              query = query.eq('cancelada', false);
+            }
 
-                if (dataInicio) {
-                  query = query.gte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataInicio);
-                }
+            if (dataInicio) {
+              query = query.gte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataInicio);
+            }
 
-                if (dataFim) {
-                  query = query.lte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataFim);
-                }
+            if (dataFim) {
+              query = query.lte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataFim);
+            }
 
-                if (companyIdBatch.length > 0) {
-                  query = query.in('company_id', companyIdBatch);
-                }
+            if (companyIdBatch.length > 0) {
+              query = query.in('company_id', companyIdBatch);
+            }
 
-                if (vendedorIdBatch.length > 0) {
-                  query = query.in('vendedor_id', vendedorIdBatch);
-                }
+            if (vendedorIdBatch.length > 0) {
+              query = query.in('vendedor_id', vendedorIdBatch);
+            }
 
-                if (vendaIdBatch.length > 0) {
-                  query = query.in('id', vendaIdBatch);
-                }
+            if (vendaIdBatch.length > 0) {
+              query = query.in('id', vendaIdBatch);
+            }
 
-                const { data, error } = await query;
-                if (error) return { data: null, error };
+            const { data, error } = await query;
+            if (error) return { data: null, error };
 
-                const batch = ((data || []) as unknown) as ReportVendaRow[];
-                for (const row of batch) {
-                  if (row?.id) rowsById.set(row.id, row);
-                }
-                if (batch.length < SALES_REPORT_PAGE_SIZE) break;
-              }
+            const batch = ((data || []) as unknown) as ReportVendaRow[];
+            batchRows.push(...batch);
+            if (batch.length < SALES_REPORT_PAGE_SIZE) break;
+          }
+          return { data: batchRows, error: null };
+        };
+
+        const batchResults = await Promise.all(
+          companyBatches.flatMap((companyIdBatch) =>
+            vendedorBatches.flatMap((vendedorIdBatch) =>
+              vendaBatches.map((vendaIdBatch) =>
+                queryBatch(companyIdBatch, vendedorIdBatch, vendaIdBatch)
+              )
+            )
+          )
+        );
+
+        const failed = batchResults.find((result) => result.error);
+        if (failed) return { data: null, error: failed.error };
+
+        for (const batchResult of batchResults) {
+          for (const row of ((batchResult.data || []) as unknown) as ReportVendaRow[]) {
+            if (row?.id) rowsById.set(row.id, row);
             }
           }
-        }
 
         const rows = Array.from(rowsById.values()).sort((left, right) =>
           String(right?.data_venda || '').localeCompare(String(left?.data_venda || ''))
@@ -351,20 +373,24 @@ export async function fetchLatestPaymentForms(client: SupabaseClient, vendaIds: 
   }
 
   // Tenta primeiro vendas_pagamentos (tabela real do sistema)
-  for (const batch of chunkArray(ids)) {
-    const { data, error } = await client
-      .from('vendas_pagamentos')
-      .select('venda_id, forma_nome, created_at')
-      .in('venda_id', batch)
-      .order('created_at', { ascending: false })
-      .limit(5000);
+  const batchResults = await Promise.all(
+    chunkArray(ids).map((batch) =>
+      client
+        .from('vendas_pagamentos')
+        .select('venda_id, forma_nome, created_at')
+        .in('venda_id', batch)
+        .order('created_at', { ascending: false })
+        .limit(5000)
+    )
+  );
 
-    if (error) {
-      // Fallback — vendas_pagamentos não tem forma_pagamento separada, retorna mapa vazio
-      return forms;
-    }
+  if (batchResults.some((result) => result.error)) {
+    // Fallback — vendas_pagamentos não tem forma_pagamento separada, retorna mapa vazio
+    return forms;
+  }
 
-    for (const row of (data || []) as Array<{ venda_id?: string | null; forma_nome?: string | null }>) {
+  for (const result of batchResults) {
+    for (const row of (result.data || []) as Array<{ venda_id?: string | null; forma_nome?: string | null }>) {
       const vendaId = String(row?.venda_id || '').trim();
       if (!vendaId || forms.has(vendaId)) continue;
       forms.set(vendaId, normalizeFormaPagamento(row?.forma_nome));

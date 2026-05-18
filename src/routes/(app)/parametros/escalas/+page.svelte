@@ -9,7 +9,8 @@
   import { formatDate, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Calendar, ChevronLeft, ChevronRight, Eraser, RefreshCw } from 'lucide-svelte';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -106,6 +107,7 @@
   let horarios: HorarioUsuario[] = [];
   let mesAtualId = '';
   let periodoAtual = currentMonth;
+  const loadGuard = createLoadGuard();
 
   let modalOpen = false;
   let selectedCell: { usuario: Usuario; data: string; registro?: EscalaDia | null } | null = null;
@@ -221,6 +223,7 @@
   }
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
       const payload = await apiGet<{
@@ -229,7 +232,8 @@
         usuarios?: Usuario[];
         feriados?: Feriado[];
         horariosUsuario?: HorarioUsuario[];
-      }>('/api/v1/parametros/escalas', { periodo: periodoAtual });
+      }>('/api/v1/parametros/escalas', { periodo: periodoAtual }, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       meses = payload.meses || [];
       dias = payload.dias || [];
       usuarios = payload.usuarios || [];
@@ -240,9 +244,10 @@
       mesAtualId = mes?.id || '';
       clearMulti(true);
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar escalas.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

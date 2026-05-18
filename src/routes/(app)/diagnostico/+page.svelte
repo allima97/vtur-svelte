@@ -5,13 +5,15 @@
   import Button from "$lib/components/ui/Button.svelte";
   import LoadingState from "$lib/components/ui/LoadingState.svelte";
   import { supabase } from "$lib/db/supabase";
-  import { ApiError, apiFetch } from "$lib/services/api";
+  import { ApiError, apiFetch, isCanceledApiError } from "$lib/services/api";
   import { toUserMessage } from "$lib/utils/errors";
+  import { createLoadGuard } from "$lib/utils/loadGuard";
 
   let sessionInfo = "";
   let sessionDetails = "";
   let running = false;
   let hasRun = false;
+  const diagnosticsGuard = createLoadGuard();
   let apiTests: Array<{
     name: string;
     status: string;
@@ -25,6 +27,7 @@
   };
 
   async function runDiagnostics() {
+    const request = diagnosticsGuard.next();
     running = true;
     hasRun = true;
     apiTests = [];
@@ -52,12 +55,15 @@
     ];
 
     for (const api of apis) {
+      if (!diagnosticsGuard.isCurrent(request.seq)) return;
       const start = Date.now();
       try {
         const json = await apiFetch<DiagnosticApiResponse>(api, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
+          signal: request.signal,
         });
+        if (!diagnosticsGuard.isCurrent(request.seq)) return;
         const time = Date.now() - start;
         let detail = "";
 
@@ -79,6 +85,7 @@
           },
         ];
       } catch (err) {
+        if (isCanceledApiError(err)) return;
         const isApiError = err instanceof ApiError;
         apiTests = [
           ...apiTests,
@@ -91,7 +98,7 @@
         ];
       }
     }
-    running = false;
+    if (diagnosticsGuard.isCurrent(request.seq)) running = false;
   }
 </script>
 

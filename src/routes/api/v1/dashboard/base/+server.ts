@@ -94,26 +94,29 @@ export async function GET(event) {
         READ_MODEL_TAGS.catalog,
         ...scopeCacheTags({ companyIds: scope.companyIds, userId: user.id })
       ],
-      ttlMs: 120_000,
-      staleTtlMs: 900_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         const rows: DashboardCompanyRow[] = [];
         const companyBatches =
           !scope.isAdmin && scope.companyIds.length > 0 ? chunkArray(scope.companyIds) : [null];
 
-        for (const companyBatch of companyBatches) {
-          let companiesQuery = client
-            .from('companies')
-            .select('id, nome_fantasia, nome_empresa, active')
-            .order('nome_fantasia', { ascending: true })
-            .limit(500);
+        const batchRows = await Promise.all(
+          companyBatches.map(async (companyBatch) => {
+            let companiesQuery = client
+              .from('companies')
+              .select('id, nome_fantasia, nome_empresa, active')
+              .order('nome_fantasia', { ascending: true })
+              .limit(500);
 
-          if (companyBatch) companiesQuery = companiesQuery.in('id', companyBatch);
+            if (companyBatch) companiesQuery = companiesQuery.in('id', companyBatch);
 
-          const { data: companiesData, error: companiesError } = await companiesQuery;
-          if (companiesError) throw companiesError;
-          rows.push(...(companiesData || []));
-        }
+            const { data: companiesData, error: companiesError } = await companiesQuery;
+            if (companiesError) throw companiesError;
+            return (companiesData || []) as DashboardCompanyRow[];
+          })
+        );
+        rows.push(...batchRows.flat());
 
         return rows
           .map((row) => ({
@@ -156,8 +159,8 @@ export async function GET(event) {
             userId: user.id
           })
         ],
-        ttlMs: 120_000,
-        staleTtlMs: 900_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: () => fetchRankingVendedoresByCompanyIds(client, companyIdsForVendedores)
       });
     } else {

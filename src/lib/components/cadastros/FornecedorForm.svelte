@@ -1,6 +1,6 @@
 <script lang="ts">
   import { dev } from '$app/environment';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -11,7 +11,8 @@
   import { toast } from '$lib/stores/ui';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiDelete, apiFetch, apiGet } from '$lib/services/api';
+  import { apiDelete, apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   export let fornecedorId: string | null = null;
 
@@ -86,6 +87,8 @@
   let produtosRelacionados: ProdutoRelacionado[] = [];
   let vouchersRelacionados: VoucherRelacionado[] = [];
   let cidadeSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  const fornecedorGuard = createLoadGuard();
+  const cidadeGuard = createLoadGuard();
 
   $: isCreateMode = !fornecedorId;
   $: title = isCreateMode ? 'Novo fornecedor' : 'Editar fornecedor';
@@ -98,9 +101,9 @@
     return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
   }
 
-  async function loadFornecedor() {
+  async function loadFornecedor(signal?: AbortSignal) {
     if (!fornecedorId) return;
-    const result = await apiGet<{ data: FornecedorDetalhe }>(`/api/v1/fornecedores/${fornecedorId}`);
+    const result = await apiGet<{ data: FornecedorDetalhe }>(`/api/v1/fornecedores/${fornecedorId}`, undefined, signal);
     const data = result.data;
     form = {
       nome_completo: data.nome_completo || '',
@@ -124,14 +127,17 @@
   }
 
   onMount(async () => {
+    const request = fornecedorGuard.next();
     try {
-      if (fornecedorId) await loadFornecedor();
+      if (fornecedorId) await loadFornecedor(request.signal);
+      if (!fornecedorGuard.isCurrent(request.seq)) return;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error(err);
       toast.error('Erro ao carregar fornecedor.');
       goto('/cadastros/fornecedores');
     } finally {
-      loading = false;
+      if (fornecedorGuard.isCurrent(request.seq)) loading = false;
     }
   });
 
@@ -156,6 +162,7 @@
     if (cidadeSearchTimer) clearTimeout(cidadeSearchTimer);
 
     if (!showCidadeOptions || cidadeBusca.trim().length < 2) {
+      cidadeGuard.abort();
       resultadosCidade = [];
       buscandoCidade = false;
       erroCidadeBusca = '';
@@ -164,22 +171,30 @@
 
     const query = cidadeBusca.trim();
     cidadeSearchTimer = setTimeout(async () => {
+      const request = cidadeGuard.next();
       buscandoCidade = true;
       erroCidadeBusca = '';
       try {
-        resultadosCidade =
+        const resultados =
           (await apiGet<CidadeBusca[]>('/api/v1/vendas/cidades-busca', {
             q: query,
             limite: 10
-          })) || [];
+          }, request.signal)) || [];
+        if (!cidadeGuard.isCurrent(request.seq)) return;
+        resultadosCidade = resultados;
       } catch (err) {
+        if (isCanceledApiError(err)) return;
         resultadosCidade = [];
         erroCidadeBusca = 'Erro ao buscar cidades.';
       } finally {
-        buscandoCidade = false;
+        if (cidadeGuard.isCurrent(request.seq)) buscandoCidade = false;
       }
     }, 300);
   }
+
+  onDestroy(() => {
+    if (cidadeSearchTimer) clearTimeout(cidadeSearchTimer);
+  });
 
   async function handleSubmit() {
     if (!form.nome_completo.trim()) return toast.error('Nome completo é obrigatório.');

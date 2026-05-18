@@ -2,7 +2,7 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { browser } from "$app/environment";
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import Card from "$lib/components/ui/Card.svelte";
   import Button from "$lib/components/ui/Button.svelte";
@@ -43,7 +43,7 @@
   import { ensureServerSessionCookie } from "$lib/services/session";
 
   import { confirmAction } from "$lib/stores/confirm";
-  import { ApiError, apiDelete, apiFetch, apiPatch } from "$lib/services/api";
+  import { ApiError, apiDelete, apiFetch, apiPatch, isCanceledApiError } from "$lib/services/api";
   const orcamentoId = $page.params.id;
   const STATUS_SEM_ALERTA_EXPIRADO = new Set(["aprovado", "rejeitado", "fechado"]);
   const STATUS_COM_ACOES_DECISAO = new Set(["pendente", "enviado", "novo"]);
@@ -109,28 +109,44 @@
   let processando = false;
   let showInteracaoModal = false;
   let loadingInteracoes = false;
+  let detailController: AbortController | null = null;
+  let interacoesController: AbortController | null = null;
+  let loadSeq = 0;
+  let destroyed = false;
 
   onMount(async () => {
+    const seq = ++loadSeq;
+    detailController?.abort();
+    interacoesController?.abort();
+    detailController = new AbortController();
+    interacoesController = new AbortController();
     loading = true;
     error = null;
     try {
       await ensureServerSessionCookie();
       // Ambas as chamadas usam apenas orcamentoId (da URL) — são independentes entre si.
       // O controle de loading fica no onMount para garantir que sempre seja liberado.
-      await Promise.all([carregarOrcamento(), carregarInteracoes()]);
+      await Promise.all([
+        carregarOrcamento(seq, detailController.signal),
+        carregarInteracoes({ seq, signal: interacoesController.signal }),
+      ]);
     } finally {
-      loading = false;
+      if (seq === loadSeq && !destroyed) loading = false;
     }
   });
 
-  async function carregarOrcamento() {
+  async function carregarOrcamento(seq = loadSeq, signal?: AbortSignal) {
     try {
       const data = await apiFetch<OrcamentoDetalhe>(`/api/v1/orcamentos/${orcamentoId}`, {
         redirectOnUnauthorized: false,
         redirectOnForbidden: false,
+        signal,
       });
+      if (seq !== loadSeq || destroyed) return;
       orcamento = data;
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
+      if (seq !== loadSeq || destroyed) return;
       if (err instanceof ApiError && err.status === 401) {
         toast.error("Sessão expirada. Faça login novamente para continuar.");
         const next = `${$page.url.pathname}${$page.url.search}`;
@@ -154,18 +170,28 @@
     }
   }
 
-  async function carregarInteracoes() {
+  async function carregarInteracoes(options: { seq?: number; signal?: AbortSignal } = {}) {
+    const seq = options.seq ?? loadSeq;
+    let signal = options.signal;
+    if (!signal) {
+      interacoesController?.abort();
+      interacoesController = new AbortController();
+      signal = interacoesController.signal;
+    }
     loadingInteracoes = true;
     try {
       const data = await apiFetch<{ interacoes?: OrcamentoInteracao[] }>("/api/v1/orcamentos/interacao", {
         query: { quote_id: orcamentoId },
         redirectOnUnauthorized: false,
+        signal,
       });
+      if (seq !== loadSeq || destroyed) return;
       interacoes = data.interacoes || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (err instanceof ApiError && err.status === 401) return;
     } finally {
-      loadingInteracoes = false;
+      if (seq === loadSeq && !destroyed) loadingInteracoes = false;
     }
   }
 
@@ -196,6 +222,13 @@
       processando = false;
     }
   }
+
+  onDestroy(() => {
+    destroyed = true;
+    loadSeq += 1;
+    detailController?.abort();
+    interacoesController?.abort();
+  });
 
   async function handleAprovar() {
     if (!(await confirmAction("Confirmar aprovação deste orçamento?"))) return;

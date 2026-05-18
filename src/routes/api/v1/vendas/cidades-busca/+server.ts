@@ -118,8 +118,8 @@ export async function GET(event) {
       const item = await getCachedReadModel<ReturnType<typeof mapCidade> | null>({
         key: buildReadModelCacheKey('vendas:cidades-busca:id', { cidadeId }),
         tags: [READ_MODEL_TAGS.catalog],
-        ttlMs: 60_000,
-        staleTtlMs: 300_000,
+        ttlMs: 600_000,
+        staleTtlMs: 3_600_000,
         loader: async () => {
           let data: CidadeBuscaRow | null = null;
           const detailed = await client
@@ -154,8 +154,8 @@ export async function GET(event) {
     const filtered = await getCachedReadModel<Array<ReturnType<typeof mapCidade>>>({
       key: buildReadModelCacheKey('vendas:cidades-busca:query', { query, limite }),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 600_000,
+      staleTtlMs: 3_600_000,
       loader: async () => {
         let rows: CidadeBuscaRow[] = [];
 

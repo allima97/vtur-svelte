@@ -10,7 +10,8 @@
   import { todayISODateLocal } from '$lib/date';
   import { toast } from '$lib/stores/ui';
   import { auth } from '$lib/stores/auth';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte';
 
   type EscalaDia = {
@@ -61,6 +62,7 @@
   let usuarios: Usuario[] = [];
   let feriados: Feriado[] = [];
   let activeTab = 'minha_escala';
+  const loadGuard = createLoadGuard();
 
   let periodoAtual = todayISODateLocal().slice(0, 7);
 
@@ -87,18 +89,25 @@
   }
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<EscalasPayload>('/api/v1/parametros/escalas', { periodo: periodoAtual });
+      const payload = await apiGet<EscalasPayload>(
+        '/api/v1/parametros/escalas',
+        { periodo: periodoAtual },
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       const userId = $auth.user?.id;
       diasEquipe = payload.dias || [];
       usuarios = payload.usuarios || [];
       dias = diasEquipe.filter((d) => d.usuario_id === userId);
       feriados = payload.feriados || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar escala.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

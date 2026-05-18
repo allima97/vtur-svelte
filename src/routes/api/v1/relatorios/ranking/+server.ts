@@ -289,36 +289,37 @@ export async function GET(event) {
         ttlMs: 300_000,
         staleTtlMs: 1_800_000,
         loader: async () => {
-          const rows: RankingTeamUserRow[] = [];
           const vendedorBatches = chunkArray(vendedorIds);
           const companyBatches =
             companyIds.length > 0 ? chunkArray(companyIds) : [null];
 
-          for (const vendedorBatch of vendedorBatches) {
-            for (const companyBatch of companyBatches) {
-              let teamUsersQuery = client
-                .from("users")
-                .select(
-                  "id, nome_completo, email, active, uso_individual, participa_ranking, company_id, user_types(name)",
-                )
-                .in("id", vendedorBatch)
-                .eq("active", true)
-                .limit(5000);
+          const batchRows = await Promise.all(
+            vendedorBatches.flatMap((vendedorBatch) =>
+              companyBatches.map(async (companyBatch) => {
+                let teamUsersQuery = client
+                  .from("users")
+                  .select(
+                    "id, nome_completo, email, active, uso_individual, participa_ranking, company_id, user_types(name)",
+                  )
+                  .in("id", vendedorBatch)
+                  .eq("active", true)
+                  .limit(5000);
 
-              // Restringe ao(s) company_id(s) do escopo para excluir usuários de outras empresas
-              if (companyBatch?.length === 1) {
-                teamUsersQuery = teamUsersQuery.eq("company_id", companyBatch[0]);
-              } else if (companyBatch && companyBatch.length > 1) {
-                teamUsersQuery = teamUsersQuery.in("company_id", companyBatch);
-              }
+                // Restringe ao(s) company_id(s) do escopo para excluir usuários de outras empresas
+                if (companyBatch?.length === 1) {
+                  teamUsersQuery = teamUsersQuery.eq("company_id", companyBatch[0]);
+                } else if (companyBatch && companyBatch.length > 1) {
+                  teamUsersQuery = teamUsersQuery.in("company_id", companyBatch);
+                }
 
-              const { data, error: teamUsersError } = await teamUsersQuery;
-              if (teamUsersError) throw teamUsersError;
-              rows.push(...((data || []) as RankingTeamUserRow[]));
-            }
-          }
+                const { data, error: teamUsersError } = await teamUsersQuery;
+                if (teamUsersError) throw teamUsersError;
+                return (data || []) as RankingTeamUserRow[];
+              })
+            )
+          );
 
-          return rows;
+          return batchRows.flat();
         },
       });
 
@@ -393,20 +394,21 @@ export async function GET(event) {
         ttlMs: 300_000,
         staleTtlMs: 1_800_000,
         loader: async () => {
-          const rows: ParametrosComissaoRow[] = [];
-          for (const companyBatch of chunkArray(companyIds)) {
-            const { data, error: parametrosError } = await client
-              .from("parametros_comissao")
-              .select(
-                "company_id, conciliacao_sobrepoe_vendas, usar_taxas_na_meta, foco_valor",
-              )
-              .in("company_id", companyBatch)
-              .limit(1000);
+          const batchRows = await Promise.all(
+            chunkArray(companyIds).map(async (companyBatch) => {
+              const { data, error: parametrosError } = await client
+                .from("parametros_comissao")
+                .select(
+                  "company_id, conciliacao_sobrepoe_vendas, usar_taxas_na_meta, foco_valor",
+                )
+                .in("company_id", companyBatch)
+                .limit(1000);
 
-            if (parametrosError) throw parametrosError;
-            rows.push(...((data || []) as ParametrosComissaoRow[]));
-          }
-          return rows;
+              if (parametrosError) throw parametrosError;
+              return (data || []) as ParametrosComissaoRow[];
+            })
+          );
+          return batchRows.flat();
         },
       });
 
@@ -441,8 +443,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 180_000,
-          staleTtlMs: 900_000,
+          ttlMs: 300_000,
+          staleTtlMs: 1_800_000,
           loader: () =>
             buildRankingSimple(client, {
               dataInicio,
@@ -462,29 +464,30 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 180_000,
-          staleTtlMs: 900_000,
+          ttlMs: 300_000,
+          staleTtlMs: 1_800_000,
           loader: async () => {
-            const rows: RankingQuoteRow[] = [];
             const vendedorBatches =
               vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
-            for (const vendedorBatch of vendedorBatches) {
-              let query = client
-                .from("quote")
-                .select("id, created_by, total")
-                .gte("created_at", `${dataInicio}T00:00:00`)
-                .lte("created_at", `${dataFim}T23:59:59.999`)
-                .limit(5000);
+            const batchRows = await Promise.all(
+              vendedorBatches.map(async (vendedorBatch) => {
+                let query = client
+                  .from("quote")
+                  .select("id, created_by, total")
+                  .gte("created_at", `${dataInicio}T00:00:00`)
+                  .lte("created_at", `${dataFim}T23:59:59.999`)
+                  .limit(5000);
 
-              if (vendedorBatch) {
-                query = query.in("created_by", vendedorBatch);
-              }
+                if (vendedorBatch) {
+                  query = query.in("created_by", vendedorBatch);
+                }
 
-              const { data, error } = await query;
-              if (error) throw error;
-              rows.push(...((data || []) as RankingQuoteRow[]));
-            }
-            return rows;
+                const { data, error } = await query;
+                if (error) throw error;
+                return (data || []) as RankingQuoteRow[];
+              })
+            );
+            return batchRows.flat();
           },
       }),
       getCachedReadModel<RankingMetaRow[]>({
@@ -497,37 +500,38 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 180_000,
-          staleTtlMs: 900_000,
+          ttlMs: 300_000,
+          staleTtlMs: 1_800_000,
           loader: async () => {
             const metasReference =
               getMonthRangeFromKey(dataInicio.slice(0, 7)) || getMonthRange();
-            const rows: RankingMetaRow[] = [];
             const vendedorBatches =
               vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
-            for (const vendedorBatch of vendedorBatches) {
-              let query = client
-                .from("metas_vendedor")
-                .select(
-                  "id, vendedor_id, meta_geral, meta_diferenciada, periodo, ativo",
-                )
-                .eq("ativo", true)
-                .gte("periodo", metasReference.inicio)
-                .lte("periodo", metasReference.fim)
-                .limit(1000);
+            const batchRows = await Promise.all(
+              vendedorBatches.map(async (vendedorBatch) => {
+                let query = client
+                  .from("metas_vendedor")
+                  .select(
+                    "id, vendedor_id, meta_geral, meta_diferenciada, periodo, ativo",
+                  )
+                  .eq("ativo", true)
+                  .gte("periodo", metasReference.inicio)
+                  .lte("periodo", metasReference.fim)
+                  .limit(1000);
 
-              if (vendedorBatch) {
-                query = query.in("vendedor_id", vendedorBatch);
-              }
+                if (vendedorBatch) {
+                  query = query.in("vendedor_id", vendedorBatch);
+                }
 
-              const { data, error } = await query;
-              if (error) {
-                logServerError("[ranking] Erro ao buscar metas", error);
-                return [];
-              }
-              rows.push(...((data || []) as RankingMetaRow[]));
-            }
-            return rows;
+                const { data, error } = await query;
+                if (error) {
+                  logServerError("[ranking] Erro ao buscar metas", error);
+                  return [];
+                }
+                return (data || []) as RankingMetaRow[];
+              })
+            );
+            return batchRows.flat();
           },
       }),
     ]);
@@ -685,22 +689,25 @@ export async function GET(event) {
       .map((item) => item.vendedor_id);
 
     if (missingNameIds.length > 0) {
-      for (const idBatch of chunkArray(missingNameIds)) {
-        const { data: usersData, error: usersError } = await client
-          .from("users")
-          .select("id, nome_completo, email")
-          .in("id", idBatch);
+      const batchRows = await Promise.all(
+        chunkArray(missingNameIds).map(async (idBatch) => {
+          const { data: usersData, error: usersError } = await client
+            .from("users")
+            .select("id, nome_completo, email")
+            .in("id", idBatch);
 
-        if (usersError) throw usersError;
+          if (usersError) throw usersError;
+          return usersData || [];
+        })
+      );
 
-        for (const row of usersData || []) {
-          const key = String(row.id || "").trim();
-          const current = rankingMap.get(key);
-          if (!current) continue;
-          current.vendedor_nome = String(
-            row.nome_completo || row.email || current.vendedor_nome,
-          );
-        }
+      for (const row of batchRows.flat()) {
+        const key = String(row.id || "").trim();
+        const current = rankingMap.get(key);
+        if (!current) continue;
+        current.vendedor_nome = String(
+          row.nome_completo || row.email || current.vendedor_nome,
+        );
       }
     }
 

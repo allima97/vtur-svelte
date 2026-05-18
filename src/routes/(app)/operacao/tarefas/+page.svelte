@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -10,7 +10,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import {
     Archive,
@@ -128,6 +128,10 @@
   let errorMessage: string | null = null;
   let categorias: TodoCategoria[] = [];
   let itens: TodoItem[] = [];
+  let boardRequestSeq = 0;
+  let boardAbortController: AbortController | null = null;
+  let taskRequestSeq = 0;
+  let taskAbortController: AbortController | null = null;
   let viewMode: ViewMode = 'kanban';
   let searchQuery = '';
   let filtroStatus = 'todas';
@@ -203,26 +207,43 @@
   }
 
   async function loadBoard() {
+    const requestSeq = ++boardRequestSeq;
+    boardAbortController?.abort();
+    const controller = new AbortController();
+    boardAbortController = controller;
     loading = true;
     errorMessage = null;
 
     try {
       const payload = await apiGet<{ categorias?: TodoCategoria[]; itens?: TodoItem[] }>('/api/v1/todo/board', {
         ts: Date.now()
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== boardRequestSeq) return;
       categorias = Array.isArray(payload?.categorias) ? payload.categorias : [];
       itens = Array.isArray(payload?.itens) ? payload.itens : [];
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
+      if (requestSeq !== boardRequestSeq) return;
       errorMessage = toUserMessage(error, 'Erro ao carregar tarefas.');
       categorias = [];
       itens = [];
     } finally {
-      loading = false;
+      if (requestSeq === boardRequestSeq) {
+        loading = false;
+        if (boardAbortController === controller) {
+          boardAbortController = null;
+        }
+      }
     }
   }
 
   onMount(() => {
     loadBoard();
+  });
+
+  onDestroy(() => {
+    boardAbortController?.abort();
+    taskAbortController?.abort();
   });
 
   $: enrichedItems = itens
@@ -331,12 +352,22 @@
   }
 
   async function openTask(taskId: string) {
+    const requestSeq = ++taskRequestSeq;
+    taskAbortController?.abort();
+    const controller = new AbortController();
+    taskAbortController = controller;
     taskModalOpen = true;
     taskLoading = true;
     selectedTaskId = taskId;
 
     try {
-      const payload = await apiGet<{ item?: TodoItem }>(`/api/v1/todo/item/${taskId}`);
+      const payload = await apiGet<{ item?: TodoItem }>(
+        `/api/v1/todo/item/${taskId}`,
+        undefined,
+        controller.signal,
+        60_000
+      );
+      if (requestSeq !== taskRequestSeq) return;
       const item = payload?.item as TodoItem | undefined;
       if (!item) {
         throw new Error('Tarefa nao encontrada.');
@@ -355,11 +386,18 @@
         updated_at: item.updated_at || null
       };
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
+      if (requestSeq !== taskRequestSeq) return;
       toast.error(toUserMessage(error, 'Erro ao carregar tarefa.'));
       taskModalOpen = false;
       resetTaskModal();
     } finally {
-      taskLoading = false;
+      if (requestSeq === taskRequestSeq) {
+        taskLoading = false;
+        if (taskAbortController === controller) {
+          taskAbortController = null;
+        }
+      }
     }
   }
 

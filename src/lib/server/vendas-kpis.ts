@@ -362,25 +362,26 @@ async function fetchBaixaRacVendedorIds(
 ) {
   if (companyIds.length === 0) return [] as string[];
 
-  const rows: IdOnlyRow[] = [];
-  for (const companyBatch of chunkArray(companyIds)) {
-    let query = client
-      .from("users")
-      .select("id")
-      .eq("active", true)
-      .ilike("nome_completo", "Baixa RAC");
+  const batchRows = await Promise.all(
+    chunkArray(companyIds).map(async (companyBatch) => {
+      let query = client
+        .from("users")
+        .select("id")
+        .eq("active", true)
+        .ilike("nome_completo", "Baixa RAC");
 
-    query =
-      companyBatch.length === 1
-        ? query.eq("company_id", companyBatch[0])
-        : query.in("company_id", companyBatch);
+      query =
+        companyBatch.length === 1
+          ? query.eq("company_id", companyBatch[0])
+          : query.in("company_id", companyBatch);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    rows.push(...((data || []) as IdOnlyRow[]));
-  }
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as IdOnlyRow[];
+    }),
+  );
 
-  return uniqueCleanStrings(rows.map((row) => row?.id));
+  return uniqueCleanStrings(batchRows.flat().map((row) => row?.id));
 }
 
 async function fetchConciliacaoCompanyIds(
@@ -389,25 +390,26 @@ async function fetchConciliacaoCompanyIds(
 ) {
   if (companyIds.length === 0) return [] as string[];
 
-  const rows: CompanyIdOnlyRow[] = [];
-  for (const companyBatch of chunkArray(companyIds)) {
-    let query = client
-      .from("parametros_comissao")
-      .select("company_id")
-      .eq("conciliacao_sobrepoe_vendas", true);
+  const batchRows = await Promise.all(
+    chunkArray(companyIds).map(async (companyBatch) => {
+      let query = client
+        .from("parametros_comissao")
+        .select("company_id")
+        .eq("conciliacao_sobrepoe_vendas", true);
 
-    query =
-      companyBatch.length === 1
-        ? query.eq("company_id", companyBatch[0])
-        : query.in("company_id", companyBatch);
+      query =
+        companyBatch.length === 1
+          ? query.eq("company_id", companyBatch[0])
+          : query.in("company_id", companyBatch);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    rows.push(...((data || []) as CompanyIdOnlyRow[]));
-  }
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as CompanyIdOnlyRow[];
+    }),
+  );
 
   const companyIdSet = new Set<string>();
-  for (const row of rows) {
+  for (const row of batchRows.flat()) {
     const companyId = toStr(row?.company_id);
     if (companyId) companyIdSet.add(companyId);
   }
@@ -418,29 +420,37 @@ async function fetchConciliacaoCompanyIds(
 async function carregarTermosNaoComissionaveis(
   client: SupabaseClient,
 ): Promise<string[]> {
-  try {
-    const { data, error } = await client
-      .from("parametros_pagamentos_nao_comissionaveis")
-      .select("termo, termo_normalizado, ativo")
-      .eq("ativo", true)
-      .order("termo", { ascending: true });
-    if (error) throw error;
+  return getCachedReadModel({
+    key: buildReadModelCacheKey("vendas-kpis:termos-nao-comissionaveis", {}),
+    tags: [READ_MODEL_TAGS.sales, READ_MODEL_TAGS.finance],
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
+    loader: async () => {
+      try {
+        const { data, error } = await client
+          .from("parametros_pagamentos_nao_comissionaveis")
+          .select("termo, termo_normalizado, ativo")
+          .eq("ativo", true)
+          .order("termo", { ascending: true });
+        if (error) throw error;
 
-    const termos = ((data || []) as TermoNaoComissionavelRow[])
-      .map((row) =>
-        normalizeTextValue(row?.termo_normalizado || row?.termo),
-      )
-      .filter(Boolean);
+        const termos = ((data || []) as TermoNaoComissionavelRow[])
+          .map((row) =>
+            normalizeTextValue(row?.termo_normalizado || row?.termo),
+          )
+          .filter(Boolean);
 
-    const unique = uniqueCleanStrings(termos);
-    if (unique.length > 0) return unique;
-  } catch (error) {
-    logServerError("[vendas-kpis] falha ao carregar termos nao comissionaveis", error);
-  }
+        const unique = uniqueCleanStrings(termos);
+        if (unique.length > 0) return unique;
+      } catch (error) {
+        logServerError("[vendas-kpis] falha ao carregar termos nao comissionaveis", error);
+      }
 
-  return DEFAULT_NAO_COMISSIONAVEIS.map((termo) =>
-    normalizeTextValue(termo),
-  ).filter(Boolean);
+      return DEFAULT_NAO_COMISSIONAVEIS.map((termo) =>
+        normalizeTextValue(termo),
+      ).filter(Boolean);
+    },
+  });
 }
 
 async function fetchNaoComissionadoPorVenda(
@@ -456,21 +466,21 @@ async function fetchNaoComissionadoPorVenda(
     };
   }
 
-  const pagamentos: PagamentoNaoComissionavelInput[] = [];
-  for (let index = 0; index < vendaIds.length; index += 200) {
-    const chunk = vendaIds.slice(index, index + 200);
-    const { data, error } = await client
-      .from("vendas_pagamentos")
-      .select(
-        "venda_id, venda_recibo_id, forma_nome, operacao, plano, valor_total, valor_bruto, desconto_valor, paga_comissao, forma:formas_pagamento(nome, paga_comissao)",
-      )
-      .in("venda_id", chunk);
+  const batchRows = await Promise.all(
+    chunkArray(vendaIds, 200).map(async (chunk) => {
+      const { data, error } = await client
+        .from("vendas_pagamentos")
+        .select(
+          "venda_id, venda_recibo_id, forma_nome, operacao, plano, valor_total, valor_bruto, desconto_valor, paga_comissao, forma:formas_pagamento(nome, paga_comissao)",
+        )
+        .in("venda_id", chunk);
 
-    if (error) throw error;
-    pagamentos.push(...((data || []) as PagamentoNaoComissionavelInput[]));
-  }
+      if (error) throw error;
+      return (data || []) as PagamentoNaoComissionavelInput[];
+    }),
+  );
 
-  return calcularNaoComissionavelResumo(pagamentos, termosNaoComissionaveis);
+  return calcularNaoComissionavelResumo(batchRows.flat(), termosNaoComissionaveis);
 }
 
 function mergeRowsById(
@@ -843,8 +853,8 @@ async function fetchResolvedRows(
 
   return getCachedReadModel({
     key,
-    ttlMs: 180_000,
-    staleTtlMs: 900_000,
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
     tags: [
       READ_MODEL_TAGS.sales,
       READ_MODEL_TAGS.conciliacao,
@@ -886,10 +896,12 @@ async function fetchAndComputeVendasKpisLegacy(
     accessibleClientIds?: string[];
   },
 ): Promise<VendasKpiAgg> {
-  const { rows, rateioMap } = await fetchResolvedRows(client, params);
+  const [{ rows, rateioMap }, termosNaoComissionaveis] = await Promise.all([
+    fetchResolvedRows(client, params),
+    carregarTermosNaoComissionaveis(client),
+  ]);
 
   const vendaIds = buildVendaIdsFromRows(rows);
-  const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
   const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
     client,
     vendaIds,
@@ -1111,10 +1123,12 @@ export async function fetchVendasKpiReciboContributionsRaw(
   agg: VendasKpiAgg;
   contributions: VendasKpiReciboContribution[];
 }> {
-  const { rows, rateioMap } = await fetchResolvedRows(client, params);
+  const [{ rows, rateioMap }, termosNaoComissionaveis] = await Promise.all([
+    fetchResolvedRows(client, params),
+    carregarTermosNaoComissionaveis(client),
+  ]);
 
   const vendaIds = buildVendaIdsFromRows(rows);
-  const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
   const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
     client,
     vendaIds,
@@ -1401,10 +1415,12 @@ export async function fetchAndComputeVendasTimeline(
     accessibleClientIds?: string[];
   },
 ): Promise<VendasTimelinePoint[]> {
-  const { rows, rateioMap } = await fetchResolvedRows(client, params);
+  const [{ rows, rateioMap }, termosNaoComissionaveis] = await Promise.all([
+    fetchResolvedRows(client, params),
+    carregarTermosNaoComissionaveis(client),
+  ]);
 
   const vendaIds = buildVendaIdsFromRows(rows);
-  const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
   const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
     client,
     vendaIds,

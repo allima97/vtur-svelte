@@ -39,6 +39,19 @@ type CachedGetEntry = {
 };
 
 const getCache = new Map<string, CachedGetEntry>();
+const inFlightGetControllers = new Set<AbortController>();
+const navigationAbortedControllers = new WeakSet<AbortController>();
+
+export function abortInFlightApiReads() {
+  for (const controller of inFlightGetControllers) {
+    navigationAbortedControllers.add(controller);
+    if (!controller.signal.aborted) controller.abort();
+  }
+  inFlightGetControllers.clear();
+  for (const [url, entry] of getCache) {
+    if (entry.promise) getCache.delete(url);
+  }
+}
 
 function shouldBypassLocalGetValueCache(url: string) {
   return [
@@ -111,23 +124,23 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
   const queryString = buildQueryString(options.query);
   const url = `${path}${queryString}`;
   const method = options.method || 'GET';
-  const isLocalCacheCandidate =
+  const isGetCacheCandidate =
     browser &&
     method === 'GET' &&
-    !options.signal &&
     !options.headers &&
     !options.body &&
     options.noCache !== true;
+  const canShareGetPromise = isGetCacheCandidate && !options.signal;
   const shouldKeepGetValue =
-    isLocalCacheCandidate && !shouldBypassLocalGetValueCache(url);
+    isGetCacheCandidate && !shouldBypassLocalGetValueCache(url);
 
-  if (isLocalCacheCandidate) {
+  if (isGetCacheCandidate) {
     const cached = getCache.get(url);
     const now = Date.now();
     if (cached && cached.expiresAt > now) {
-      if (cached.promise) return cached.promise as Promise<T>;
-      if (shouldKeepGetValue) return cached.value as T;
-      getCache.delete(url);
+      if (shouldKeepGetValue && 'value' in cached) return cached.value as T;
+      if (canShareGetPromise && cached.promise) return cached.promise as Promise<T>;
+      if (!cached.promise) getCache.delete(url);
     }
   } else if (browser && method !== 'GET') {
     getCache.clear();
@@ -135,6 +148,8 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
 
   const timeoutMs = Math.max(1_000, Number(options.timeoutMs || DEFAULT_API_TIMEOUT_MS));
   const controller = new AbortController();
+  const shouldTrackRead = browser && method === 'GET';
+  if (shouldTrackRead) inFlightGetControllers.add(controller);
   let didTimeout = false;
   const timeout = setTimeout(() => {
     didTimeout = true;
@@ -183,6 +198,9 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
       const aborted =
         controller.signal.aborted ||
         (err instanceof DOMException && err.name === 'AbortError');
+      if (aborted && !didTimeout && navigationAbortedControllers.has(controller)) {
+        return new Promise<T>(() => {});
+      }
       throw new ApiError(
         aborted
           ? didTimeout
@@ -195,6 +213,7 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
     } finally {
       clearTimeout(timeout);
       removeExternalAbortListener?.();
+      if (shouldTrackRead) inFlightGetControllers.delete(controller);
     }
 
     if (response.status === 401) {
@@ -224,25 +243,27 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
     return response.json() as Promise<T>;
   })();
 
-  if (isLocalCacheCandidate) {
+  if (isGetCacheCandidate) {
     const ttlMs = Math.max(0, Number(options.cacheTtlMs ?? DEFAULT_GET_CACHE_TTL_MS));
-    const entry: CachedGetEntry = {
+    const entry: CachedGetEntry | null = canShareGetPromise ? {
       expiresAt: Date.now() + Math.max(ttlMs, timeoutMs),
       promise: requestPromise
-    };
-    getCache.set(url, entry);
+    } : null;
+    if (entry) getCache.set(url, entry);
     try {
       const value = await requestPromise;
       if (shouldKeepGetValue && ttlMs > 0) {
-        entry.value = value;
-        entry.promise = undefined;
-        entry.expiresAt = Date.now() + ttlMs;
-      } else {
+        const valueEntry = entry || getCache.get(url) || { expiresAt: 0 };
+        valueEntry.value = value;
+        valueEntry.promise = undefined;
+        valueEntry.expiresAt = Date.now() + ttlMs;
+        getCache.set(url, valueEntry);
+      } else if (entry) {
         getCache.delete(url);
       }
       return value as T;
     } catch (err) {
-      getCache.delete(url);
+      if (entry) getCache.delete(url);
       throw err;
     }
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dropdown, DropdownItem, DropdownDivider, Tooltip } from '$lib/components/ui';
   import { auth } from '$lib/stores/auth';
@@ -9,6 +10,7 @@
   let loggingOut = false;
   let userDropdownOpen = false;
   let showCalculator = false;
+  let logoutController: AbortController | null = null;
 
   $: currentUser = $auth.user;
   $: userDisplayName =
@@ -30,11 +32,14 @@
   async function handleLogout() {
     if (loggingOut) return;
     loggingOut = true;
+    logoutController?.abort();
+    logoutController = new AbortController();
     try {
       const response = await fetch('/auth/logout', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { Accept: 'application/json' }
+        headers: { Accept: 'application/json' },
+        signal: logoutController.signal
       });
       if (!response.ok) throw new Error('logout_failed');
       // Usa window.location.assign em vez de goto() para evitar uncaught promise
@@ -45,6 +50,10 @@
       loggingOut = false;
     }
   }
+
+  onDestroy(() => {
+    logoutController?.abort();
+  });
 </script>
 
 <header class="vtur-topbar">

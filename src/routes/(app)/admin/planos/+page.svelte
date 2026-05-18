@@ -11,7 +11,8 @@
   import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   type Plano = {
     id: string;
     nome: string;
@@ -27,6 +28,7 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
+  const loadGuard = createLoadGuard();
 
   let form = { nome: '', descricao: '', valor_mensal: '', moeda: 'BRL', ativo: true };
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -67,14 +69,17 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Plano[] }>('/api/v1/admin/planos');
+      const payload = await apiGet<{ items?: Plano[] }>('/api/v1/admin/planos', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       planos = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar planos.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

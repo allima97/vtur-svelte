@@ -6,7 +6,8 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw } from 'lucide-svelte';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -21,6 +22,7 @@
 
   let loading = true;
   let rows: TipoUsuario[] = [];
+  const loadGuard = createLoadGuard();
 
   const columns = [
     {
@@ -39,14 +41,17 @@
   ];
 
   async function loadPage() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: TipoUsuario[] }>('/api/v1/admin/tipos-usuario');
+      const payload = await apiGet<{ items?: TipoUsuario[] }>('/api/v1/admin/tipos-usuario', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       rows = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Nao foi possivel carregar os tipos de usuario.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

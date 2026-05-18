@@ -7,7 +7,8 @@
   import { FieldInput, FieldSelect, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw } from 'lucide-svelte';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -34,6 +35,7 @@
   let deleting = false;
   let templates: Template[] = [];
   let form = { ...emptyTemplate };
+  const loadGuard = createLoadGuard();
 
   const columns = [
     {
@@ -60,18 +62,21 @@
   ];
 
   async function loadPage() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Template[] }>('/api/v1/admin/avisos');
+      const payload = await apiGet<{ items?: Template[] }>('/api/v1/admin/avisos', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       templates = payload.items || [];
       if (!form.id && templates.length > 0) {
         form = { ...templates[0] };
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Nao foi possivel carregar os templates de aviso.'));
       templates = [];
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

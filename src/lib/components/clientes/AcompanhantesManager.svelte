@@ -8,7 +8,8 @@
   import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiFetch, apiGet } from '$lib/services/api';
+  import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   type Acompanhante = {
     id: string;
     nome_completo: string;
@@ -44,6 +45,7 @@
   let errorMessage: string | null = null;
   let selectedId = '';
   let loadedClienteId = '';
+  const loadGuard = createLoadGuard();
 
   const parentescoOptions = [
     '',
@@ -95,11 +97,17 @@
   async function loadAcompanhantes() {
     if (!clienteId) return;
 
+    const request = loadGuard.next();
     loading = true;
     errorMessage = null;
 
     try {
-      const payload = await apiGet<{ items?: Acompanhante[] }>(`/api/v1/clientes/${clienteId}/acompanhantes`);
+      const payload = await apiGet<{ items?: Acompanhante[] }>(
+        `/api/v1/clientes/${clienteId}/acompanhantes`,
+        undefined,
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       acompanhantes = Array.isArray(payload?.items) ? payload.items : [];
 
       if (selectedId) {
@@ -112,10 +120,11 @@
         }
       }
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
       acompanhantes = [];
       errorMessage = toUserMessage(error, 'Erro ao carregar acompanhantes.');
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

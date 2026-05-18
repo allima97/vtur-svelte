@@ -6,8 +6,9 @@
   import { FieldInput, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Send, RefreshCw } from 'lucide-svelte';
-  import { apiFetch, apiGet, apiPost } from '$lib/services/api';
+  import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type EmailSettings = {
     smtp_host?: string | null;
@@ -27,6 +28,7 @@
   let saving = false;
   let sendingTest = false;
   let testEmail = '';
+  const loadGuard = createLoadGuard();
   let form = {
     smtp_host: '',
     smtp_port: '465',
@@ -42,9 +44,11 @@
   };
 
   async function loadPage() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ settings: EmailSettings }>('/api/v1/admin/email');
+      const payload = await apiGet<{ settings: EmailSettings }>('/api/v1/admin/email', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       form = {
         smtp_host: payload.settings.smtp_host || '',
         smtp_port: String(payload.settings.smtp_port || '465'),
@@ -59,9 +63,10 @@
         suporte_from_email: payload.settings.suporte_from_email || ''
       };
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Nao foi possivel carregar as configuracoes de e-mail.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

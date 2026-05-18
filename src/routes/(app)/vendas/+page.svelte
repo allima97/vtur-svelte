@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -11,7 +11,7 @@
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
   import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar, SlidersHorizontal } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
@@ -85,6 +85,9 @@
   let vendedoresOptions: Array<{ id: string; nome_completo: string }> = [];
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let requestSeq = 0;
+  let requestAbortController: AbortController | null = null;
+  let kpisRequestSeq = 0;
+  let kpisAbortController: AbortController | null = null;
   let kpisMesCorrente: VendasKpis = {
     totalVendas: 0,
     totalTaxas: 0,
@@ -179,6 +182,9 @@
 
   async function loadVendas() {
     const seq = ++requestSeq;
+    requestAbortController?.abort();
+    const controller = new AbortController();
+    requestAbortController = controller;
     loading = true;
     errorMessage = null;
 
@@ -191,7 +197,7 @@
         fim: periodoFim || undefined,
         vendedor_ids: filterValues.vendedor_id || undefined,
         include_vendedores: vendedoresOptions.length === 0 ? 1 : undefined
-      });
+      }, controller.signal, 60_000);
 
       if (seq !== requestSeq) return;
 
@@ -210,13 +216,19 @@
         vendedoresOptions = payload.vendedores;
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (seq !== requestSeq) return;
       errorMessage = toUserMessage(err, 'Erro ao carregar vendas.');
       vendas = [];
       totalVendas = 0;
       toast.error(errorMessage);
     } finally {
-      if (seq === requestSeq) loading = false;
+      if (seq === requestSeq) {
+        loading = false;
+        if (requestAbortController === controller) {
+          requestAbortController = null;
+        }
+      }
     }
   }
 
@@ -228,13 +240,18 @@
   }
 
   async function loadKpisMesCorrente() {
+    const seq = ++kpisRequestSeq;
+    kpisAbortController?.abort();
+    const controller = new AbortController();
+    kpisAbortController = controller;
     loadingKpis = true;
     try {
       const range = getCurrentMonthRange();
       const payload = await apiGet<VendasKpisPayload>('/api/v1/vendas/kpis', {
         inicio: range.inicio,
         fim: range.fim
-      });
+      }, controller.signal, 60_000);
+      if (seq !== kpisRequestSeq) return;
       kpisMesCorrente = {
         totalVendas: Number(payload?.kpis?.totalVendas || 0),
         totalTaxas: Number(payload?.kpis?.totalTaxas || 0),
@@ -244,6 +261,8 @@
         countAtivas: Number(payload?.kpis?.countAtivas || 0)
       };
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (seq !== kpisRequestSeq) return;
       kpisMesCorrente = {
         totalVendas: 0,
         totalTaxas: 0,
@@ -255,7 +274,12 @@
       const msg = toUserMessage(err, 'Erro ao carregar KPIs do mês corrente.');
       toast.error(msg);
     } finally {
-      loadingKpis = false;
+      if (seq === kpisRequestSeq) {
+        loadingKpis = false;
+        if (kpisAbortController === controller) {
+          kpisAbortController = null;
+        }
+      }
     }
   }
 
@@ -263,6 +287,12 @@
     mounted = true;
     void loadVendas();
     void loadKpisMesCorrente();
+  });
+
+  onDestroy(() => {
+    requestAbortController?.abort();
+    kpisAbortController?.abort();
+    if (searchTimer) clearTimeout(searchTimer);
   });
 
   $: showVendedorFilter = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);

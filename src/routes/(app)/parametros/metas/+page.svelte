@@ -10,7 +10,8 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { CopyCheck, Pencil, Plus, RefreshCw, SlidersHorizontal, Target, Trash2 } from 'lucide-svelte';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -72,6 +73,7 @@
   let showFilterSheet = false;
   let form = createForm();
   let bulkForm = createBulkForm();
+  const loadGuard = createLoadGuard();
 
   $: canEdit =
     !$permissoes.ready ||
@@ -195,6 +197,7 @@
   }
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
       const payload = await apiGet<{
@@ -204,14 +207,16 @@
       }>('/api/v1/parametros/metas', {
         periodo,
         vendedor_id: vendedorFiltro || undefined
-      });
+      }, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       metas = payload.items || [];
       vendedores = payload.vendedores || [];
       produtos = payload.produtos || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar metas.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

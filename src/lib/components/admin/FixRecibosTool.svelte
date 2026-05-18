@@ -7,7 +7,8 @@
   import SimpleTable from '$lib/components/ui/SimpleTable.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
-  import { apiFetch } from '$lib/services/api';
+  import { apiFetch, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   const API_ENDPOINT = '/api/v1/admin/fix-recibos';
 
@@ -107,6 +108,8 @@
   let userSearch = '';
   let userResults: UserOption[] = [];
   let userSearchLoading = false;
+  const docsGuard = createLoadGuard();
+  const usersGuard = createLoadGuard();
 
   function formatMoney(value: number) {
     return BRL_CURRENCY_FORMATTER.format(Number(value || 0));
@@ -151,21 +154,25 @@
     loading = true;
     errorMsg = '';
     rows = [];
+    const request = docsGuard.next();
 
     try {
       const data = await apiFetch<SearchDocumentsResponse>(API_ENDPOINT, {
         method: 'GET',
         query: { docs },
-        redirectOnForbidden: false
+        redirectOnForbidden: false,
+        signal: request.signal
       });
+      if (!docsGuard.isCurrent(request.seq)) return;
       rows = data.conciliacao_rows || [];
       if (!options.suppressSuccessMessage) {
         message = `${rows.length} linha(s) encontrada(s)`;
       }
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
       errorMsg = (err as ApiErrorLike).message || 'Erro ao buscar dados';
     } finally {
-      loading = false;
+      if (docsGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
@@ -174,6 +181,7 @@
 
     userSearchLoading = true;
     userResults = [];
+    const request = usersGuard.next();
 
     try {
       const data = await apiFetch<SearchUsersResponse>(API_ENDPOINT, {
@@ -182,13 +190,16 @@
           busca_usuario: userSearch,
           empresa_id: fixCompanyId || undefined
         },
-        redirectOnForbidden: false
+        redirectOnForbidden: false,
+        signal: request.signal
       });
+      if (!usersGuard.isCurrent(request.seq)) return;
       userResults = data.usuarios || [];
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
       errorMsg = (err as ApiErrorLike).message || 'Erro ao buscar vendedores';
     } finally {
-      userSearchLoading = false;
+      if (usersGuard.isCurrent(request.seq)) userSearchLoading = false;
     }
   }
 

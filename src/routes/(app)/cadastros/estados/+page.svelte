@@ -79,7 +79,7 @@
         break;
       } catch (err) {
         if (attempt < 2) {
-          await new Promise(r => setTimeout(r, 800));
+          await new Promise(r => setTimeout(r, 300));
           continue;
         }
         toast.error(toUserMessage(err, 'Não foi possível carregar os estados. Tente novamente.'));

@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import Chart from 'chart.js/auto';
+  import { onMount } from 'svelte';
   import type { Chart as ChartType, ChartData, ChartOptions } from 'chart.js';
   
   export let type: 'line' | 'bar' | 'pie' | 'doughnut' | 'radar' = 'line';
@@ -11,48 +10,52 @@
   let canvas: HTMLCanvasElement;
   let chart: ChartType | null = null;
   
-  const defaultOptions: ChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: {
-          usePointStyle: true,
-          padding: 20,
-          font: {
-            size: 12,
-            family: "'Inter', sans-serif"
-          }
-        }
-      }
-    },
-    scales: type === 'pie' || type === 'doughnut' ? undefined : {
-      y: {
-        beginAtZero: true,
-        grid: {
-          color: 'rgba(148, 163, 184, 0.1)'
-        },
-        ticks: {
-          font: {
-            size: 11,
-            family: "'Inter', sans-serif"
+  function buildDefaultOptions(): ChartOptions {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      normalized: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            usePointStyle: true,
+            padding: 20,
+            font: {
+              size: 12,
+              family: "'Inter', sans-serif"
+            }
           }
         }
       },
-      x: {
-        grid: {
-          display: false
+      scales: type === 'pie' || type === 'doughnut' ? undefined : {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(148, 163, 184, 0.1)'
+          },
+          ticks: {
+            font: {
+              size: 11,
+              family: "'Inter', sans-serif"
+            }
+          }
         },
-        ticks: {
-          font: {
-            size: 11,
-            family: "'Inter', sans-serif"
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            font: {
+              size: 11,
+              family: "'Inter', sans-serif"
+            }
           }
         }
       }
-    }
-  };
+    };
+  }
   
   type MergeableRecord = Record<string, unknown>;
 
@@ -76,29 +79,41 @@
     return result as T;
   }
 
+  function mergedOptions() {
+    return deepMerge(buildDefaultOptions() as MergeableRecord, options) as ChartOptions;
+  }
+
   onMount(() => {
-    if (!canvas) return;
+    let canceled = false;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    void (async () => {
+      if (!canvas) return;
 
-    chart = new Chart(ctx, {
-      type,
-      data,
-      options: deepMerge(defaultOptions as MergeableRecord, options) as ChartOptions
-    });
-  });
-  
-  onDestroy(() => {
-    if (chart) {
-      chart.destroy();
-    }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const { default: Chart } = await import('chart.js/auto');
+      if (canceled) return;
+
+      chart = new Chart(ctx, {
+        type,
+        data,
+        options: mergedOptions()
+      });
+    })();
+
+    return () => {
+      canceled = true;
+      chart?.destroy();
+      chart = null;
+    };
   });
   
   // Update chart when data changes
   $: if (chart && data) {
     chart.data = data;
-    chart.update('active');
+    chart.options = mergedOptions();
+    chart.update('none');
   }
 </script>
 

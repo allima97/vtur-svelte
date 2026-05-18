@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -16,7 +16,7 @@
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
-  import { apiFetch, apiGet, apiPost, apiPut } from '$lib/services/api';
+  import { apiFetch, apiGet, apiPost, apiPut, isCanceledApiError } from '$lib/services/api';
 
   interface Comissao {
     id: string;
@@ -89,6 +89,12 @@
   let detalhesObservacoes = '';
   let salvandoDetalhes = false;
   let showFilterSheet = false;
+  let contextRequestSeq = 0;
+  let contextAbortController: AbortController | null = null;
+  let comissoesRequestSeq = 0;
+  let comissoesAbortController: AbortController | null = null;
+  let vendedoresRequestSeq = 0;
+  let vendedoresAbortController: AbortController | null = null;
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'
@@ -133,12 +139,23 @@
     await Promise.all([loadComissoes(), loadVendedores()]);
   });
 
+  onDestroy(() => {
+    contextAbortController?.abort();
+    comissoesAbortController?.abort();
+    vendedoresAbortController?.abort();
+  });
+
   async function loadUserContext() {
+    const requestSeq = ++contextRequestSeq;
+    contextAbortController?.abort();
+    const controller = new AbortController();
+    contextAbortController = controller;
     try {
       const data = await apiGet<{
         company_id?: string | null;
         empresas?: EmpresaOption[];
-      }>('/api/v1/user/context');
+      }>('/api/v1/user/context', undefined, controller.signal, 60_000);
+      if (requestSeq !== contextRequestSeq) return;
 
       empresas = Array.isArray(data.empresas)
         ? data.empresas
@@ -150,9 +167,15 @@
         : [];
       empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== contextRequestSeq) return;
       empresas = [];
       empresaId = '';
       toast.error(toUserMessage(err, 'Erro ao carregar empresas.'));
+    } finally {
+      if (requestSeq === contextRequestSeq && contextAbortController === controller) {
+        contextAbortController = null;
+      }
     }
   }
 
@@ -163,6 +186,10 @@
   }
 
   async function loadComissoes() {
+    const requestSeq = ++comissoesRequestSeq;
+    comissoesAbortController?.abort();
+    const controller = new AbortController();
+    comissoesAbortController = controller;
     loading = true;
     try {
       const query: Record<string, string | undefined> = {};
@@ -176,8 +203,11 @@
       }
       const data = await apiGet<ComissoesResponse>(
         '/api/v1/financeiro/comissoes',
-        query
+        query,
+        controller.signal,
+        90_000
       );
+      if (requestSeq !== comissoesRequestSeq) return;
       persistenciaDisponivel = data.persistencia_disponivel !== false;
       comissoes = (data.items || []).map((item) => ({
         id: String(item.id || ''),
@@ -209,20 +239,38 @@
       }));
       resumoVendedores = data.resumo || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== comissoesRequestSeq) return;
       toast.error(toUserMessage(err, 'Erro ao carregar comissões'));
     } finally {
-      loading = false;
+      if (requestSeq === comissoesRequestSeq) {
+        loading = false;
+        if (comissoesAbortController === controller) {
+          comissoesAbortController = null;
+        }
+      }
     }
   }
 
   async function loadVendedores() {
+    const requestSeq = ++vendedoresRequestSeq;
+    vendedoresAbortController?.abort();
+    const controller = new AbortController();
+    vendedoresAbortController = controller;
     try {
       const data = await apiGet<{ items?: typeof vendedores }>('/api/v1/financeiro/comissoes/vendedores', {
         empresa_id: empresaId || undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== vendedoresRequestSeq) return;
       vendedores = data.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== vendedoresRequestSeq) return;
       vendedores = [];
+    } finally {
+      if (requestSeq === vendedoresRequestSeq && vendedoresAbortController === controller) {
+        vendedoresAbortController = null;
+      }
     }
   }
 

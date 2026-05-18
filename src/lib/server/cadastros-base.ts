@@ -166,8 +166,8 @@ export async function fetchProdutosBase(
         companyId: scope.companyId || null
       }),
       tags: [READ_MODEL_TAGS.catalog, ...scopeCacheTags({ companyIds: companyTags })],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 600_000,
+      staleTtlMs: 3_600_000,
       loader: async () => {
         const [
           paises,

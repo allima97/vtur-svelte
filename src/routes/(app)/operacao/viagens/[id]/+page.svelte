@@ -50,7 +50,8 @@
     type StatusViagem,
   } from "$lib/viagens/status";
   import { toUserMessage } from "$lib/utils/errors";
-  import { ApiError, apiDelete, apiGet, apiPatch } from "$lib/services/api";
+  import { ApiError, apiDelete, apiGet, apiPatch, isCanceledApiError } from "$lib/services/api";
+  import { createLoadGuard } from "$lib/utils/loadGuard";
 
   interface Cliente {
     id: string;
@@ -160,6 +161,7 @@
   let showEditModal = false;
   let showStatusModal = false;
   let saving = false;
+  const loadGuard = createLoadGuard();
 
   // Form de edição
   let editForm: {
@@ -230,9 +232,11 @@
   });
 
   async function loadViagem() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const data = await apiGet<{ viagem?: Viagem }>(`/api/v1/viagens/${viagemId}`);
+      const data = await apiGet<{ viagem?: Viagem }>(`/api/v1/viagens/${viagemId}`, undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       if (!data.viagem) throw new Error("Viagem não encontrada");
       const viagemData: Viagem = data.viagem;
       viagem = viagemData;
@@ -249,6 +253,7 @@
         follow_up_fechado: viagemData.follow_up_fechado || false,
       };
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (err instanceof ApiError && err.status === 404) {
         toast.error("Viagem não encontrada");
         goto("/operacao/viagens");
@@ -256,7 +261,7 @@
       }
       toast.error(toUserMessage(err, "Erro ao carregar viagem"));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

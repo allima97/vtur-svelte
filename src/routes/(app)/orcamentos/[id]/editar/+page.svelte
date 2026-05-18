@@ -10,7 +10,7 @@
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
-  import { ApiError, apiFetch, apiGet, apiPatch } from '$lib/services/api';
+  import { ApiError, apiFetch, apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
 
   const orcamentoId = $page.params.id ?? '';
@@ -61,6 +61,11 @@
   let loadingClientes = false;
   let clientesFiltrados: ClienteOption[] = [];
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let loadController: AbortController | null = null;
+  let searchController: AbortController | null = null;
+  let loadSeq = 0;
+  let searchSeq = 0;
+  let destroyed = false;
 
   // ─── Helpers de itens ───────────────────────────────────────────────────────
   function makeItem(index: number): ItemOrcamento {
@@ -125,12 +130,18 @@
 
   // ─── Carregar orçamento existente ───────────────────────────────────────────────
   async function carregarOrcamento() {
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     try {
       loading = true;
       const data = await apiFetch<OrcamentoEditPayload>(`/api/v1/orcamentos/${orcamentoId}`, {
         redirectOnUnauthorized: false,
-        redirectOnForbidden: false
+        redirectOnForbidden: false,
+        signal: controller.signal
       });
+      if (seq !== loadSeq || destroyed) return;
       orcamentoOriginal = data;
       const clientePayload =
         data.cliente && typeof data.cliente === 'object'
@@ -164,6 +175,8 @@
         itens: itensCarregados.length > 0 ? itensCarregados : [makeItem(0)]
       };
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
+      if (seq !== loadSeq || destroyed) return;
       if (err instanceof ApiError && err.status === 401) {
         toast.error('Sessão expirada. Faça login novamente para continuar.');
         const next = `${$page.url.pathname}${$page.url.search}`;
@@ -183,25 +196,36 @@
       toast.error(toUserMessage(err, 'Erro ao carregar orçamento'));
       goto('/orcamentos');
     } finally {
-      loading = false;
+      if (seq === loadSeq && !destroyed) loading = false;
     }
   }
 
   // ─── Busca lazy de clientes ───────────────────────────────────────────────────
   async function fetchClientes(query: string) {
-    if (query.length < 2) { clientesFiltrados = []; return; }
+    if (query.length < 2) {
+      searchController?.abort();
+      searchSeq += 1;
+      clientesFiltrados = [];
+      return;
+    }
+    searchController?.abort();
+    const controller = new AbortController();
+    searchController = controller;
+    const seq = ++searchSeq;
     loadingClientes = true;
     try {
       const data = await apiGet<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
         q: query,
         lookup: '1',
         pageSize: 15
-      });
+      }, controller.signal);
+      if (seq !== searchSeq || destroyed) return;
       clientesFiltrados = Array.isArray(data.items) ? data.items : [];
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       clientesFiltrados = [];
     } finally {
-      loadingClientes = false;
+      if (seq === searchSeq && !destroyed) loadingClientes = false;
     }
   }
 
@@ -256,6 +280,11 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
+    loadSeq += 1;
+    searchSeq += 1;
+    loadController?.abort();
+    searchController?.abort();
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   });
 

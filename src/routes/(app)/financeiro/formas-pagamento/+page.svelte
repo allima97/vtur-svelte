@@ -12,8 +12,9 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   interface FormaPagamento {
     id: string;
@@ -35,6 +36,8 @@
   }
 
   const PT_BR_NUMBER_FORMATTER = new Intl.NumberFormat('pt-BR');
+  const contextGuard = createLoadGuard();
+  const formasGuard = createLoadGuard();
 
   let formasPagamento: FormaPagamento[] = [];
   let loading = true;
@@ -112,33 +115,50 @@
   }
 
   onMount(async () => {
-    await carregarContexto();
-    carregarFormasPagamento();
+    if (await carregarContexto()) {
+      carregarFormasPagamento();
+    } else {
+      loading = false;
+    }
   });
 
   async function carregarContexto() {
+    const request = contextGuard.next();
     try {
-      const data = await apiGet<{ company_id?: string; empresas?: EmpresaOption[] }>('/api/v1/user/context');
+      const data = await apiGet<{ company_id?: string; empresas?: EmpresaOption[] }>(
+        '/api/v1/user/context',
+        undefined,
+        request.signal
+      );
+      if (!contextGuard.isCurrent(request.seq)) return false;
       empresas = data.empresas || [];
       empresaId = String(data.company_id || empresas[0]?.id || '').trim();
-    } catch {
+      return true;
+    } catch (err) {
+      if (isCanceledApiError(err)) return false;
       empresas = [];
       empresaId = '';
+      return true;
     }
   }
 
   async function carregarFormasPagamento(opts: { silent?: boolean } = {}) {
+    const request = formasGuard.next();
     const silent = opts.silent ?? false;
     if (!silent) loading = true;
     try {
-      const data = await apiGet<{ items?: FormaPagamento[] }>('/api/v1/financeiro/formas-pagamento', {
-        empresa_id: empresaId || undefined
-      });
+      const data = await apiGet<{ items?: FormaPagamento[] }>(
+        '/api/v1/financeiro/formas-pagamento',
+        { empresa_id: empresaId || undefined },
+        request.signal
+      );
+      if (!formasGuard.isCurrent(request.seq)) return;
       formasPagamento = data.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar dados'));
     } finally {
-      loading = false;
+      if (formasGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

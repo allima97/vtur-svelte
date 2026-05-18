@@ -102,8 +102,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.catalog,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: scope.userId })
       ],
-      ttlMs: 20_000,
-      staleTtlMs: 90_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const fetchRows = async (
           clientIdsFilter?: string[],

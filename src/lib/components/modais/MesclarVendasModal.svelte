@@ -5,8 +5,9 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   // ─── Props ─────────────────────────────────────────────────────────────────
   export let open = false;
@@ -36,6 +37,8 @@
   let erro: string | null = null;
   let filtro = '';
   let confirmando = false;
+  let lastLoadKey = '';
+  const loadGuard = createLoadGuard();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'
@@ -80,6 +83,10 @@
   // ─── Carregar candidatos ───────────────────────────────────────────────────
   async function carregarCandidatos() {
     if (!vendaId) return;
+    const loadKey = `${open}:${vendaId}`;
+    if (loadKey === lastLoadKey && candidatos.length > 0) return;
+    lastLoadKey = loadKey;
+    const request = loadGuard.next();
     loading = true;
     erro = null;
     candidatos = [];
@@ -87,14 +94,18 @@
     confirmando = false;
     filtro = '';
     try {
-      const data = await apiGet<{ items?: Candidato[] }>('/api/v1/vendas/merge-candidates', {
-        venda_id: vendaId
-      });
+      const data = await apiGet<{ items?: Candidato[] }>(
+        '/api/v1/vendas/merge-candidates',
+        { venda_id: vendaId },
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       candidatos = data.items || [];
     } catch (e: unknown) {
+      if (isCanceledApiError(e)) return;
       erro = toUserMessage(e, 'Erro ao carregar vendas do cliente.');
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
@@ -129,6 +140,8 @@
     erro = null;
     confirmando = false;
     filtro = '';
+    lastLoadKey = '';
+    loadGuard.abort();
     onClose();
   }
 

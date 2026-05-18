@@ -14,7 +14,8 @@
   import { sanitizeAbsoluteHttpUrl } from '$lib/security/url';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   type Campanha = {
     id: string;
     titulo: string;
@@ -36,6 +37,7 @@
   let deletingId = '';
   let editingId: string | null = null;
   let canEdit = false;
+  const loadGuard = createLoadGuard();
 
   let form = createForm();
 
@@ -108,16 +110,19 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Campanha[]; can_write?: boolean }>('/api/v1/operacao/campanhas');
+      const payload = await apiGet<{ items?: Campanha[]; can_write?: boolean }>('/api/v1/operacao/campanhas', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       campanhas = payload.items || [];
       canEdit = Boolean(payload.can_write);
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       canEdit = false;
       toast.error(toUserMessage(err, 'Erro ao carregar campanhas.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

@@ -34,7 +34,8 @@
   } from '$lib/vouchers/extraData';
   import { addDaysISODate, diffDaysISODate } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import type { 
     VoucherProvider, 
     VoucherDia, 
@@ -143,18 +144,29 @@
     dias: [],
     hoteis: []
   };
+  const contextGuard = createLoadGuard();
 
   onMount(async () => {
-    await loadUserContext();
-    loading = false;
+    if (await loadUserContext()) {
+      loading = false;
+    }
   });
 
   async function loadUserContext() {
+    const request = contextGuard.next();
     try {
-      const data = await apiGet<{ company_id?: string | null }>('/api/v1/user/context');
+      const data = await apiGet<{ company_id?: string | null }>(
+        '/api/v1/user/context',
+        undefined,
+        request.signal
+      );
+      if (!contextGuard.isCurrent(request.seq)) return false;
       companyId = data.company_id || null;
+      return true;
     } catch (err) {
+      if (isCanceledApiError(err)) return false;
       companyId = null;
+      return true;
     }
   }
 

@@ -306,8 +306,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.metas,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: scope.userId })
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const vendas = await fetchSalesReportRows(client, {
           dataInicio,

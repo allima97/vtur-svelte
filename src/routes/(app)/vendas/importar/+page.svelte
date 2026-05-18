@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/stores';
   import {
     PageHeader,
@@ -33,7 +33,7 @@
   import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
   import { toUserMessage } from '$lib/utils/errors';
   import { todayISODateLocal } from '$lib/date';
-  import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
+  import { ApiError, apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import type { ContratoDraft } from '$lib/vendas/contratoCvcExtractor';
 
   type ContratoDraftUI = ContratoDraft & {
@@ -118,6 +118,11 @@
   let resultadosCidade: CidadeSugestao[] = [];
   let buscandoCidade = false;
   let cidadeManual = false;
+  let loadController: AbortController | null = null;
+  let cidadeController: AbortController | null = null;
+  let loadSeq = 0;
+  let cidadeSeq = 0;
+  let destroyed = false;
 
   let dataVenda = '';
   let contatoModalOpen = false;
@@ -178,9 +183,22 @@
   }
 
   onMount(async () => {
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     const hoje = todayISODateLocal();
     dataVenda = hoje;
-    await loadCadastroBase();
+    await loadCadastroBase(controller.signal, seq);
+  });
+
+  onDestroy(() => {
+    destroyed = true;
+    loadSeq += 1;
+    cidadeSeq += 1;
+    loadController?.abort();
+    cidadeController?.abort();
+    if (cidadeTimeout) clearTimeout(cidadeTimeout);
   });
 
   function getCidadeImportanceRank(cidade: CidadeSugestao) {
@@ -280,9 +298,10 @@
     cidadesDisponiveis = sortCidades(Array.from(byId.values()));
   }
 
-  async function loadCadastroBase() {
+  async function loadCadastroBase(signal?: AbortSignal, seq = loadSeq) {
     try {
-      const payload = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
+      const payload = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base', undefined, signal);
+      if (seq !== loadSeq || destroyed) return;
       currentUserId = payload?.user?.id || '';
       canAssignVendedor = Boolean(payload?.user?.can_assign_vendedor);
       vendedoresEquipe = Array.isArray(payload?.vendedoresEquipe) ? payload.vendedoresEquipe : [];
@@ -292,14 +311,20 @@
       warningMessage = String(payload?.warning || '').trim();
       vendedorId = currentUserId;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar contexto.'));
     }
   }
 
   async function forcarCidadeIndefinida() {
+    cidadeController?.abort();
+    const controller = new AbortController();
+    cidadeController = controller;
+    const seq = ++cidadeSeq;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: 'Indefinida', limite: 10 }, undefined, 30_000);
+        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: 'Indefinida', limite: 10 }, controller.signal, 30_000);
+        if (seq !== cidadeSeq || destroyed) return;
         const items = sortCidades(parseCidadeItems(payload), 'Indefinida');
         mergeCidadesDisponiveis(items);
         const match = items.find((item: CidadeSugestao) => normalizeText(item.nome) === 'indefinida');
@@ -311,18 +336,24 @@
           buscaCidade = cidadeSelecionadaLabel;
         }
         return;
-      } catch {
-        if (attempt < 2) await new Promise(r => setTimeout(r, 600));
+      } catch (err) {
+        if (isCanceledApiError(err)) return;
+        if (attempt < 2) await new Promise(r => setTimeout(r, 250));
       }
     }
   }
 
   async function buscarCidadeInicial(termo: string) {
     if (!termo || termo.length < 2) return;
+    cidadeController?.abort();
+    const controller = new AbortController();
+    cidadeController = controller;
+    const seq = ++cidadeSeq;
     buscandoCidade = true;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: termo, limite: 10 }, undefined, 30_000);
+        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: termo, limite: 10 }, controller.signal, 30_000);
+        if (seq !== cidadeSeq || destroyed) return;
         const items = sortCidades(parseCidadeItems(payload), termo);
         mergeCidadesDisponiveis(items);
         if (items.length > 0) {
@@ -333,34 +364,43 @@
           buscaCidade = cidadeSelecionadaLabel;
         }
         break;
-      } catch {
-        if (attempt < 2) await new Promise(r => setTimeout(r, 600));
+      } catch (err) {
+        if (isCanceledApiError(err)) return;
+        if (attempt < 2) await new Promise(r => setTimeout(r, 250));
       }
     }
-    buscandoCidade = false;
+    if (seq === cidadeSeq && !destroyed) buscandoCidade = false;
   }
 
   async function buscarCidade(query: string) {
     if (!query || query.length < 2) {
+      cidadeController?.abort();
+      cidadeSeq += 1;
       resultadosCidade = [];
       return;
     }
+    cidadeController?.abort();
+    const controller = new AbortController();
+    cidadeController = controller;
+    const seq = ++cidadeSeq;
     buscandoCidade = true;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: query, limite: 20 }, undefined, 30_000);
+        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: query, limite: 20 }, controller.signal, 30_000);
+        if (seq !== cidadeSeq || destroyed) return;
         resultadosCidade = sortCidades(parseCidadeItems(payload), query);
         mergeCidadesDisponiveis(resultadosCidade);
         break;
-      } catch {
+      } catch (err) {
+        if (isCanceledApiError(err)) return;
         if (attempt < 2) {
-          await new Promise(r => setTimeout(r, 600));
+          await new Promise(r => setTimeout(r, 250));
         } else {
           resultadosCidade = [];
         }
       }
     }
-    buscandoCidade = false;
+    if (seq === cidadeSeq && !destroyed) buscandoCidade = false;
   }
 
   let cidadeTimeout: ReturnType<typeof setTimeout> | null = null;

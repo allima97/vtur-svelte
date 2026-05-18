@@ -24,7 +24,6 @@
 
   async function handleSubmit() {
     saving = true;
-    await new Promise(resolve => setTimeout(resolve, 800));
     toast.success('Circuito atualizado com sucesso!');
     goto('/cadastros/circuitos');
   }

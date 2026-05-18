@@ -57,8 +57,8 @@ export async function GET(event) {
           companyIds: scope.companyId ? [scope.companyId] : [],
         }),
       ],
-      ttlMs: 20_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const { data, error: queryError } = await client
           .from("minhas_preferencias")

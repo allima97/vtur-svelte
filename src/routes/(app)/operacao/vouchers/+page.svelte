@@ -11,8 +11,9 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import type { VoucherRecord, VoucherAssetRecord, VoucherProvider } from '$lib/vouchers/types';
-  import { apiDelete, apiGet } from '$lib/services/api';
+  import { apiDelete, apiGet, isCanceledApiError } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   let vouchers: VoucherRecord[] = [];
   let assets: VoucherAssetRecord[] = [];
@@ -25,6 +26,9 @@
   let VoucherPreviewModal: ComponentType | null = null;
   let loadingPreviewModal = false;
   let assetsLoaded = false;
+  const contextGuard = createLoadGuard();
+  const dataGuard = createLoadGuard();
+  const previewGuard = createLoadGuard();
   
   $: showDeleteDialog = !!deleteConfirmVoucher;
   $: voucherStats = vouchers.reduce(
@@ -87,57 +91,89 @@
   ];
 
   onMount(async () => {
-    await loadUserContext();
-    await loadData();
+    if (await loadUserContext()) {
+      await loadData();
+    } else {
+      loading = false;
+    }
   });
 
   async function loadUserContext() {
+    const request = contextGuard.next();
     try {
-      const data = await apiGet<{ company_id?: string | null }>('/api/v1/user/context');
+      const data = await apiGet<{ company_id?: string | null }>(
+        '/api/v1/user/context',
+        undefined,
+        request.signal
+      );
+      if (!contextGuard.isCurrent(request.seq)) return false;
       companyId = data.company_id || null;
+      return true;
     } catch (err) {
+      if (isCanceledApiError(err)) return false;
       companyId = null;
+      return false;
     }
   }
 
   async function loadData() {
-    if (!companyId) return;
+    const request = dataGuard.next();
+    if (!companyId) {
+      loading = false;
+      return;
+    }
     
     loading = true;
     try {
-      const vouchersData = await apiGet<{ items?: VoucherRecord[] }>('/api/v1/vouchers', { company_id: companyId });
+      const vouchersData = await apiGet<{ items?: VoucherRecord[] }>(
+        '/api/v1/vouchers',
+        { company_id: companyId },
+        request.signal
+      );
+      if (!dataGuard.isCurrent(request.seq)) return;
       vouchers = vouchersData.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar vouchers'));
     } finally {
-      loading = false;
+      if (dataGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
   async function loadPreviewDependencies() {
-    if (VoucherPreviewModal && assetsLoaded) return;
+    if (VoucherPreviewModal && assetsLoaded) return true;
+    const request = previewGuard.next();
     loadingPreviewModal = true;
     try {
       if (!VoucherPreviewModal) {
         VoucherPreviewModal = (await import('$lib/components/modais/VoucherPreviewModal.svelte')).default;
+        if (!previewGuard.isCurrent(request.seq)) return false;
       }
       if (!assetsLoaded && companyId) {
-        const assetsData = await apiGet<{ items?: VoucherAssetRecord[] }>('/api/v1/voucher-assets', {
-          company_id: companyId
-        });
+        const assetsData = await apiGet<{ items?: VoucherAssetRecord[] }>(
+          '/api/v1/voucher-assets',
+          { company_id: companyId },
+          request.signal
+        );
+        if (!previewGuard.isCurrent(request.seq)) return false;
         assets = assetsData.items || [];
         assetsLoaded = true;
       }
+      return previewGuard.isCurrent(request.seq);
+    } catch (err) {
+      if (isCanceledApiError(err)) return false;
+      throw err;
     } finally {
-      loadingPreviewModal = false;
+      if (previewGuard.isCurrent(request.seq)) loadingPreviewModal = false;
     }
   }
 
   async function handleRowClick(row: VoucherRecord) {
     previewVoucher = row;
     try {
-      await loadPreviewDependencies();
-      showPreview = true;
+      if (await loadPreviewDependencies()) {
+        showPreview = true;
+      }
     } catch (err) {
       toast.error(toUserMessage(err, 'Erro ao carregar prévia do voucher.'));
     }

@@ -70,8 +70,8 @@ export async function GET(event) {
             companyId: birthdayCompanyId
           }),
           tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ companyIds: [birthdayCompanyId] })],
-          ttlMs: 60_000,
-          staleTtlMs: 300_000,
+          ttlMs: 600_000,
+          staleTtlMs: 3_600_000,
           loader: async () => {
             const { data, error: birthdayError } = await client
               .from('users')

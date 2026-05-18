@@ -6,9 +6,10 @@
   import { BottomSheet, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Gift, RefreshCw, SlidersHorizontal, Users } from 'lucide-svelte';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type Colaborador = {
     id: string;
@@ -27,16 +28,24 @@
   let loading = true;
   let mesSelecionado = String(new Date().getMonth() + 1);
   let showFilterSheet = false;
+  const loadGuard = createLoadGuard();
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Colaborador[] }>('/api/v1/users/aniversariantes', { month: mesSelecionado });
+      const payload = await apiGet<{ items?: Colaborador[] }>(
+        '/api/v1/users/aniversariantes',
+        { month: mesSelecionado },
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       colaboradores = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar aniversariantes.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

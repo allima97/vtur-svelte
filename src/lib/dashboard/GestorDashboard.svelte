@@ -176,8 +176,12 @@
   let lastAppliedFilterKey = '';
   let lastBaseCompanyId = '';
   let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
+  let baseRequestSeq = 0;
+  let baseAbortController: AbortController | null = null;
   let dashboardRequestSeq = 0;
   let dashboardAbortController: AbortController | null = null;
+  let auxiliaryRequestSeq = 0;
+  let auxiliaryAbortController: AbortController | null = null;
 
   let vendasAgg: NonNullable<SummaryPayload['vendasAgg']> = {
     totalVendas: 0,
@@ -453,22 +457,36 @@
   };
 
   async function loadBase() {
+    const requestSeq = ++baseRequestSeq;
+    baseAbortController?.abort();
+    const controller = new AbortController();
+    baseAbortController = controller;
     try {
       const data = await apiGet<{ empresas: { id: string; nome: string }[]; vendedores: { id: string; nome: string }[] }>(
         '/api/v1/dashboard/base',
-        { empresa_id: empresaSelecionada || undefined }
+        { empresa_id: empresaSelecionada || undefined },
+        controller.signal,
+        60_000
       );
+      if (requestSeq !== baseRequestSeq) return;
       empresas = data.empresas || [];
       vendedoresFiltro = data.vendedores || [];
       if (vendedorSelecionado && !vendedoresFiltro.some((item) => item.id === vendedorSelecionado)) {
         vendedorSelecionado = '';
       }
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== baseRequestSeq) return;
       empresas = [];
       vendedoresFiltro = [];
       vendedorSelecionado = '';
     } finally {
-      lastBaseCompanyId = empresaSelecionada;
+      if (requestSeq === baseRequestSeq) {
+        lastBaseCompanyId = empresaSelecionada;
+        if (baseAbortController === controller) {
+          baseAbortController = null;
+        }
+      }
     }
   }
 
@@ -508,7 +526,11 @@
     }
   }
 
-  async function loadOperational() {
+  function isCurrentAuxiliaryRequest(requestSeq: number) {
+    return requestSeq === auxiliaryRequestSeq;
+  }
+
+  async function loadOperational(signal?: AbortSignal, requestSeq = auxiliaryRequestSeq) {
     if (widgetVisible.followups === false) {
       followUps = [];
       return;
@@ -527,14 +549,16 @@
         fim: todayISODateLocal(),
         status: 'abertos',
         limit: 8
-      });
+      }, signal, 60_000);
+      if (!isCurrentAuxiliaryRequest(requestSeq)) return;
       followUps = data.items || [];
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err) || !isCurrentAuxiliaryRequest(requestSeq)) return;
       followUps = [];
     }
   }
 
-  async function loadComprasResumo() {
+  async function loadComprasResumo(signal?: AbortSignal, requestSeq = auxiliaryRequestSeq) {
     const needsCompras =
       widgetVisible.top_vendedores !== false ||
       widgetVisible.clientes !== false ||
@@ -554,18 +578,20 @@
         company_id: isMaster ? undefined : empresaSelecionada || undefined,
         vendedor_ids: isMaster ? undefined : vendedorSelecionado || undefined,
         limit: 5
-      });
+      }, signal, 60_000);
+      if (!isCurrentAuxiliaryRequest(requestSeq)) return;
       topVendedores = payload.topVendedores || [];
       topClientes = payload.topClientes || [];
       ultimasCompras = payload.ultimasCompras || [];
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err) || !isCurrentAuxiliaryRequest(requestSeq)) return;
       topVendedores = [];
       topClientes = [];
       ultimasCompras = [];
     }
   }
 
-  async function loadAniversariantes() {
+  async function loadAniversariantes(signal?: AbortSignal, requestSeq = auxiliaryRequestSeq) {
     if (widgetVisible.aniversariantes === false) {
       aniversariantes = [];
       return;
@@ -576,14 +602,16 @@
         dias: 30,
         company_id: userCtx?.papel === 'MASTER' ? undefined : empresaSelecionada || undefined,
         limit: 5
-      });
+      }, signal, 60_000);
+      if (!isCurrentAuxiliaryRequest(requestSeq)) return;
       aniversariantes = data.items || [];
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err) || !isCurrentAuxiliaryRequest(requestSeq)) return;
       aniversariantes = [];
     }
   }
 
-  async function loadComparativo() {
+  async function loadComparativo(signal?: AbortSignal, requestSeq = auxiliaryRequestSeq) {
     // Só carrega se MASTER (ou ADMIN) e pelo menos um widget de comparativo visível
     const papel = userCtx?.papel;
     if (papel !== 'MASTER' && papel !== 'ADMIN') return;
@@ -592,14 +620,38 @@
     try {
       const data = await apiGet<{ empresas: EmpresaComparativoItem[] }>(
         '/api/v1/dashboard/comparativo-empresas',
-        { inicio: periodoInicio, fim: periodoFim }
+        { inicio: periodoInicio, fim: periodoFim },
+        signal,
+        90_000
       );
+      if (!isCurrentAuxiliaryRequest(requestSeq)) return;
       empresasComparativo = data.empresas || [];
     } catch (err) {
+      if (isCanceledApiError(err) || !isCurrentAuxiliaryRequest(requestSeq)) return;
       if (dev) console.error('[comparativo] erro ao carregar:', err);
       empresasComparativo = [];
     } finally {
-      loadingComparativo = false;
+      if (isCurrentAuxiliaryRequest(requestSeq)) {
+        loadingComparativo = false;
+      }
+    }
+  }
+
+  async function loadAuxiliaryData() {
+    const requestSeq = ++auxiliaryRequestSeq;
+    auxiliaryAbortController?.abort();
+    const controller = new AbortController();
+    auxiliaryAbortController = controller;
+
+    await Promise.all([
+      loadOperational(controller.signal, requestSeq),
+      loadComprasResumo(controller.signal, requestSeq),
+      loadAniversariantes(controller.signal, requestSeq),
+      loadComparativo(controller.signal, requestSeq)
+    ]);
+
+    if (isCurrentAuxiliaryRequest(requestSeq) && auxiliaryAbortController === controller) {
+      auxiliaryAbortController = null;
     }
   }
 
@@ -608,7 +660,7 @@
       await loadBase();
     }
     await loadDashboard();
-    await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes(), loadComparativo()]);
+    await loadAuxiliaryData();
   }
 
   $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
@@ -643,13 +695,15 @@
     vendedorSelecionado = params.get('vendedor_id') || '';
 
     await Promise.all([loadBase(), loadDashboard()]);
-    await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes(), loadComparativo()]);
+    await loadAuxiliaryData();
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });
 
   onDestroy(() => {
+    baseAbortController?.abort();
     dashboardAbortController?.abort();
+    auxiliaryAbortController?.abort();
     if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
   });
 </script>

@@ -400,8 +400,8 @@ export async function GET(event) {
         classificacaoQuery
       }),
       tags: listCacheTags,
-      ttlMs: 45_000,
-      staleTtlMs: 180_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const result = (await fetchClients()) as FetchClientsResult;
         if (result?.error) throw result.error;
@@ -491,8 +491,8 @@ export async function GET(event) {
         summaryClientCount: summaryClientIds.length
       }),
       tags: listCacheTags,
-      ttlMs: 45_000,
-      staleTtlMs: 180_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const result = await fetchSales();
         if (result.error) throw result.error;
@@ -601,8 +601,8 @@ export async function GET(event) {
           clientCount: clientIds.length
         }),
         tags: listCacheTags,
-        ttlMs: 30_000,
-        staleTtlMs: 120_000,
+        ttlMs: 120_000,
+        staleTtlMs: 600_000,
         loader: async () => {
           const result = await fetchQuotes();
           if (result.error) throw result.error;

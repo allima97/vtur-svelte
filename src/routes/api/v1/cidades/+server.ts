@@ -85,8 +85,8 @@ export async function GET(event) {
         pageSize
       }),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         let query = client.from('cidades').select(selectFields).order('nome').range((page - 1) * pageSize, page * pageSize - 1);
 

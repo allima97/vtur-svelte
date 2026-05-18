@@ -22,8 +22,9 @@
     User
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { ApiError, apiGet, apiPost } from '$lib/services/api';
+  import { ApiError, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import {
     buildClientePayload,
     classificacaoSelectOptions,
@@ -41,6 +42,7 @@
   let loading = false;
   let errors: Record<string, string> = {};
   let cepStatus: string | null = null;
+  const cepGuard = createLoadGuard();
 
   type CepResponse = {
     erro?: boolean;
@@ -94,13 +96,16 @@
   async function buscarCepIfNeeded() {
     const digits = String(formData.cep || '').replace(/\D/g, '');
     if (digits.length !== 8) {
+      cepGuard.abort();
       cepStatus = null;
       return;
     }
 
+    const request = cepGuard.next();
     try {
       cepStatus = 'Buscando CEP...';
-      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits });
+      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits }, request.signal);
+      if (!cepGuard.isCurrent(request.seq)) return;
       if (data?.erro) {
         throw new Error('CEP nao encontrado.');
       }
@@ -113,6 +118,7 @@
       };
       cepStatus = 'Endereco carregado pelo CEP.';
     } catch (error) {
+      if (isCanceledApiError(error)) return;
       cepStatus = 'Nao foi possivel carregar o CEP.';
     }
   }

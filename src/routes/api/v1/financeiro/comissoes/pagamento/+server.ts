@@ -49,13 +49,14 @@ async function fetchBatched<T>(
   values: string[],
   loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
 ) {
-  const rows: T[] = [];
-  for (const batch of chunkArray(values, SUPABASE_IN_BATCH_SIZE)) {
-    const { data, error } = await loader(batch);
-    if (error) throw error;
-    rows.push(...(data || []));
-  }
-  return rows;
+  const batchResults = await Promise.all(
+    chunkArray(values, SUPABASE_IN_BATCH_SIZE).map(async (batch) => {
+      const { data, error } = await loader(batch);
+      if (error) throw error;
+      return data || [];
+    })
+  );
+  return batchResults.flat();
 }
 
 function isMissingComissoesSchema(error: unknown) {

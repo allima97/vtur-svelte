@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import {
@@ -62,6 +62,10 @@
   let conciliacao: ConciliacaoSummary | null = null;
   let empresas: EmpresaOption[] = [];
   let empresaId = '';
+  let contextRequestSeq = 0;
+  let contextAbortController: AbortController | null = null;
+  let dashboardRequestSeq = 0;
+  let dashboardAbortController: AbortController | null = null;
 
   $: periodo = monthRange(mes);
   $: resumoCaixa = caixa?.resumo || {};
@@ -95,21 +99,36 @@
   }
 
   async function loadUserContext() {
+    const requestSeq = ++contextRequestSeq;
+    contextAbortController?.abort();
+    const controller = new AbortController();
+    contextAbortController = controller;
     try {
       const data = await apiGet<{
         company_id?: string | null;
         empresas?: EmpresaOption[];
-      }>('/api/v1/user/context');
+      }>('/api/v1/user/context', undefined, controller.signal, 60_000);
+      if (requestSeq !== contextRequestSeq) return;
 
       empresas = Array.isArray(data.empresas) ? data.empresas : [];
       empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== contextRequestSeq) return;
       empresas = [];
       empresaId = '';
+    } finally {
+      if (requestSeq === contextRequestSeq && contextAbortController === controller) {
+        contextAbortController = null;
+      }
     }
   }
 
   async function loadDashboard() {
+    const requestSeq = ++dashboardRequestSeq;
+    dashboardAbortController?.abort();
+    const controller = new AbortController();
+    dashboardAbortController = controller;
     loading = true;
     try {
       const [caixaPayload, conciliacaoPayload] = await Promise.all([
@@ -117,18 +136,26 @@
           data_inicio: periodo.inicio,
           data_fim: periodo.fim,
           empresa_id: empresaId || undefined
-        }),
+        }, controller.signal, 60_000),
         apiGet<ConciliacaoSummary>('/api/v1/conciliacao/summary', {
           mes,
           company_id: empresaId || undefined
-        })
+        }, controller.signal, 60_000)
       ]);
+      if (requestSeq !== dashboardRequestSeq) return;
       caixa = caixaPayload;
       conciliacao = conciliacaoPayload;
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
+      if (requestSeq !== dashboardRequestSeq) return;
       toast.error(toUserMessage(error, 'Erro ao carregar dashboard financeiro.'));
     } finally {
-      loading = false;
+      if (requestSeq === dashboardRequestSeq) {
+        loading = false;
+        if (dashboardAbortController === controller) {
+          dashboardAbortController = null;
+        }
+      }
     }
   }
 
@@ -143,6 +170,11 @@
   onMount(async () => {
     await loadUserContext();
     mounted = true;
+  });
+
+  onDestroy(() => {
+    contextAbortController?.abort();
+    dashboardAbortController?.abort();
   });
 </script>
 

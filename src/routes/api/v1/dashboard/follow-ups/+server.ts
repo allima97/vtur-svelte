@@ -175,8 +175,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.clients,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const vendedorIdSet = cleanStringSet(vendedorIds);
         const buildBaseQuery = (limit: number) =>
@@ -240,18 +240,19 @@ export async function GET(event) {
 
         const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
         const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
-        const candidatasData: DashboardFollowUpRow[] = [];
-
-        for (const companyBatch of companyBatches) {
-          for (const vendedorBatch of vendedorBatches) {
-            const { data, error: candidatasError } = await applyCommonFilters(
-              buildBaseQuery(candidateLimit),
-              { companyBatch, vendedorBatch },
-            );
-            if (candidatasError) throw candidatasError;
-            candidatasData.push(...((data || []) as DashboardFollowUpRow[]));
-          }
-        }
+        const candidatasBatches = await Promise.all(
+          companyBatches.flatMap((companyBatch) =>
+            vendedorBatches.map(async (vendedorBatch) => {
+              const { data, error: candidatasError } = await applyCommonFilters(
+                buildBaseQuery(candidateLimit),
+                { companyBatch, vendedorBatch },
+              );
+              if (candidatasError) throw candidatasError;
+              return (data || []) as DashboardFollowUpRow[];
+            })
+          )
+        );
+        const candidatasData = candidatasBatches.flat();
 
         const candidatas = candidatasData.filter((row) =>
           isFollowUpAllowedForVendedores(row, vendedorIdSet),
@@ -266,19 +267,21 @@ export async function GET(event) {
 
         let detalhadas: DashboardFollowUpRow[] = [];
         if (vendaIds.length > 0) {
-          const detalheRows: DashboardFollowUpRow[] = [];
-          for (const vendaBatch of chunkArray(vendaIds)) {
-            for (const companyBatch of companyBatches) {
-              for (const vendedorBatch of vendedorBatches) {
-                const { data, error: detalhadasError } = await applyCommonFilters(
-                  buildBaseQuery(detailLimit),
-                  { companyBatch, vendedorBatch, vendaBatch, usePeriod: false },
-                );
-                if (detalhadasError) throw detalhadasError;
-                detalheRows.push(...((data || []) as DashboardFollowUpRow[]));
-              }
-            }
-          }
+          const detalheBatches = await Promise.all(
+            chunkArray(vendaIds).flatMap((vendaBatch) =>
+              companyBatches.flatMap((companyBatch) =>
+                vendedorBatches.map(async (vendedorBatch) => {
+                  const { data, error: detalhadasError } = await applyCommonFilters(
+                    buildBaseQuery(detailLimit),
+                    { companyBatch, vendedorBatch, vendaBatch, usePeriod: false },
+                  );
+                  if (detalhadasError) throw detalhadasError;
+                  return (data || []) as DashboardFollowUpRow[];
+                })
+              )
+            )
+          );
+          const detalheRows = detalheBatches.flat();
           detalhadas = detalheRows.filter((row) =>
             isFollowUpAllowedForVendedores(row, vendedorIdSet),
           );

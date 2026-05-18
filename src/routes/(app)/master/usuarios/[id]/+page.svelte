@@ -8,10 +8,11 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import { FieldInput, FieldSelect, FieldCheckbox } from '$lib/components/ui';
-  import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
+  import { ApiError, apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, Users } from 'lucide-svelte';
 
   type Option = {
@@ -113,6 +114,7 @@
   let novaSenha = '';
   let confirmarSenha = '';
   let lastLoadedId = '';
+  const detailGuard = createLoadGuard();
 
   $: isCreateMode = $page.params.id === 'novo';
   $: currentId = $page.params.id;
@@ -140,12 +142,12 @@
     return DATE_TIME_FORMATTER.format(date);
   }
 
-  async function loadCreateReference() {
+  async function loadCreateReference(signal?: AbortSignal) {
     await ensureServerSessionCookie();
     const [typesPayload, companiesPayload, templatesPayload] = await Promise.all([
-      apiGet<OptionsListResponse>('/api/v1/admin/tipos-usuario'),
-      apiGet<OptionsListResponse>('/api/v1/admin/empresas'),
-      apiGet<AvisoTemplatesResponse>('/api/v1/admin/avisos')
+      apiGet<OptionsListResponse>('/api/v1/admin/tipos-usuario', undefined, signal),
+      apiGet<OptionsListResponse>('/api/v1/admin/empresas', undefined, signal),
+      apiGet<AvisoTemplatesResponse>('/api/v1/admin/avisos', undefined, signal)
     ]);
 
     userTypes = typesPayload.items || [];
@@ -159,27 +161,31 @@
     financeiroCompanyIds = [];
   }
 
-  async function loadMfaStatus(userId: string) {
+  async function loadMfaStatus(userId: string, signal?: AbortSignal) {
     try {
-      const payload = await apiPost<MfaStatusResponse>('/api/v1/admin/auth/mfa-status', { user_ids: [userId] });
+      const payload = await apiPost<MfaStatusResponse>('/api/v1/admin/auth/mfa-status', { user_ids: [userId] }, signal);
       mfaStatus = payload?.statuses?.[userId] || null;
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       mfaStatus = null;
     }
   }
 
   async function loadDetail() {
+    const request = detailGuard.next();
     loading = true;
     try {
       if (isCreateMode) {
-        await loadCreateReference();
+        await loadCreateReference(request.signal);
+        if (!detailGuard.isCurrent(request.seq)) return;
       } else {
         await ensureServerSessionCookie();
         let payload: UserDetailResponse;
         try {
           payload = await apiFetch<UserDetailResponse>(`/api/v1/admin/usuarios/${currentId}`, {
             redirectOnForbidden: false,
-            redirectOnUnauthorized: false
+            redirectOnUnauthorized: false,
+            signal: request.signal
           });
         } catch (err) {
           if (err instanceof ApiError) {
@@ -204,6 +210,7 @@
           throw err;
         }
 
+        if (!detailGuard.isCurrent(request.seq)) return;
         userMeta = payload.user;
         permissionsSummary = payload.permissions || [];
         defaultPermissionsSummary = payload.default_permissions || [];
@@ -230,13 +237,14 @@
           }
         }
 
-        await loadMfaStatus(payload.user.id);
+        await loadMfaStatus(payload.user.id, request.signal);
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error(err);
       toast.error('Nao foi possivel carregar o detalhe do usuario.');
     } finally {
-      loading = false;
+      if (detailGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

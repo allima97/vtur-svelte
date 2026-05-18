@@ -9,7 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
 
   // ─── Tipos ───────────────────────────────────────────────────────────────────
   interface ItemOrcamento {
@@ -61,6 +61,9 @@
   let loadingClientes = false;
   let clientesFiltrados: ClienteOption[] = [];
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let searchController: AbortController | null = null;
+  let searchSeq = 0;
+  let destroyed = false;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   function makeItem(index: number): ItemOrcamento {
@@ -104,21 +107,29 @@
   // ─── Busca lazy de clientes ───────────────────────────────────────────────────
   async function fetchClientes(query: string) {
     if (query.length < 2) {
+      searchController?.abort();
+      searchSeq += 1;
       clientesFiltrados = [];
       return;
     }
+    searchController?.abort();
+    const controller = new AbortController();
+    searchController = controller;
+    const seq = ++searchSeq;
     loadingClientes = true;
     try {
       const data = await apiGet<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
         q: query,
         lookup: '1',
         pageSize: 15
-      });
+      }, controller.signal);
+      if (seq !== searchSeq || destroyed) return;
       clientesFiltrados = Array.isArray(data.items) ? data.items : [];
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       clientesFiltrados = [];
     } finally {
-      loadingClientes = false;
+      if (seq === searchSeq && !destroyed) loadingClientes = false;
     }
   }
 
@@ -170,6 +181,9 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
+    searchSeq += 1;
+    searchController?.abort();
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   });
 

@@ -9,8 +9,9 @@
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';
   import { safeOpenNewTab } from '$lib/security/url';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Calendar, Download, Plus, RefreshCw, SlidersHorizontal, Video, X } from 'lucide-svelte';
 
   type Consultoria = {
@@ -57,6 +58,7 @@
     style: 'currency',
     currency: 'BRL'
   });
+  const loadGuard = createLoadGuard();
 
   const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
@@ -72,6 +74,8 @@
   let showModal = false;
   let editingId: string | null = null;
   let statusFilter = '';
+  let lastLoadedStatusFilter = statusFilter;
+  let autoReloadEnabled = false;
   let showFilterSheet = false;
 
   function defaultForm(): ConsultoriaForm {
@@ -109,15 +113,21 @@
   }
 
   async function loadConsultorias() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      consultorias = await apiGet<Consultoria[]>('/api/v1/consultorias', {
-        status: statusFilter || undefined
-      });
+      const payload = await apiGet<Consultoria[]>(
+        '/api/v1/consultorias',
+        { status: statusFilter || undefined },
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
+      consultorias = payload;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar consultorias.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
@@ -202,10 +212,16 @@
     safeOpenNewTab('/api/v1/consultorias/ics');
   }
 
-  // Recarrega quando o filtro muda
-  $: statusFilter, void (typeof window !== 'undefined' && loadConsultorias());
+  $: if (autoReloadEnabled && statusFilter !== lastLoadedStatusFilter) {
+    lastLoadedStatusFilter = statusFilter;
+    void loadConsultorias();
+  }
 
-  onMount(loadConsultorias);
+  onMount(() => {
+    lastLoadedStatusFilter = statusFilter;
+    autoReloadEnabled = true;
+    void loadConsultorias();
+  });
 </script>
 
 <PageHeader

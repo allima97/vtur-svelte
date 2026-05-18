@@ -205,8 +205,8 @@ export async function GET(event) {
     const data = await getCachedReadModel<OrcamentoRow[]>({
       key: buildReadModelCacheKey('orcamentos-list:rows', listCacheParts),
       tags: listCacheTags,
-      ttlMs: 45_000,
-      staleTtlMs: 180_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const queryResult = await fetchQuoteRows(joinedSelect);
         const queryError = queryResult.error;
@@ -233,8 +233,8 @@ export async function GET(event) {
         ? getCachedReadModel<Array<{ id?: string | null; nome?: string | null; email?: string | null }>>({
             key: buildReadModelCacheKey('orcamentos-list:clientes-map', { clientIds: clientIdsFromData }),
             tags: listCacheTags,
-            ttlMs: 45_000,
-            staleTtlMs: 180_000,
+            ttlMs: 120_000,
+            staleTtlMs: 600_000,
             loader: async () => {
               const rows: Array<{ id?: string | null; nome?: string | null; email?: string | null }> = [];
               for (const batch of chunkArray(clientIdsFromData)) {
@@ -251,8 +251,8 @@ export async function GET(event) {
         ? getCachedReadModel<OrcamentoItemRow[]>({
             key: buildReadModelCacheKey('orcamentos-list:items', listCacheParts),
             tags: listCacheTags,
-            ttlMs: 45_000,
-            staleTtlMs: 180_000,
+            ttlMs: 120_000,
+            staleTtlMs: 600_000,
             loader: async () => {
               const rows: OrcamentoItemRow[] = [];
               for (const batch of chunkArray(quoteIds)) {
@@ -284,8 +284,8 @@ export async function GET(event) {
         ? getCachedReadModel<Array<{ id?: string | null; nome_completo?: string | null; email?: string | null }>>({
             key: buildReadModelCacheKey('orcamentos-list:creators-map', { creatorIds: rowCreatorIds }),
             tags: listCacheTags,
-            ttlMs: 45_000,
-            staleTtlMs: 180_000,
+            ttlMs: 120_000,
+            staleTtlMs: 600_000,
             loader: async () => {
               const rows: Array<{ id?: string | null; nome_completo?: string | null; email?: string | null }> = [];
               for (const batch of chunkArray(rowCreatorIds)) {

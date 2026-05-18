@@ -12,7 +12,8 @@
   import { permissoes } from "$lib/stores/permissoes";
   import { descobrirModulo } from "$lib/config/modulos";
   import { toUserMessage } from "$lib/utils/errors";
-  import { ApiError, apiFetch, apiGet, apiPost } from "$lib/services/api";
+  import { ApiError, apiFetch, apiGet, apiPost, isCanceledApiError } from "$lib/services/api";
+  import { createLoadGuard } from "$lib/utils/loadGuard";
   import {
     createDefaultConciliacaoBandRules,
     createEmptyConciliacaoTier,
@@ -45,6 +46,10 @@
     { key: 'personalizar',label: 'Personalizar Menu',     icon: Layout },
   ];
   let activeTab = 'sistema';
+  const sysGuard = createLoadGuard();
+  const rulesContextGuard = createLoadGuard();
+  const rulesGuard = createLoadGuard();
+  const menuGuard = createLoadGuard();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ABA 1 — PARÂMETROS DO SISTEMA
@@ -173,6 +178,7 @@
   })();
 
   async function loadSys() {
+    const request = sysGuard.next();
     sysLoading = true;
     sysAccessDenied = false;
     try {
@@ -181,17 +187,19 @@
         ultima_atualizacao?: string | null;
         origem?: string | null;
         owner_nome?: string | null;
-      }>("/api/v1/parametros/sistema", { redirectOnForbidden: false });
+      }>("/api/v1/parametros/sistema", { redirectOnForbidden: false, signal: request.signal });
+      if (!sysGuard.isCurrent(request.seq)) return;
       sysForm = hydrateForm(payload.params);
       ultimaAtualizacao = payload.ultima_atualizacao || null;
       origemDados = payload.origem === "banco" ? "banco" : "default";
       ownerNome = payload.owner_nome || payload.params?.owner_user_nome || null;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (err instanceof ApiError && err.status === 403) { sysAccessDenied = true; sysForm = createDefaultForm(); return; }
       if (dev) console.error(err);
       toast.error("Não foi possível carregar os parâmetros do sistema.");
     } finally {
-      sysLoading = false;
+      if (sysGuard.isCurrent(request.seq)) sysLoading = false;
     }
   }
 
@@ -333,26 +341,36 @@
     const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     return { id: String(value.id || ''), nome: String(value.nome || ''), descricao: value.descricao ? String(value.descricao) : null, company_id: value.company_id ? String(value.company_id) : null, tipo: value.tipo === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL', meta_nao_atingida: normalizeNumber(value.meta_nao_atingida), meta_atingida: normalizeNumber(value.meta_atingida), super_meta: normalizeNumber(value.super_meta), ativo: Boolean(value.ativo), commission_tier: cloneTiers(value.commission_tier as Tier[] | undefined) };
   }
-  async function requestRulesApi<T = unknown>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: Record<string, unknown>): Promise<T | null> {
-    return apiFetch<T | null>('/api/v1/parametros/commission-rules', { method, query: method === 'GET' ? { empresa_id: empresaId || undefined } : undefined, body: method === 'GET' ? undefined : { ...(body || {}), empresa_id: empresaId || undefined } });
+  async function requestRulesApi<T = unknown>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: Record<string, unknown>, signal?: AbortSignal): Promise<T | null> {
+    return apiFetch<T | null>('/api/v1/parametros/commission-rules', { method, signal, query: method === 'GET' ? { empresa_id: empresaId || undefined } : undefined, body: method === 'GET' ? undefined : { ...(body || {}), empresa_id: empresaId || undefined } });
   }
   async function loadUserContext() {
+    const request = rulesContextGuard.next();
     try {
-      const data = await apiGet<{ company_id?: string | null; empresas?: EmpresaOption[] }>('/api/v1/user/context');
+      const data = await apiGet<{ company_id?: string | null; empresas?: EmpresaOption[] }>('/api/v1/user/context', undefined, request.signal);
+      if (!rulesContextGuard.isCurrent(request.seq)) return false;
       empresas = Array.isArray(data.empresas) ? data.empresas : [];
       empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
-    } catch { empresas = []; empresaId = ''; }
+      return true;
+    } catch (err) {
+      if (isCanceledApiError(err)) return false;
+      empresas = []; empresaId = '';
+      return true;
+    }
   }
   async function loadRules(opts: { silent?: boolean } = {}) {
+    const request = rulesGuard.next();
     if (!opts.silent) rulesLoading = true;
     rulesError = '';
     try {
-      const data = await requestRulesApi<Rule[]>('GET');
+      const data = await requestRulesApi<Rule[]>('GET', undefined, request.signal);
+      if (!rulesGuard.isCurrent(request.seq)) return;
       rules = Array.isArray(data) ? data.map(normalizeRule) : [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       const msg = toUserMessage(err, 'Erro ao carregar regras de comissão.');
       rulesError = msg; rules = []; toast.error(msg);
-    } finally { rulesLoading = false; }
+    } finally { if (rulesGuard.isCurrent(request.seq)) rulesLoading = false; }
   }
   async function handleEmpresaChange() { showRuleForm = false; resetRuleForm(); await loadRules(); }
 
@@ -528,19 +546,22 @@
   function setFeedback(message: string, type: 'success' | 'error' | 'info' = 'info') { feedbackMessage = message; feedbackType = type; }
 
   async function loadMenuPrefs() {
+    const request = menuGuard.next();
     menuLoading = true;
     try {
-      const payload = await apiGet<MenuPrefsResponse>('/api/v1/menu/prefs');
+      const payload = await apiGet<MenuPrefsResponse>('/api/v1/menu/prefs', undefined, request.signal);
+      if (!menuGuard.isCurrent(request.seq)) return;
       const hidden = Array.isArray(payload?.prefs?.hidden) ? payload.prefs.hidden : [];
       prefs = { hidden };
       localStorage.setItem(MENU_PREFS_KEY, JSON.stringify({ hidden }));
       window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
       setFeedback('Preferências do menu carregadas.', 'info');
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       const stored = localStorage.getItem(MENU_PREFS_KEY);
       if (stored) { const parsed = JSON.parse(stored) as MenuPrefs; prefs = { hidden: Array.isArray(parsed?.hidden) ? parsed.hidden : [] }; }
       setFeedback('Não foi possível validar o perfil. Preferências locais mantidas.', 'info');
-    } finally { menuLoading = false; }
+    } finally { if (menuGuard.isCurrent(request.seq)) menuLoading = false; }
   }
 
   function isHidden(key: string) { return prefs.hidden.includes(key); }
@@ -598,10 +619,14 @@
 
   // ─── MOUNT ───────────────────────────────────────────────────────────────────
   onMount(async () => {
-    await loadSys();
-    await loadUserContext();
-    await loadRules();
-    await loadMenuPrefs();
+    await Promise.all([
+      loadSys(),
+      (async () => {
+        if (await loadUserContext()) await loadRules();
+        else rulesLoading = false;
+      })(),
+      loadMenuPrefs()
+    ]);
   });
 </script>
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -17,7 +17,7 @@
   import { todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import type { ConciliacaoLinhaInput } from '../../../api/v1/conciliacao/_types';
   import {
     AlertCircle,
@@ -374,6 +374,23 @@
   let semMovimentoObservacao = '';
   let semMovimentoLoading = false;
   let showFilterSheet = false;
+  let loadAllRequestSeq = 0;
+  let contextRequestSeq = 0;
+  let contextAbortController: AbortController | null = null;
+  let summaryRequestSeq = 0;
+  let summaryAbortController: AbortController | null = null;
+  let registrosRequestSeq = 0;
+  let registrosAbortController: AbortController | null = null;
+  let optionsRequestSeq = 0;
+  let optionsAbortController: AbortController | null = null;
+  let changesRequestSeq = 0;
+  let changesAbortController: AbortController | null = null;
+  let executionsRequestSeq = 0;
+  let executionsAbortController: AbortController | null = null;
+  let detalheRateioRequestSeq = 0;
+  let detalheRateioAbortController: AbortController | null = null;
+  let diasSemMovimentoRequestSeq = 0;
+  let diasSemMovimentoAbortController: AbortController | null = null;
 
   $: rankingStatusOptions = [
     { value: 'all', label: 'Todos' },
@@ -791,12 +808,17 @@
   }
 
   async function loadUserContext() {
+    const requestSeq = ++contextRequestSeq;
+    contextAbortController?.abort();
+    const controller = new AbortController();
+    contextAbortController = controller;
     try {
       const data = await apiGet<{
         company_id?: string | null;
         company_ids?: string[];
         empresas?: EmpresaOption[];
-      }>('/api/v1/user/context');
+      }>('/api/v1/user/context', undefined, controller.signal, 60_000);
+      if (requestSeq !== contextRequestSeq) return;
 
       const nextEmpresas = Array.isArray(data.empresas)
         ? data.empresas
@@ -811,9 +833,15 @@
       const currentCompany = String(data.company_id || '').trim();
       empresaId = currentCompany || nextEmpresas[0]?.id || '';
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
+      if (requestSeq !== contextRequestSeq) return;
       empresas = [];
       empresaId = '';
       toast.error(toUserMessage(error, 'Erro ao carregar empresas do usuário.'));
+    } finally {
+      if (requestSeq === contextRequestSeq && contextAbortController === controller) {
+        contextAbortController = null;
+      }
     }
   }
 
@@ -828,6 +856,17 @@
     loadOperationLogs();
     await loadUserContext();
     await loadAll();
+  });
+
+  onDestroy(() => {
+    contextAbortController?.abort();
+    summaryAbortController?.abort();
+    registrosAbortController?.abort();
+    optionsAbortController?.abort();
+    changesAbortController?.abort();
+    executionsAbortController?.abort();
+    detalheRateioAbortController?.abort();
+    diasSemMovimentoAbortController?.abort();
   });
 
   $: busyTitle = running
@@ -859,6 +898,7 @@
   $: showBusyNotice = Boolean(busyTitle && (loading || running || fixingVinculos || importing || importLookupLoading || operationMessage));
 
   async function loadAll() {
+    const requestSeq = ++loadAllRequestSeq;
     loading = true;
     operationMessage = 'Atualizando dados da conciliação financeira.';
     try {
@@ -866,42 +906,65 @@
         throw new Error('Selecione uma empresa para carregar a conciliação.');
       }
       await Promise.all([loadSummary(), loadRegistros()]);
+      if (requestSeq !== loadAllRequestSeq) return;
       void Promise.allSettled([loadOptions(), loadChanges(), loadExecutions(), loadDiasSemMovimento()]);
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== loadAllRequestSeq) return;
       toast.error(toUserMessage(err, 'Erro ao atualizar dados da conciliação.'));
     } finally {
-      loading = false;
-      operationMessage = '';
+      if (requestSeq === loadAllRequestSeq) {
+        loading = false;
+        operationMessage = '';
+      }
     }
   }
 
   async function loadSummary() {
-    const data = await apiGet<{
-      total?: number | null;
-      efetivados?: number | null;
-      pendentes?: number | null;
-      semRanking?: number | null;
-      baixaRac?: number | null;
-      totalValor?: number | null;
-      timeline?: Array<{ date: string; value: number }>;
-      lacuna_cronologica?: ConciliacaoSummary['lacunaCronologica'];
-    }>('/api/v1/conciliacao/summary', {
-      mes: monthFilter || undefined,
-      company_id: empresaId || undefined
-    });
-    summary = {
-      total: Number(data.total || 0),
-      efetivados: Number(data.efetivados || 0),
-      pendentes: Number(data.pendentes || 0),
-      semRanking: Number(data.semRanking || 0),
-      baixaRac: Number(data.baixaRac || 0),
-      totalValor: Number(data.totalValor || 0),
-      timeline: Array.isArray(data.timeline) ? data.timeline : [],
-      lacunaCronologica: data.lacuna_cronologica || null
-    };
+    const requestSeq = ++summaryRequestSeq;
+    summaryAbortController?.abort();
+    const controller = new AbortController();
+    summaryAbortController = controller;
+    try {
+      const data = await apiGet<{
+        total?: number | null;
+        efetivados?: number | null;
+        pendentes?: number | null;
+        semRanking?: number | null;
+        baixaRac?: number | null;
+        totalValor?: number | null;
+        timeline?: Array<{ date: string; value: number }>;
+        lacuna_cronologica?: ConciliacaoSummary['lacunaCronologica'];
+      }>('/api/v1/conciliacao/summary', {
+        mes: monthFilter || undefined,
+        company_id: empresaId || undefined
+      }, controller.signal, 60_000);
+      if (requestSeq !== summaryRequestSeq) return;
+      summary = {
+        total: Number(data.total || 0),
+        efetivados: Number(data.efetivados || 0),
+        pendentes: Number(data.pendentes || 0),
+        semRanking: Number(data.semRanking || 0),
+        baixaRac: Number(data.baixaRac || 0),
+        totalValor: Number(data.totalValor || 0),
+        timeline: Array.isArray(data.timeline) ? data.timeline : [],
+        lacunaCronologica: data.lacuna_cronologica || null
+      };
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      throw err;
+    } finally {
+      if (requestSeq === summaryRequestSeq && summaryAbortController === controller) {
+        summaryAbortController = null;
+      }
+    }
   }
 
   async function loadRegistros() {
+    const requestSeq = ++registrosRequestSeq;
+    registrosAbortController?.abort();
+    const controller = new AbortController();
+    registrosAbortController = controller;
     registrosLoading = true;
     try {
       const data = await apiGet<ConciliacaoItem[]>('/api/v1/conciliacao/list', {
@@ -911,14 +974,27 @@
         pending: showPendingOnly ? '1' : undefined,
         baixa_rac: showBaixaRac ? '1' : undefined,
         ranking_status: rankingStatus !== 'all' ? rankingStatus : undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== registrosRequestSeq) return;
       registros = Array.isArray(data) ? data : [];
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      throw err;
     } finally {
-      registrosLoading = false;
+      if (requestSeq === registrosRequestSeq) {
+        registrosLoading = false;
+        if (registrosAbortController === controller) {
+          registrosAbortController = null;
+        }
+      }
     }
   }
 
   async function loadOptions() {
+    const requestSeq = ++optionsRequestSeq;
+    optionsAbortController?.abort();
+    const controller = new AbortController();
+    optionsAbortController = controller;
     optionsLoading = true;
     try {
       const data = await apiGet<{
@@ -926,37 +1002,72 @@
         produtosMeta?: ProdutoOption[];
       }>('/api/v1/conciliacao/options', {
         company_id: empresaId || undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== optionsRequestSeq) return;
       vendedores = Array.isArray(data.vendedores) ? data.vendedores : [];
       produtosMeta = Array.isArray(data.produtosMeta) ? data.produtosMeta : [];
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      throw err;
     } finally {
-      optionsLoading = false;
+      if (requestSeq === optionsRequestSeq) {
+        optionsLoading = false;
+        if (optionsAbortController === controller) {
+          optionsAbortController = null;
+        }
+      }
     }
   }
 
   async function loadChanges() {
+    const requestSeq = ++changesRequestSeq;
+    changesAbortController?.abort();
+    const controller = new AbortController();
+    changesAbortController = controller;
     changesLoading = true;
     try {
       const data = await apiGet<ConciliacaoChange[]>('/api/v1/conciliacao/changes', {
         company_id: empresaId || undefined,
         month: monthFilter || undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== changesRequestSeq) return;
       changes = Array.isArray(data) ? data : [];
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      throw err;
     } finally {
-      changesLoading = false;
+      if (requestSeq === changesRequestSeq) {
+        changesLoading = false;
+        if (changesAbortController === controller) {
+          changesAbortController = null;
+        }
+      }
     }
   }
 
   async function loadExecutions() {
+    const requestSeq = ++executionsRequestSeq;
+    executionsAbortController?.abort();
+    const controller = new AbortController();
+    executionsAbortController = controller;
     executionsLoading = true;
     try {
       const data = await apiGet<ConciliacaoExecution[]>('/api/v1/conciliacao/executions', {
         company_id: empresaId || undefined,
         limit: 20
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== executionsRequestSeq) return;
       executions = Array.isArray(data) ? data : [];
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      throw err;
     } finally {
-      executionsLoading = false;
+      if (requestSeq === executionsRequestSeq) {
+        executionsLoading = false;
+        if (executionsAbortController === controller) {
+          executionsAbortController = null;
+        }
+      }
     }
   }
 
@@ -1094,9 +1205,16 @@
   }
 
   async function loadDetalheRateioInfo(row: ConciliacaoItem) {
+    const requestSeq = ++detalheRateioRequestSeq;
+    detalheRateioAbortController?.abort();
+    const controller = new AbortController();
+    detalheRateioAbortController = controller;
     const vendaReciboId = String(row?.venda_recibo_id || '').trim();
     if (!vendaReciboId) {
       detalheRateioInfo = null;
+      if (detalheRateioAbortController === controller) {
+        detalheRateioAbortController = null;
+      }
       return;
     }
 
@@ -1112,7 +1230,8 @@
         company_id: empresaId || undefined,
         venda_recibo_id: vendaReciboId,
         conciliacao_recibo_id: String(row.id || '')
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== detalheRateioRequestSeq) return;
       const rateio = data?.rateio;
 
       if (!rateio || rateio.ativo === false) {
@@ -1132,9 +1251,16 @@
         percentual_destino: percentualDestino
       };
     } catch {
+      if (controller.signal.aborted) return;
+      if (requestSeq !== detalheRateioRequestSeq) return;
       detalheRateioInfo = null;
     } finally {
-      detalheRateioLoading = false;
+      if (requestSeq === detalheRateioRequestSeq) {
+        detalheRateioLoading = false;
+        if (detalheRateioAbortController === controller) {
+          detalheRateioAbortController = null;
+        }
+      }
     }
   }
 
@@ -1566,13 +1692,24 @@
   }
 
   async function loadDiasSemMovimento() {
+    const requestSeq = ++diasSemMovimentoRequestSeq;
+    diasSemMovimentoAbortController?.abort();
+    const controller = new AbortController();
+    diasSemMovimentoAbortController = controller;
     try {
       const data = await apiGet<{ dias?: Array<{ data?: string | null }> }>('/api/v1/conciliacao/sem-movimento', {
         companyId: empresaId || undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== diasSemMovimentoRequestSeq) return;
       diasSemMovimento = (data.dias || []).map((d) => String(d.data || '')).filter(Boolean);
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== diasSemMovimentoRequestSeq) return;
       diasSemMovimento = [];
+    } finally {
+      if (requestSeq === diasSemMovimentoRequestSeq && diasSemMovimentoAbortController === controller) {
+        diasSemMovimentoAbortController = null;
+      }
     }
   }
 

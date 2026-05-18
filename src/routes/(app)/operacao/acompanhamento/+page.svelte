@@ -10,7 +10,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search, SlidersHorizontal } from 'lucide-svelte';
-  import { apiGet, apiPatch } from '$lib/services/api';
+  import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
@@ -114,6 +114,8 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let showFilterSheet = false;
+  let followUpsRequestSeq = 0;
+  let followUpsAbortController: AbortController | null = null;
   const autoReload = createDebouncedReloader(() => loadFollowUps(), 250);
   $: normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -133,6 +135,10 @@
   }
 
   async function loadFollowUps() {
+    const requestSeq = ++followUpsRequestSeq;
+    followUpsAbortController?.abort();
+    const controller = new AbortController();
+    followUpsAbortController = controller;
     loading = true;
     errorMessage = null;
 
@@ -141,13 +147,21 @@
         inicio,
         fim,
         status: statusFilter
-      });
+      }, controller.signal, 90_000);
+      if (requestSeq !== followUpsRequestSeq) return;
       items = Array.isArray(payload?.items) ? payload.items : [];
     } catch (error) {
+      if (isCanceledApiError(error)) return;
+      if (requestSeq !== followUpsRequestSeq) return;
       errorMessage = toUserMessage(error, 'Erro ao carregar follow-ups.');
       items = [];
     } finally {
-      loading = false;
+      if (requestSeq === followUpsRequestSeq) {
+        loading = false;
+        if (followUpsAbortController === controller) {
+          followUpsAbortController = null;
+        }
+      }
     }
   }
 
@@ -160,6 +174,7 @@
   });
 
   onDestroy(() => {
+    followUpsAbortController?.abort();
     autoReload.cancel();
   });
 

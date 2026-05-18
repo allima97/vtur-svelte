@@ -1,5 +1,4 @@
 <script lang="ts" generics="T extends object">
-  import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
   import {
     ChevronLeft,
     ChevronRight,
@@ -17,6 +16,7 @@
   import BottomSheet from "./BottomSheet.svelte";
   import FieldInput from "./form/FieldInput.svelte";
   import FieldSelect from "./form/FieldSelect.svelte";
+  import SanitizedHtml from "./SanitizedHtml.svelte";
   import type { ModuleColor } from "$lib/theme/colors";
   import type { ComponentType } from "svelte";
 
@@ -126,6 +126,7 @@
   let sortDirection: SortDirection = null;
   let selectedRows: Set<string> = new Set();
   let selectAll = false;
+  let lastEmittedSearchQuery = searchQuery;
   const skeletonWidths = ["w-32", "w-24", "w-40", "w-20", "w-28", "w-36"];
 
   $: if (serverSide && page !== currentPage) {
@@ -137,21 +138,19 @@
   }
 
   $: filteredData = (() => {
-    if (serverSide) return [...data];
+    if (serverSide) return data;
 
-    let result = [...data];
+    let result = data;
 
     if (searchQuery) {
-        const query = normalizeSearchText(searchQuery);
-        result = result.filter((row) => {
+      const query = normalizeSearchText(searchQuery);
+      const searchableKeys = [
+        ...columns.map((column) => column.key),
+        ...extraSearchKeys,
+      ];
+      result = result.filter((row) => {
         const rowRecord = getRowRecord(row);
-        const matchesColumn = columns.some((col) => {
-          const value = rowRecord[col.key];
-          if (value == null) return false;
-          return normalizeSearchText(value).includes(query);
-        });
-        if (matchesColumn) return true;
-        return extraSearchKeys.some((key) => {
+        return searchableKeys.some((key) => {
           const value = rowRecord[key];
           if (value == null) return false;
           return normalizeSearchText(value).includes(query);
@@ -161,14 +160,15 @@
 
     for (const [key, value] of Object.entries(activeFilters)) {
       if (value === "" || value == null) continue;
+      const normalizedFilter = normalizeSearchText(value);
       result = result.filter((row) => {
         const rowValue = getRowRecord(row)[key];
-        return normalizeSearchText(rowValue).includes(normalizeSearchText(value));
+        return normalizeSearchText(rowValue).includes(normalizedFilter);
       });
     }
 
     if (sortKey && sortDirection) {
-      result.sort((a, b) => {
+      result = [...result].sort((a, b) => {
         const aVal = getRowRecord(a)[sortKey!];
         const bVal = getRowRecord(b)[sortKey!];
 
@@ -214,8 +214,10 @@
       )
     : Math.min(currentPage * currentPageSize, totalRecords);
 
-  $: if (searchQuery || Object.keys(activeFilters).length > 0) {
+  $: if (searchQuery !== lastEmittedSearchQuery) {
+    lastEmittedSearchQuery = searchQuery;
     currentPage = 1;
+    onSearch?.(searchQuery);
   }
 
   function handleSort(column: Column) {
@@ -268,8 +270,9 @@
   function clearFilters() {
     activeFilters = {};
     searchQuery = "";
+    currentPage = 1;
     if (serverSide) {
-      currentPage = 1;
+      lastEmittedSearchQuery = "";
       onSearch?.("");
       for (const filter of filters) onFilterChange?.(filter.key, "");
       onPageChange?.(1);
@@ -277,9 +280,10 @@
   }
 
   function applyFilter(key: string, value: string) {
+    if (activeFilters[key] === value) return;
     activeFilters = { ...activeFilters, [key]: value };
+    currentPage = 1;
     if (serverSide) {
-      currentPage = 1;
       onPageChange?.(1);
     }
     onFilterChange?.(key, value);
@@ -315,30 +319,9 @@
   }
 
   const HTML_TAG_RE = /<[^>]+>/;
-  const BLANK_TARGET_LINK_RE = /<a([^>]*\starget="_blank"[^>]*)>/gi;
-  const REL_ATTRIBUTE_RE = /\srel=/i;
 
   function isHtmlContent(value: string) {
     return HTML_TAG_RE.test(value);
-  }
-
-  const DOMPURIFY_CONFIG: DOMPurifyConfig = {
-    ALLOWED_TAGS: ['a', 'span', 'div', 'p', 'strong', 'em', 'img', 'small', 'br', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon'],
-    ALLOWED_ATTR: ['aria-label', 'alt', 'class', 'style', 'd', 'fill', 'height', 'href', 'rel', 'role', 'src', 'stroke', 'stroke-linecap', 'stroke-linejoin', 'stroke-width', 'target', 'title', 'viewBox', 'width'],
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|blob):|\/|data:image\/(?:png|jpeg|jpg|gif|webp);base64,)/i,
-    ALLOW_DATA_ATTR: false,
-    ADD_ATTR: ['target'],
-    FORCE_BODY: false,
-  };
-
-  function sanitizeHtmlContent(value: string): string {
-    if (typeof window === 'undefined') return '';
-    const clean = String(DOMPurify.sanitize(String(value || ''), DOMPURIFY_CONFIG));
-    // Hardening: garante rel="noopener noreferrer" em links com target="_blank"
-    return clean.replace(BLANK_TARGET_LINK_RE, (match: string, attrs: string) => {
-      if (REL_ATTRIBUTE_RE.test(attrs)) return match;
-      return `<a${attrs} rel="noopener noreferrer">`;
-    });
   }
 
   $: pageSizeValue = String(currentPageSize);
@@ -351,7 +334,6 @@
     columns.length +
     (selectable ? 1 : 0) +
     ($$slots["row-actions"] || $$slots.actions ? 1 : 0);
-  $: onSearch?.(searchQuery);
 </script>
 
 <div class="datatable-card vtur-card overflow-hidden">
@@ -623,7 +605,7 @@
                     {:else}
                       {@const cellValue = getCellValue(row, column)}
                       {#if isHtmlContent(cellValue)}
-                        {@html sanitizeHtmlContent(cellValue)}
+                        <SanitizedHtml html={cellValue} />
                       {:else}
                         {cellValue}
                       {/if}

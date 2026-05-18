@@ -253,31 +253,47 @@ function addToMap(map: Map<string, number>, key: string, value: number) {
 }
 
 async function fetchVendedoresByIds(client: AdminClient, vendedorIds: string[]) {
-  const ids = uniqueCleanStrings(vendedorIds);
-  const vendedorMap = new Map<
-    string,
-    { nome_completo?: string | null; email?: string | null }
-  >();
-  if (ids.length === 0) return vendedorMap;
-
-  for (let index = 0; index < ids.length; index += 200) {
-    const batch = ids.slice(index, index + 200);
-    const { data, error } = await client
-      .from("users")
-      .select("id, nome_completo, email")
-      .in("id", batch);
-    if (error) throw error;
-    for (const row of data || []) {
-      const id = toStr(row?.id);
-      if (!id) continue;
-      vendedorMap.set(id, {
-        nome_completo: row?.nome_completo ?? null,
-        email: row?.email ?? null,
-      });
-    }
+  const ids = uniqueCleanStrings(vendedorIds).sort();
+  if (ids.length === 0) {
+    return new Map<string, { nome_completo?: string | null; email?: string | null }>();
   }
 
-  return vendedorMap;
+  return getCachedReadModel<Map<string, { nome_completo?: string | null; email?: string | null }>>({
+    key: buildReadModelCacheKey("relatorios:vendas:vendedores-map", { ids }),
+    tags: [
+      READ_MODEL_TAGS.users,
+      ...scopeCacheTags({ vendedorIds: ids }),
+    ],
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
+    loader: async () => {
+      const vendedorMap = new Map<
+        string,
+        { nome_completo?: string | null; email?: string | null }
+      >();
+      const batchRows = await Promise.all(
+        chunkArray(ids, 200).map(async (batch) => {
+          const { data, error } = await client
+            .from("users")
+            .select("id, nome_completo, email")
+            .in("id", batch);
+          if (error) throw error;
+          return data || [];
+        }),
+      );
+
+      for (const row of batchRows.flat()) {
+        const id = toStr(row?.id);
+        if (!id) continue;
+        vendedorMap.set(id, {
+          nome_completo: row?.nome_completo ?? null,
+          email: row?.email ?? null,
+        });
+      }
+
+      return vendedorMap;
+    },
+  });
 }
 
 async function hydrateMissingVendedores<T extends ReportSalesRowLike>(
@@ -379,21 +395,23 @@ async function fetchNaoComissionadoPorVenda(
     };
   }
 
-  const pagamentos: PagamentoNaoComissionavelInput[] = [];
-  for (let index = 0; index < vendaIds.length; index += 200) {
-    const chunk = vendaIds.slice(index, index + 200);
-    const { data, error } = await client
-      .from("vendas_pagamentos")
-      .select(
-        "venda_id, venda_recibo_id, forma_nome, operacao, plano, valor_total, valor_bruto, desconto_valor, paga_comissao, forma:formas_pagamento(nome, paga_comissao)",
-      )
-      .in("venda_id", chunk);
+  const [pagamentoBatches, termos] = await Promise.all([
+    Promise.all(
+      chunkArray(vendaIds, 200).map(async (chunk) => {
+        const { data, error } = await client
+          .from("vendas_pagamentos")
+          .select(
+            "venda_id, venda_recibo_id, forma_nome, operacao, plano, valor_total, valor_bruto, desconto_valor, paga_comissao, forma:formas_pagamento(nome, paga_comissao)",
+          )
+          .in("venda_id", chunk);
 
-    if (error) throw error;
-    pagamentos.push(...((data || []) as PagamentoNaoComissionavelInput[]));
-  }
-
-  const termos = await carregarTermosNaoComissionaveis(client);
+        if (error) throw error;
+        return (data || []) as PagamentoNaoComissionavelInput[];
+      }),
+    ),
+    carregarTermosNaoComissionaveis(client),
+  ]);
+  const pagamentos = pagamentoBatches.flat();
   return calcularNaoComissionavelResumo(pagamentos, termos);
 }
 
@@ -636,17 +654,18 @@ export async function GET(event) {
 
     let conciliacaoSobrepoeVendas = false;
     if (companyIds.length > 0) {
-      const parametrosRows: ParametrosComissaoRow[] = [];
-      for (const companyBatch of chunkArray(companyIds)) {
-        const { data, error: parametrosError } = await client
-          .from("parametros_comissao")
-          .select("company_id, conciliacao_sobrepoe_vendas")
-          .in("company_id", companyBatch)
-          .limit(1000);
-        if (!parametrosError) {
-          parametrosRows.push(...((data || []) as ParametrosComissaoRow[]));
-        }
-      }
+      const parametrosBatchRows = await Promise.all(
+        chunkArray(companyIds).map(async (companyBatch) => {
+          const { data, error: parametrosError } = await client
+            .from("parametros_comissao")
+            .select("company_id, conciliacao_sobrepoe_vendas")
+            .in("company_id", companyBatch)
+            .limit(1000);
+          if (parametrosError) return [] as ParametrosComissaoRow[];
+          return (data || []) as ParametrosComissaoRow[];
+        })
+      );
+      const parametrosRows = parametrosBatchRows.flat();
       conciliacaoSobrepoeVendas = parametrosRows.some((row) =>
         Boolean(row?.conciliacao_sobrepoe_vendas),
       );
@@ -784,35 +803,37 @@ export async function GET(event) {
           : null;
 
       if (vendedorIds.length > 0) {
-        const splitConcRows: SplitConciliacaoRow[] = [];
         const splitConcCompanyBatches =
           companyIds.length > 0 ? chunkArray(companyIds) : [null];
         const splitConcVendedorBatches = chunkArray(vendedorIds);
-        for (const companyBatch of splitConcCompanyBatches) {
-          for (const vendedorBatch of splitConcVendedorBatches) {
-            let splitConcQuery = client
-              .from("vendas_recibos_rateio")
-              .select("conciliacao_recibo_id")
-              .eq("ativo", true)
-              .gt("percentual_destino", 0)
-              .in("vendedor_destino_id", vendedorBatch)
-              .not("conciliacao_recibo_id", "is", null);
+        const splitConcBatchRows = await Promise.all(
+          splitConcCompanyBatches.flatMap((companyBatch) =>
+            splitConcVendedorBatches.map(async (vendedorBatch) => {
+              let splitConcQuery = client
+                .from("vendas_recibos_rateio")
+                .select("conciliacao_recibo_id")
+                .eq("ativo", true)
+                .gt("percentual_destino", 0)
+                .in("vendedor_destino_id", vendedorBatch)
+                .not("conciliacao_recibo_id", "is", null);
 
-            if (companyBatch && companyBatch.length > 0) {
-              splitConcQuery = splitConcQuery.in("company_id", companyBatch);
-            }
+              if (companyBatch && companyBatch.length > 0) {
+                splitConcQuery = splitConcQuery.in("company_id", companyBatch);
+              }
 
-            const { data, error: splitConcErr } = await splitConcQuery;
-            if (splitConcErr) {
-              logServerError(
-                "[relatorios/vendas] split conciliation indisponivel",
-                splitConcErr,
-              );
-              continue;
-            }
-            splitConcRows.push(...(data || []));
-          }
-        }
+              const { data, error: splitConcErr } = await splitConcQuery;
+              if (splitConcErr) {
+                logServerError(
+                  "[relatorios/vendas] split conciliation indisponivel",
+                  splitConcErr,
+                );
+                return [] as SplitConciliacaoRow[];
+              }
+              return (data || []) as SplitConciliacaoRow[];
+            })
+          )
+        );
+        const splitConcRows = splitConcBatchRows.flat();
 
         const splitConcIdSet = cleanStringSet(
           (splitConcRows || []).map((row) => row?.conciliacao_recibo_id),
@@ -1033,7 +1054,6 @@ export async function GET(event) {
       periodEnd: string,
       clientIdsFilter?: string[],
     ) => {
-      const rows: ConsultaVendaRow[] = [];
       const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
       const vendedorBatches =
         vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
@@ -1042,13 +1062,14 @@ export async function GET(event) {
           ? chunkArray(clientIdsFilter)
           : [null];
 
-      for (const companyBatch of companyBatches) {
-        for (const vendedorBatch of vendedorBatches) {
-          for (const clientBatch of clientBatches) {
-            let query = client
-              .from("vendas")
-              .select(
-                `
+      const batchRows = await Promise.all(
+        companyBatches.flatMap((companyBatch) =>
+          vendedorBatches.flatMap((vendedorBatch) =>
+            clientBatches.map(async (clientBatch) => {
+              let query = client
+                .from("vendas")
+                .select(
+                  `
           id,
           numero_venda,
           vendedor_id,
@@ -1082,29 +1103,31 @@ export async function GET(event) {
             produto_resolvido:produtos!produto_resolvido_id (id, nome)
           )
         `,
+                )
+                .order("data_venda", { ascending: false })
+                .limit(5000);
+
+              if (periodStart) query = query.gte("data_venda", periodStart);
+              if (periodEnd) query = query.lte("data_venda", periodEnd);
+              if (companyBatch) query = query.in("company_id", companyBatch);
+              if (vendedorBatch) query = query.in("vendedor_id", vendedorBatch);
+              if (clienteId) query = query.eq("cliente_id", clienteId);
+              else if (
+                !scope.isAdmin &&
+                vendedorIds.length === 0 &&
+                clientBatch &&
+                clientBatch.length > 0
               )
-              .order("data_venda", { ascending: false })
-              .limit(5000);
+                query = query.in("cliente_id", clientBatch);
 
-            if (periodStart) query = query.gte("data_venda", periodStart);
-            if (periodEnd) query = query.lte("data_venda", periodEnd);
-            if (companyBatch) query = query.in("company_id", companyBatch);
-            if (vendedorBatch) query = query.in("vendedor_id", vendedorBatch);
-            if (clienteId) query = query.eq("cliente_id", clienteId);
-            else if (
-              !scope.isAdmin &&
-              vendedorIds.length === 0 &&
-              clientBatch &&
-              clientBatch.length > 0
-            )
-              query = query.in("cliente_id", clientBatch);
-
-            const { data, error } = await query;
-            if (error) throw error;
-            rows.push(...((data || []) as ConsultaVendaRow[]));
-          }
-        }
-      }
+              const { data, error } = await query;
+              if (error) throw error;
+              return (data || []) as ConsultaVendaRow[];
+            })
+          )
+        )
+      );
+      const rows = batchRows.flat();
 
       return dedupeRowsById(rows).map((row) => ({
         ...row,
@@ -1122,12 +1145,12 @@ export async function GET(event) {
         vendedorIds.length === 0 &&
         accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE
       ) {
-        const rows: ConsultaVendaRow[] = [];
-        for (const batch of chunkArray(accessibleClientIds)) {
-          rows.push(
-            ...(await loadConsultaRowsBatch(periodStart, periodEnd, batch)),
-          );
-        }
+        const batchRows = await Promise.all(
+          chunkArray(accessibleClientIds).map((batch) =>
+            loadConsultaRowsBatch(periodStart, periodEnd, batch)
+          )
+        );
+        const rows = batchRows.flat();
         return dedupeRowsById(rows);
       }
 
@@ -1184,8 +1207,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
-      ttlMs: 180_000,
-      staleTtlMs: 900_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: () => loadRowsViewForPeriod(dataInicio, dataFim),
     })) as ReportSalesViewRow[];
     const hydratedRowsView = await hydrateMissingVendedores(client, rowsViewRaw);

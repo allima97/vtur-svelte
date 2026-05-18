@@ -8,7 +8,8 @@
   import { FieldInput, FieldSelect, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
@@ -43,6 +44,7 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
+  const loadGuard = createLoadGuard();
 
   let form = createForm();
 
@@ -80,14 +82,17 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ templates?: MessageTemplate[] }>('/api/v1/admin/crm');
+      const payload = await apiGet<{ templates?: MessageTemplate[] }>('/api/v1/admin/crm', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       templates = payload.templates || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar templates.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

@@ -59,6 +59,8 @@ const TABLE_STATUS = "ranking_read_model_status";
 const INSERT_CHUNK_SIZE = 500;
 const READ_PAGE_SIZE = 1000;
 const READ_FILTER_BATCH_SIZE = 100;
+const READ_MODEL_REBUILD_CONCURRENCY = 2;
+const READ_MODEL_READ_CONCURRENCY = 4;
 
 let readModelUnavailable = false;
 let readModelUnavailableLogged = false;
@@ -281,22 +283,52 @@ async function fetchStatusRows(
   companyIds: string[],
   monthStarts: string[],
 ) {
-  const rows: StatusRow[] = [];
-  for (const companyBatch of chunkArray(companyIds, READ_FILTER_BATCH_SIZE)) {
-    for (const monthBatch of chunkArray(monthStarts, READ_FILTER_BATCH_SIZE)) {
-      const { data, error } = await client
-        .from(TABLE_STATUS)
-        .select("company_id, mes, status, dirty_at, rebuilt_at")
-        .eq("modelo", MODEL_NAME)
-        .in("company_id", companyBatch)
-        .in("mes", monthBatch);
+  const batchRows = await Promise.all(
+    chunkArray(companyIds, READ_FILTER_BATCH_SIZE).flatMap((companyBatch) =>
+      chunkArray(monthStarts, READ_FILTER_BATCH_SIZE).map(async (monthBatch) => {
+        const { data, error } = await client
+          .from(TABLE_STATUS)
+          .select("company_id, mes, status, dirty_at, rebuilt_at")
+          .eq("modelo", MODEL_NAME)
+          .in("company_id", companyBatch)
+          .in("mes", monthBatch);
 
-      if (error) throw error;
-      rows.push(...((data || []) as StatusRow[]));
-    }
-  }
+        if (error) throw error;
+        return (data || []) as StatusRow[];
+      }),
+    ),
+  );
 
-  return rows;
+  return batchRows.flat();
+}
+
+async function mapLimited<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let index = 0;
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        const currentIndex = index;
+        index += 1;
+        if (currentIndex >= items.length) return;
+        results[currentIndex] = await worker(items[currentIndex]);
+      }
+    }),
+  );
+  return results;
+}
+
+async function runLimited<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+) {
+  await mapLimited(items, concurrency, worker);
 }
 
 async function upsertStatus(
@@ -400,13 +432,20 @@ async function ensureReadModelReady(
     ]),
   );
 
+  const pendingRebuilds: Array<{ companyId: string; monthKey: string }> = [];
   for (const companyId of companyIds) {
     for (const monthKey of monthKeys) {
       const mes = monthStartFromKey(monthKey);
       if (isStatusReady(statusMap.get(`${companyId}|${mes}`))) continue;
-      await rebuildMonth(client, companyId, monthKey, rawLoader);
+      pendingRebuilds.push({ companyId, monthKey });
     }
   }
+
+  await runLimited(
+    pendingRebuilds,
+    READ_MODEL_REBUILD_CONCURRENCY,
+    ({ companyId, monthKey }) => rebuildMonth(client, companyId, monthKey, rawLoader),
+  );
 }
 
 async function readPersistentContributions(
@@ -416,13 +455,12 @@ async function readPersistentContributions(
   const companyIds = normalizeIds(params.companyIds);
   const vendedorIds = normalizeIds(params.vendedorIds);
   const accessibleClientIds = normalizeIds(params.accessibleClientIds);
-  const rows: PersistentContributionRow[] = [];
-
   const readBatch = async (filters?: {
     companyIds?: string[] | null;
     vendedorIds?: string[] | null;
     clientIds?: string[] | null;
   }) => {
+    const rows: PersistentContributionRow[] = [];
     for (let from = 0; ; from += READ_PAGE_SIZE) {
       let query = client
         .from(TABLE_CONTRIBUICOES)
@@ -452,15 +490,17 @@ async function readPersistentContributions(
       rows.push(...page);
       if (page.length < READ_PAGE_SIZE) break;
     }
+    return rows;
   };
 
   const companyBatches = companyIds.length > 0 ? chunkArray(companyIds, READ_FILTER_BATCH_SIZE) : [null];
   const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds, READ_FILTER_BATCH_SIZE) : [null];
+  const readFilters: Array<Parameters<typeof readBatch>[0]> = [];
 
   if (vendedorIds.length === 0 && accessibleClientIds.length > 0) {
     for (const companyBatch of companyBatches) {
       for (const clientBatch of chunkArray(accessibleClientIds, READ_FILTER_BATCH_SIZE)) {
-        await readBatch({
+        readFilters.push({
           companyIds: companyBatch,
           clientIds: clientBatch,
         });
@@ -469,7 +509,7 @@ async function readPersistentContributions(
   } else {
     for (const companyBatch of companyBatches) {
       for (const vendedorBatch of vendedorBatches) {
-        await readBatch({
+        readFilters.push({
           companyIds: companyBatch,
           vendedorIds: vendedorBatch,
         });
@@ -477,6 +517,11 @@ async function readPersistentContributions(
     }
   }
 
+  const rows = (await mapLimited(
+    readFilters,
+    READ_MODEL_READ_CONCURRENCY,
+    readBatch,
+  )).flat();
   const contributions = rows.map(rowToContribution);
   return {
     agg: aggregateContributions(contributions),

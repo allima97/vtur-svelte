@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { supabase } from '$lib/db/supabase';
   import { construirLinkWhatsApp } from '$lib/whatsapp';
   import { mergeImportedRoteiroAereo, parseImportedRoteiroAereo } from '$lib/roteiroAereoImport';
@@ -15,7 +15,7 @@
   import { toast } from '$lib/stores/ui';
   import { fetchImageAsDataUrl } from '$lib/utils/browser-images';
   import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw } from 'lucide-svelte';
-  import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
+  import { ApiError, apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { diffDaysISODate } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
@@ -225,6 +225,13 @@
   let gerarClienteNome = $state('');
   let gerarLoading = $state(false);
   let gerarClienteLoading = $state(false);
+  let loadController: AbortController | null = null;
+  let diasBuscaController: AbortController | null = null;
+  let clienteBuscaController: AbortController | null = null;
+  let loadSeq = 0;
+  let diasBuscaSeq = 0;
+  let clienteBuscaSeq = 0;
+  let destroyed = false;
 
   let showDiasBusca = $state(false);
   let diasBuscaQ = $state('');
@@ -545,16 +552,22 @@
 
   // ─── Load ──────────────────────────────────────────────────────────────────
   async function load() {
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     loading = true;
     try {
       const [payload, sugestoesData, settingsData] = await Promise.all([
         apiFetch<RoteiroResponse>(`/api/v1/roteiros/${roteiroId}`, {
           redirectOnForbidden: false,
-          redirectOnUnauthorized: false
+          redirectOnUnauthorized: false,
+          signal: controller.signal
         }),
-        apiGet<SugestoesBuscaResponse>('/api/v1/roteiros/sugestoes-busca').catch(() => null),
-        apiGet<OrcamentosPdfResponse>('/api/v1/parametros/orcamentos-pdf').catch(() => null),
+        apiGet<SugestoesBuscaResponse>('/api/v1/roteiros/sugestoes-busca', undefined, controller.signal).catch(() => null),
+        apiGet<OrcamentosPdfResponse>('/api/v1/parametros/orcamentos-pdf', undefined, controller.signal).catch(() => null),
       ]);
+      if (seq !== loadSeq || destroyed) return;
       const r = payload.roteiro;
 
       nome = r.nome || '';
@@ -586,6 +599,8 @@
         pdfSettings = settingsData?.settings || {};
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (seq !== loadSeq || destroyed) return;
       if (err instanceof ApiError) {
         if (err.status === 401) {
           toast.error('Sessão expirada. Faça login novamente para continuar.');
@@ -607,7 +622,7 @@
       loadError = toUserMessage(err, 'Erro ao carregar roteiro.');
       toast.error(loadError);
     } finally {
-      loading = false;
+      if (seq === loadSeq && !destroyed) loading = false;
     }
   }
 
@@ -642,17 +657,23 @@
 
   // ─── Buscar dias no banco ──────────────────────────────────────────────────
   async function buscarDias() {
+    diasBuscaController?.abort();
+    const controller = new AbortController();
+    diasBuscaController = controller;
+    const seq = ++diasBuscaSeq;
     diasBuscaLoading = true;
     try {
       const data = await apiGet<{ dias?: DiaBuscaResult[] }>('/api/v1/roteiros/dias-busca', {
         q: diasBuscaQ,
         cidade: diasBuscaCidade
-      });
+      }, controller.signal);
+      if (seq !== diasBuscaSeq || destroyed) return;
       diasBuscaResults = data.dias || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao buscar dias.'));
     } finally {
-      diasBuscaLoading = false;
+      if (seq === diasBuscaSeq && !destroyed) diasBuscaLoading = false;
     }
   }
 
@@ -697,21 +718,36 @@
 
   $effect(() => {
     if (!showGerarModal || !gerarClienteQ || gerarClienteQ.length < 2) {
+      clienteBuscaController?.abort();
       gerarClienteResults = [];
       return;
     }
     if (clienteSearchTimeout) clearTimeout(clienteSearchTimeout);
     clienteSearchTimeout = setTimeout(async () => {
+      clienteBuscaController?.abort();
+      const controller = new AbortController();
+      clienteBuscaController = controller;
+      const seq = ++clienteBuscaSeq;
       gerarClienteLoading = true;
       try {
-        const data = await apiGet<ClienteBuscaResponse | ClienteBuscaResult[]>('/api/v1/clientes', { search: gerarClienteQ });
+        const data = await apiGet<ClienteBuscaResponse | ClienteBuscaResult[]>(
+          '/api/v1/clientes',
+          { search: gerarClienteQ },
+          controller.signal
+        );
+        if (seq !== clienteBuscaSeq || destroyed) return;
         gerarClienteResults = normalizeClienteBuscaResults(data);
-      } catch {
+      } catch (err) {
+        if (isCanceledApiError(err)) return;
         gerarClienteResults = [];
       } finally {
-        gerarClienteLoading = false;
+        if (seq === clienteBuscaSeq && !destroyed) gerarClienteLoading = false;
       }
     }, 300);
+
+    return () => {
+      if (clienteSearchTimeout) clearTimeout(clienteSearchTimeout);
+    };
   });
 
   async function handleGerarOrcamento() {
@@ -1349,6 +1385,17 @@
   onMount(async () => {
     await ensureServerSessionCookie();
     await load();
+  });
+
+  onDestroy(() => {
+    destroyed = true;
+    loadSeq += 1;
+    diasBuscaSeq += 1;
+    clienteBuscaSeq += 1;
+    loadController?.abort();
+    diasBuscaController?.abort();
+    clienteBuscaController?.abort();
+    if (clienteSearchTimeout) clearTimeout(clienteSearchTimeout);
   });
 </script>
 

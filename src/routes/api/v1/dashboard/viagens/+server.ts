@@ -118,38 +118,45 @@ async function fetchDashboardViagens(params: {
     return query;
   };
 
-  const rows: DashboardViagemRow[] = [];
   const companyBatches =
     params.companyIds.length > 0 ? chunkArray(params.companyIds) : [null];
 
   if (params.vendedorIds.length > 0) {
-    for (const companyBatch of companyBatches) {
-      for (const vendedorBatch of chunkArray(params.vendedorIds)) {
-        const [responsavelResult, vendaResult] = await Promise.all([
-          buildQuery(baseSelect, companyBatch).in("responsavel_user_id", vendedorBatch),
-          buildQuery(`${baseSelect}, venda:vendas!inner(id, vendedor_id)`, companyBatch).in(
-            "venda.vendedor_id",
-            vendedorBatch,
-          ),
-        ]);
+    const batchRows = await Promise.all(
+      companyBatches.flatMap((companyBatch) =>
+        chunkArray(params.vendedorIds).map(async (vendedorBatch) => {
+          const [responsavelResult, vendaResult] = await Promise.all([
+            buildQuery(baseSelect, companyBatch).in("responsavel_user_id", vendedorBatch),
+            buildQuery(`${baseSelect}, venda:vendas!inner(id, vendedor_id)`, companyBatch).in(
+              "venda.vendedor_id",
+              vendedorBatch,
+            ),
+          ]);
 
-        if (responsavelResult.error) throw responsavelResult.error;
-        if (vendaResult.error) throw vendaResult.error;
-        rows.push(...((responsavelResult.data || []) as unknown as DashboardViagemRow[]));
-        rows.push(...((vendaResult.data || []) as unknown as DashboardViagemRow[]));
-      }
-    }
+          if (responsavelResult.error) throw responsavelResult.error;
+          if (vendaResult.error) throw vendaResult.error;
+          return [
+            ...((responsavelResult.data || []) as unknown as DashboardViagemRow[]),
+            ...((vendaResult.data || []) as unknown as DashboardViagemRow[]),
+          ];
+        })
+      )
+    );
+    return mergeDashboardViagens(batchRows.flat())
+      .slice(0, params.limit)
+      .filter((row) => !isCancelledStatus(row.status));
   } else {
-    for (const companyBatch of companyBatches) {
-      const result = await buildQuery(baseSelect, companyBatch);
-      if (result.error) throw result.error;
-      rows.push(...((result.data || []) as unknown as DashboardViagemRow[]));
-    }
+    const batchRows = await Promise.all(
+      companyBatches.map(async (companyBatch) => {
+        const result = await buildQuery(baseSelect, companyBatch);
+        if (result.error) throw result.error;
+        return (result.data || []) as unknown as DashboardViagemRow[];
+      })
+    );
+    return mergeDashboardViagens(batchRows.flat())
+      .slice(0, params.limit)
+      .filter((row) => !isCancelledStatus(row.status));
   }
-
-  return mergeDashboardViagens(rows)
-    .slice(0, params.limit)
-    .filter((row) => !isCancelledStatus(row.status));
 }
 
 async function hydrateViagens(client: ReturnType<typeof getAdminClient>, rows: DashboardViagemRow[]) {
@@ -163,56 +170,65 @@ async function hydrateViagens(client: ReturnType<typeof getAdminClient>, rows: D
     { nome: string; contato: string | null }
   >();
   if (clienteIds.length > 0) {
-    for (const batch of chunkArray(clienteIds)) {
-      const { data, error } = await client
-        .from("clientes")
-        .select("id, nome, whatsapp, telefone")
-        .in("id", batch);
-      if (error) throw error;
-      for (const row of (data || []) as DashboardViagemClienteRow[]) {
-        const id = String(row?.id || "").trim();
-        if (!id) continue;
-        clientesMap.set(id, {
-          nome: String(row?.nome || "Cliente"),
-          contato: row?.whatsapp || row?.telefone || null,
-        });
-      }
+    const batchRows = await Promise.all(
+      chunkArray(clienteIds).map(async (batch) => {
+        const { data, error } = await client
+          .from("clientes")
+          .select("id, nome, whatsapp, telefone")
+          .in("id", batch);
+        if (error) throw error;
+        return (data || []) as DashboardViagemClienteRow[];
+      })
+    );
+    for (const row of batchRows.flat()) {
+      const id = String(row?.id || "").trim();
+      if (!id) continue;
+      clientesMap.set(id, {
+        nome: String(row?.nome || "Cliente"),
+        contato: row?.whatsapp || row?.telefone || null,
+      });
     }
   }
 
   const vendedorIds = uniqueCleanStrings(rows.map((row) => row.responsavel_user_id));
   const vendedoresMap = new Map<string, string>();
   if (vendedorIds.length > 0) {
-    for (const batch of chunkArray(vendedorIds)) {
-      const { data, error } = await client
-        .from("users")
-        .select("id, nome_completo")
-        .in("id", batch);
-      if (error) throw error;
-      for (const row of (data || []) as DashboardViagemVendedorRow[]) {
-        const id = String(row?.id || "").trim();
-        if (id) vendedoresMap.set(id, String(row?.nome_completo || ""));
-      }
+    const batchRows = await Promise.all(
+      chunkArray(vendedorIds).map(async (batch) => {
+        const { data, error } = await client
+          .from("users")
+          .select("id, nome_completo")
+          .in("id", batch);
+        if (error) throw error;
+        return (data || []) as DashboardViagemVendedorRow[];
+      })
+    );
+    for (const row of batchRows.flat()) {
+      const id = String(row?.id || "").trim();
+      if (id) vendedoresMap.set(id, String(row?.nome_completo || ""));
     }
   }
 
   const vendaIds = uniqueCleanStrings(rows.map((row) => row.venda_id));
   const vendasMap = new Map<string, string | null>();
   if (vendaIds.length > 0) {
-    for (const batch of chunkArray(vendaIds)) {
-      const { data, error } = await client
-        .from("vendas")
-        .select("id, numero_venda")
-        .in("id", batch);
-      if (error) throw error;
-      for (const row of (data || []) as DashboardViagemVendaRow[]) {
-        const id = String(row?.id || "").trim();
-        if (id)
-          vendasMap.set(
-            id,
-            row?.numero_venda ? String(row.numero_venda) : null,
-          );
-      }
+    const batchRows = await Promise.all(
+      chunkArray(vendaIds).map(async (batch) => {
+        const { data, error } = await client
+          .from("vendas")
+          .select("id, numero_venda")
+          .in("id", batch);
+        if (error) throw error;
+        return (data || []) as DashboardViagemVendaRow[];
+      })
+    );
+    for (const row of batchRows.flat()) {
+      const id = String(row?.id || "").trim();
+      if (id)
+        vendasMap.set(
+          id,
+          row?.numero_venda ? String(row.numero_venda) : null,
+        );
     }
   }
 
@@ -323,9 +339,26 @@ export async function GET(event) {
             ? [scope.companyId]
             : [];
       const equipeIds = uniqueCleanStrings(
-        (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)).map(
-          (row) => row?.id,
-        ),
+        (
+          await getCachedReadModel<Array<{ id?: string | null }>>({
+            key: buildReadModelCacheKey("dashboard:viagens:equipe", {
+              gestorCompanyIds,
+              userId: user.id,
+            }),
+            tags: [
+              READ_MODEL_TAGS.users,
+              READ_MODEL_TAGS.dashboard,
+              ...scopeCacheTags({
+                companyIds: gestorCompanyIds,
+                userId: user.id,
+              }),
+            ],
+            ttlMs: 300_000,
+            staleTtlMs: 1_800_000,
+            loader: () =>
+              fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds),
+          })
+        ).map((row) => row?.id),
       );
       const equipeSet = cleanStringSet(equipeIds);
       vendedorIds =
@@ -372,8 +405,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         const [proximasRows, emAndamentoRows] = await Promise.all([
           fetchDashboardViagens({

@@ -6,6 +6,7 @@ import {
   buildOfficialThemeRows,
 } from '$lib/cards/officialLibrary';
 import { resolveThemeAssetMeta } from '$lib/cards/themeAssetMeta';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { toUserMessage } from '$lib/utils/errors';
 
 type ScopeValue = "system" | "master" | "gestor" | "user";
@@ -343,18 +344,21 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       logServerError("[crm/library] erro ao carregar categorias", catsResp.error);
       return new Response(JSON.stringify({ error: "Erro ao carregar categorias." }), {
         status: 500,
+        headers: { "content-type": "application/json; charset=utf-8", ...NO_STORE_HEADERS },
       });
     }
     if (themesResp.error) {
       logServerError("[crm/library] erro ao carregar modelos", themesResp.error);
       return new Response(JSON.stringify({ error: "Erro ao carregar modelos." }), {
         status: 500,
+        headers: { "content-type": "application/json; charset=utf-8", ...NO_STORE_HEADERS },
       });
     }
     if (messagesResp.error) {
       logServerError("[crm/library] erro ao carregar textos", messagesResp.error);
       return new Response(JSON.stringify({ error: "Erro ao carregar textos." }), {
         status: 500,
+        headers: { "content-type": "application/json; charset=utf-8", ...NO_STORE_HEADERS },
       });
     }
 
@@ -423,7 +427,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       }),
       {
         status: 200,
-        headers: { "content-type": "application/json; charset=utf-8" },
+        headers: { "content-type": "application/json; charset=utf-8", ...DYNAMIC_READ_HEADERS },
       }
     );
   } catch (error: unknown) {
@@ -434,7 +438,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       }),
       {
         status: 500,
-        headers: { "content-type": "application/json; charset=utf-8" },
+        headers: { "content-type": "application/json; charset=utf-8", ...NO_STORE_HEADERS },
       }
     );
   }

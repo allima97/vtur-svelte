@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { CalendarDays, Plus, Users, Wallet, FileText, Clock } from 'lucide-svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
@@ -10,7 +10,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
 
   type Cliente = {
     id: string;
@@ -52,6 +52,7 @@
   let filterValues: Record<string, string> = {};
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let requestSeq = 0;
+  let requestAbortController: AbortController | null = null;
   let lastSummaryKey = '';
   let summary = {
     total: 0,
@@ -218,6 +219,9 @@
 
   async function loadClientes() {
     const seq = ++requestSeq;
+    requestAbortController?.abort();
+    const controller = new AbortController();
+    requestAbortController = controller;
     loading = true;
     loadingSummary = true;
     errorMessage = null;
@@ -235,7 +239,7 @@
         classificacao: filterValues.classificacao || '',
         aniversario_hoje: filterValues.aniversario_hoje || '',
         include_summary: '1'
-      });
+      }, controller.signal, 60_000);
 
       if (seq !== requestSeq) return;
 
@@ -265,6 +269,7 @@
         emNegociacao: Number(s?.emNegociacao ?? fallbackSummary.emNegociacao)
       };
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
       if (seq !== requestSeq) return;
       errorMessage = toUserMessage(error, 'Erro ao carregar clientes.');
       clientes = [];
@@ -274,6 +279,9 @@
       if (seq === requestSeq) {
         loading = false;
         loadingSummary = false;
+        if (requestAbortController === controller) {
+          requestAbortController = null;
+        }
       }
     }
   }
@@ -322,6 +330,11 @@
   onMount(() => {
     mounted = true;
     void loadClientes();
+  });
+
+  onDestroy(() => {
+    requestAbortController?.abort();
+    if (searchTimer) clearTimeout(searchTimer);
   });
 </script>
 

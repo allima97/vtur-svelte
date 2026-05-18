@@ -109,8 +109,8 @@ async function fetchGestorCompanyScopeIds(
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ companyIds }),
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () =>
         uniqueCleanStrings(
           (await fetchRankingVendedoresByCompanyIds(client, companyIds)).map(
@@ -129,8 +129,8 @@ async function fetchGestorCompanyScopeIds(
       READ_MODEL_TAGS.users,
       ...scopeCacheTags({ companyIds, vendedorIds: userIds }),
     ],
-    ttlMs: 30_000,
-    staleTtlMs: 120_000,
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
     loader: async () => {
       try {
         const rows: DashboardScopeUserRow[] = [];
@@ -164,8 +164,10 @@ async function fetchGestorCompanyScopeIds(
           rows.push(...((data || []) as DashboardScopeUserRow[]));
         };
 
-        for (const idBatch of idBatches) await fetchBatch({ userIds: idBatch });
-        for (const companyBatch of companyBatches) await fetchBatch({ companyIds: companyBatch });
+        await Promise.all([
+          ...idBatches.map((idBatch) => fetchBatch({ userIds: idBatch })),
+          ...companyBatches.map((companyBatch) => fetchBatch({ companyIds: companyBatch })),
+        ]);
 
         const eligibleRows = rows
           .filter((row) => {
@@ -299,8 +301,8 @@ export async function GET(event) {
 
     const payload = await getCachedReadModel({
       key: dashboardCacheKey,
-      ttlMs: 120_000,
-      staleTtlMs: 900_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       tags: [
         READ_MODEL_TAGS.dashboard,
         READ_MODEL_TAGS.sales,
@@ -338,11 +340,14 @@ export async function GET(event) {
         const fetchMetasParallel = async (): Promise<DashboardMetaRow[]> => {
           const rows: DashboardMetaRow[] = [];
           if (vendedorIds.length > 0) {
-            for (const vendedorBatch of chunkArray(vendedorIds)) {
-              const { data, error: metasError } = await buildMetasQuery().in("vendedor_id", vendedorBatch);
-              if (metasError) throw metasError;
-              rows.push(...((data || []) as DashboardMetaRow[]));
-            }
+            const batchRows = await Promise.all(
+              chunkArray(vendedorIds).map(async (vendedorBatch) => {
+                const { data, error: metasError } = await buildMetasQuery().in("vendedor_id", vendedorBatch);
+                if (metasError) throw metasError;
+                return (data || []) as DashboardMetaRow[];
+              }),
+            );
+            rows.push(...batchRows.flat());
           } else {
             const { data, error: metasError } = await buildMetasQuery();
             if (metasError) throw metasError;
@@ -375,11 +380,14 @@ export async function GET(event) {
             return (data || []) as DashboardQuoteRow[];
           }
           const rows: DashboardQuoteRow[] = [];
-          for (const batch of chunkArray(normalizedIds)) {
-            const { data, error } = await buildQuotesQuery().in(field, batch);
-            if (error) throw error;
-            rows.push(...((data || []) as DashboardQuoteRow[]));
-          }
+          const batchRows = await Promise.all(
+            chunkArray(normalizedIds).map(async (batch) => {
+              const { data, error } = await buildQuotesQuery().in(field, batch);
+              if (error) throw error;
+              return (data || []) as DashboardQuoteRow[];
+            }),
+          );
+          rows.push(...batchRows.flat());
           return dedupeDashboardQuotes(rows);
         };
 

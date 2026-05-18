@@ -209,7 +209,7 @@
           payload = await apiGet('/api/v1/vendas/cidades-busca', { id: idValue }, undefined, 30_000);
           break;
         } catch {
-          if (attempt < 2) await new Promise(r => setTimeout(r, 600));
+          if (attempt < 2) await new Promise(r => setTimeout(r, 250));
         }
       }
       if (!hasCidadeId(payload)) return;
@@ -239,7 +239,7 @@
         break;
       } catch {
         if (attempt < 2) {
-          await new Promise(r => setTimeout(r, 600));
+          await new Promise(r => setTimeout(r, 250));
         } else {
           searchResults = [];
         }

@@ -11,7 +11,8 @@
   import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   type Termo = {
     id: string;
     termo: string;
@@ -28,6 +29,7 @@
   let editingId: string | null = null;
 
   let form = { termo: '', descricao: '', ativo: true };
+  const loadGuard = createLoadGuard();
 
   const columns = [
     { key: 'termo', label: 'Termo', sortable: true },
@@ -44,14 +46,21 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Termo[] }>('/api/v1/parametros/nao-comissionaveis');
+      const payload = await apiGet<{ items?: Termo[] }>(
+        '/api/v1/parametros/nao-comissionaveis',
+        undefined,
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       termos = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar termos.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

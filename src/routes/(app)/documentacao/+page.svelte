@@ -15,7 +15,8 @@
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { BookOpen, FileText, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-svelte';
 
   type DocumentationSection = {
@@ -61,6 +62,7 @@
   let selectedId = '';
   let modalOpen = false;
   let form = createForm();
+  const loadGuard = createLoadGuard();
 
   $: selected = sections.find((section) => section.id === selectedId) || sections[0] || null;
   $: activeCount = sections.reduce((total, section) => total + (section.is_active ? 1 : 0), 0);
@@ -88,20 +90,23 @@
   }
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<DocumentationPayload>('/api/v1/documentacao');
+      const payload = await apiGet<DocumentationPayload>('/api/v1/documentacao', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       sections = payload.sections || [];
       source = payload.source || '';
       if (!selectedId || !sections.some((section) => section.id === selectedId)) {
         selectedId = sections[0]?.id || '';
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       sections = [];
       selectedId = '';
       toast.error(toUserMessage(err, 'Não foi possível carregar a documentação.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

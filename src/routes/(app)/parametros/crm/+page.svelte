@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { PageHeader, Card, Button, Dialog, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { downloadBlob, fetchPreviewPngBlob } from '$lib/utils/browser-images';
@@ -23,6 +24,8 @@
     X,
     Pencil
   } from 'lucide-svelte';
+  const loadGuard = createLoadGuard();
+  const clienteSearchGuard = createLoadGuard();
 
   // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -445,9 +448,11 @@
   // ── Load ─────────────────────────────────────────────────────────────────────
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const data = await apiGet<LibraryData>('/api/v1/crm/library');
+      const data = await apiGet<LibraryData>('/api/v1/crm/library', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       categories = data.categories || [];
       themes = data.themes || [];
       messages = data.messages || [];
@@ -473,9 +478,10 @@
         assinatura = { ...assinatura, linha2: data.settings.consultor_nome };
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar CRM.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
@@ -485,23 +491,31 @@
 
   async function searchClientes(busca: string) {
     if (!busca.trim()) {
+      clienteSearchGuard.abort();
       clienteResults = [];
       showClienteDropdown = false;
       return;
     }
+    const request = clienteSearchGuard.next();
     searchingClientes = true;
     try {
-      const data = await apiGet<ClienteSearchResponse | Cliente[]>('/api/v1/clientes/search', {
-        q: busca,
-        limit: 10
-      });
+      const data = await apiGet<ClienteSearchResponse | Cliente[]>(
+        '/api/v1/clientes/search',
+        {
+          q: busca,
+          limit: 10
+        },
+        request.signal
+      );
+      if (!clienteSearchGuard.isCurrent(request.seq)) return;
       const results = Array.isArray(data) ? data : data.clientes || data.items || [];
       clienteResults = results.slice(0, 10);
       showClienteDropdown = clienteResults.length > 0;
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       clienteResults = [];
     } finally {
-      searchingClientes = false;
+      if (clienteSearchGuard.isCurrent(request.seq)) searchingClientes = false;
     }
   }
 
@@ -729,6 +743,9 @@
   // ── Lifecycle ────────────────────────────────────────────────────────────────
 
   onMount(load);
+  onDestroy(() => {
+    if (clienteSearchTimer) clearTimeout(clienteSearchTimer);
+  });
 
 </script>
 

@@ -5,7 +5,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Bug, RefreshCw, CheckCircle, XCircle } from 'lucide-svelte';
 
   type DebugPermissionsResponse = {
@@ -45,20 +46,29 @@
   let debugData: DebugPermissionsResponse | null = null;
   let loading = true;
   let error: string | null = null;
+  const loadGuard = createLoadGuard();
 
   onMount(async () => {
     await loadDebugData();
   });
 
   async function loadDebugData() {
+    const request = loadGuard.next();
     loading = true;
     error = null;
     try {
-      debugData = await apiGet<DebugPermissionsResponse>('/api/v1/debug/permissions');
+      const payload = await apiGet<DebugPermissionsResponse>(
+        '/api/v1/debug/permissions',
+        undefined,
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
+      debugData = payload;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       error = toUserMessage(err, 'Erro ao carregar dados de debug.');
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

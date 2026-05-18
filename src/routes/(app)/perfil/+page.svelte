@@ -6,7 +6,8 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPatch } from '$lib/services/api';
+  import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Save, User, Phone, MapPin, Mail, Building2 } from 'lucide-svelte';
 
   type Perfil = {
@@ -47,6 +48,8 @@
   let cepStatus: string | null = null;
   let assinatura = '';
   let savingAssinatura = false;
+  const loadGuard = createLoadGuard();
+  const cepGuard = createLoadGuard();
 
   let form = {
     nome_completo: '',
@@ -67,12 +70,17 @@
   const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
       const [perfilData, sigData] = await Promise.all([
-        apiGet<Perfil>('/api/v1/user/profile'),
-        apiGet<{ signature?: string | null }>('/api/v1/profile/signature').catch(() => null)
+        apiGet<Perfil>('/api/v1/user/profile', undefined, request.signal),
+        apiGet<{ signature?: string | null }>('/api/v1/profile/signature', undefined, request.signal).catch((err) => {
+          if (isCanceledApiError(err)) throw err;
+          return null;
+        })
       ]);
+      if (!loadGuard.isCurrent(request.seq)) return;
       perfil = perfilData;
       assinatura = String(sigData?.signature || '').trim();
       if (perfil) {
@@ -93,9 +101,10 @@
         };
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar perfil.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
@@ -113,10 +122,16 @@
 
   async function buscarCep() {
     const digits = String(form.cep || '').replace(/\D/g, '');
-    if (digits.length !== 8) { cepStatus = null; return; }
+    if (digits.length !== 8) {
+      cepGuard.abort();
+      cepStatus = null;
+      return;
+    }
+    const request = cepGuard.next();
     cepStatus = 'Buscando CEP...';
     try {
-      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits });
+      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits }, request.signal);
+      if (!cepGuard.isCurrent(request.seq)) return;
       form = {
         ...form,
         endereco: data.logradouro || form.endereco,
@@ -125,7 +140,8 @@
         estado: data.uf || form.estado
       };
       cepStatus = 'Endereço carregado.';
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       cepStatus = 'CEP não encontrado.';
     }
   }

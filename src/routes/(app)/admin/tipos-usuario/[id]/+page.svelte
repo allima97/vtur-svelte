@@ -7,8 +7,9 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { Checkbox, FieldInput, FieldSelect } from '$lib/components/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type PermissionEntry = {
     label: string;
@@ -69,6 +70,7 @@
   ];
   let sections: PermissionSection[] = [];
   let lastLoadedId = '';
+  const pageGuard = createLoadGuard();
 
   $: isCreateMode = $page.params.id === 'novo';
 
@@ -77,10 +79,16 @@
   }
 
   async function loadPage() {
+    const request = pageGuard.next();
     loading = true;
     try {
       if (isCreateMode) {
-        const payload = await apiGet<AdminPermissionsResponse>('/api/v1/admin/permissoes');
+        const payload = await apiGet<AdminPermissionsResponse>(
+          '/api/v1/admin/permissoes',
+          undefined,
+          request.signal
+        );
+        if (!pageGuard.isCurrent(request.seq)) return;
         permissions = (payload.system_module_catalog || []).map((item) => ({
           label: item.label,
           modulo: item.key,
@@ -92,9 +100,10 @@
         form = { ...emptyForm };
       } else {
         const [detailPayload, permsPayload] = await Promise.all([
-          apiGet<UserTypeDetailResponse>(`/api/v1/admin/tipos-usuario/${$page.params.id}`),
-          apiGet<UserTypePermissionsResponse>(`/api/v1/admin/tipos-usuario/${$page.params.id}/permissoes`)
+          apiGet<UserTypeDetailResponse>(`/api/v1/admin/tipos-usuario/${$page.params.id}`, undefined, request.signal),
+          apiGet<UserTypePermissionsResponse>(`/api/v1/admin/tipos-usuario/${$page.params.id}/permissoes`, undefined, request.signal)
         ]);
+        if (!pageGuard.isCurrent(request.seq)) return;
         form = {
           id: detailPayload.tipo.id,
           name: detailPayload.tipo.name,
@@ -105,10 +114,11 @@
         sections = permsPayload.sections || [];
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error(err);
       toast.error('Nao foi possivel carregar o tipo de usuario.');
     } finally {
-      loading = false;
+      if (pageGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

@@ -85,8 +85,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.dashboard,
         ...scopeCacheTags({ companyIds, userId: user.id })
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         const [rows, diagnostico] = await Promise.all([
           (async () => {

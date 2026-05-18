@@ -113,23 +113,24 @@ export async function GET(event) {
           READ_MODEL_TAGS.dashboard,
           ...scopeCacheTags({ companyIds, userId: user.id })
         ],
-        ttlMs: 60_000,
-        staleTtlMs: 300_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: async () => {
-          const rows: ClienteAniversarianteRow[] = [];
           const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-          for (const companyBatch of companyBatches) {
-            let q = client
-              .from('clientes')
-              .select('id, nome, nascimento, telefone, whatsapp, email')
-              .not('nascimento', 'is', null)
-              .limit(2000);
-            if (companyBatch) q = q.in('company_id', companyBatch);
-            const { data, error } = await q;
-            if (error) throw error;
-            rows.push(...(data || []));
-          }
-          return rows;
+          const batchRows = await Promise.all(
+            companyBatches.map(async (companyBatch) => {
+              let q = client
+                .from('clientes')
+                .select('id, nome, nascimento, telefone, whatsapp, email')
+                .not('nascimento', 'is', null)
+                .limit(2000);
+              if (companyBatch) q = q.in('company_id', companyBatch);
+              const { data, error } = await q;
+              if (error) throw error;
+              return (data || []) as ClienteAniversarianteRow[];
+            })
+          );
+          return batchRows.flat();
         }
       }),
       getCachedReadModel<AcompanhanteAniversarianteRow[]>({
@@ -139,24 +140,25 @@ export async function GET(event) {
           READ_MODEL_TAGS.dashboard,
           ...scopeCacheTags({ companyIds, userId: user.id })
         ],
-        ttlMs: 60_000,
-        staleTtlMs: 300_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: async () => {
-          const rows: AcompanhanteAniversarianteRow[] = [];
           const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-          for (const companyBatch of companyBatches) {
-            let q = client
-              .from('cliente_acompanhantes')
-              .select('id, cliente_id, nome_completo, data_nascimento, telefone')
-              .eq('ativo', true)
-              .not('data_nascimento', 'is', null)
-              .limit(4000);
-            if (companyBatch) q = q.in('company_id', companyBatch);
-            const { data, error } = await q;
-            if (error) throw error;
-            rows.push(...(data || []));
-          }
-          return rows;
+          const batchRows = await Promise.all(
+            companyBatches.map(async (companyBatch) => {
+              let q = client
+                .from('cliente_acompanhantes')
+                .select('id, cliente_id, nome_completo, data_nascimento, telefone')
+                .eq('ativo', true)
+                .not('data_nascimento', 'is', null)
+                .limit(4000);
+              if (companyBatch) q = q.in('company_id', companyBatch);
+              const { data, error } = await q;
+              if (error) throw error;
+              return (data || []) as AcompanhanteAniversarianteRow[];
+            })
+          );
+          return batchRows.flat();
         }
       })
     ]);

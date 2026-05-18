@@ -7,7 +7,8 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Building2, MapPin, Phone, Wallet, Plus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
 
   type Fornecedor = {
     id: string;
@@ -32,16 +33,20 @@
   let filtroStatus = '';
   let filtroLocalizacao = '';
   let filtroFaturamento = '';
+  const loadGuard = createLoadGuard();
 
   async function loadFornecedores() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const data = await apiGet<{ items?: Fornecedor[] }>('/api/v1/fornecedores');
+      const data = await apiGet<{ items?: Fornecedor[] }>('/api/v1/fornecedores', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       fornecedores = data.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error('Erro ao carregar fornecedores.');
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

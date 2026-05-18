@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel, LoadingState } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
@@ -9,7 +9,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
 
   type CurrentUserPayload = {
     id: string;
@@ -107,6 +107,11 @@
   let vendedoresEquipe: Option[] = [];
   let empresas: Option[] = [];
   let empresaId = '';
+  let loadController: AbortController | null = null;
+  let lookupController: AbortController | null = null;
+  let loadSeq = 0;
+  let lookupSeq = 0;
+  let destroyed = false;
   $: canSelectEmpresa = empresas.length > 1;
   $: vendedoresEmpresa = empresaId
     ? vendedoresEquipe.filter((vendedorEquipe) => !vendedorEquipe.company_id || vendedorEquipe.company_id === empresaId)
@@ -199,9 +204,14 @@
   }
 
   onMount(async () => {
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     loading = true;
     try {
-      const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
+      const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base', undefined, controller.signal);
+      if (seq !== loadSeq || destroyed) return;
       currentUser = data.user ?? null;
       vendedoresEquipe = data.vendedoresEquipe || [];
       clientes = data.clientes || [];
@@ -216,21 +226,23 @@
         ? (getDefaultVendedorIdForEmpresa(empresaId) || data.user?.id || '')
         : (data.user?.id || '');
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar base do cadastro de vendas.'));
       goto('/vendas');
     }
     
     const orcamentoId = $page.url.searchParams.get('orcamento');
     if (orcamentoId) {
-      await carregarOrcamento(orcamentoId);
+      await carregarOrcamento(orcamentoId, controller.signal, seq);
     }
     
-    loading = false;
+    if (seq === loadSeq && !destroyed) loading = false;
   });
   
-  async function carregarOrcamento(orcamentoId: string) {
+  async function carregarOrcamento(orcamentoId: string, signal?: AbortSignal, seq = loadSeq) {
     try {
-      const orcamento = await apiGet<OrcamentoResumoVenda>(`/api/v1/orcamentos/${orcamentoId}/resumo-venda`);
+      const orcamento = await apiGet<OrcamentoResumoVenda>(`/api/v1/orcamentos/${orcamentoId}/resumo-venda`, undefined, signal);
+      if (seq !== loadSeq || destroyed) return;
       
       if (orcamento.client_id) {
         venda.cliente_id = orcamento.client_id;
@@ -251,9 +263,18 @@
       
       toast.success(`Dados do orçamento ${orcamento.codigo} carregados!`);
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.warning(toUserMessage(err, 'Não foi possível carregar os dados do orçamento.'));
     }
   }
+
+  onDestroy(() => {
+    destroyed = true;
+    loadSeq += 1;
+    lookupSeq += 1;
+    loadController?.abort();
+    lookupController?.abort();
+  });
 
   function addRecibo() {
     recibos = [...recibos, createRecibo(false)];
@@ -502,19 +523,28 @@
     cidades = sortCidades(Array.from(byId.values()));
   }
 
-  async function ensureCidadeLoaded(cidadeId: string) {
+  async function ensureCidadeLoaded(cidadeId: string, signal?: AbortSignal) {
     const id = String(cidadeId || '').trim();
     if (!id) return;
     if (cidades.some((item) => String(item.id) === id)) return;
     if (ensuringCidadeId === id) return;
+    let seq = lookupSeq;
+    if (!signal) {
+      lookupController?.abort();
+      lookupController = new AbortController();
+      signal = lookupController.signal;
+      seq = ++lookupSeq;
+    }
     ensuringCidadeId = id;
     try {
-      const payload = await apiGet<Option | null>('/api/v1/vendas/cidades-busca', { id });
+      const payload = await apiGet<Option | null>('/api/v1/vendas/cidades-busca', { id }, signal);
+      if (destroyed || (!signal && seq !== lookupSeq)) return;
       if (payload?.id) mergeCidades([payload]);
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
       // Sem impacto funcional; mantemos a tela usavel.
     } finally {
-      if (ensuringCidadeId === id) ensuringCidadeId = '';
+      if (ensuringCidadeId === id && !destroyed) ensuringCidadeId = '';
     }
   }
 

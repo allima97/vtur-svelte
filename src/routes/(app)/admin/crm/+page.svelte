@@ -15,7 +15,8 @@
   import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   type Categoria = { id: string; nome: string; icone: string; sort_order: number; ativo: boolean };
   type Tema = { id: string; nome: string; categoria_id: string | null; asset_url: string; scope: string; ativo: boolean };
   type Template = { id: string; nome: string; categoria: string | null; titulo: string; corpo: string; scope: string; ativo: boolean };
@@ -42,18 +43,26 @@
   let formCategoria = { nome: '', icone: 'pi pi-tag', sort_order: 0, ativo: true };
   let formTema = { nome: '', categoria_id: '', asset_url: '', scope: 'system', ativo: true };
   let formTemplate = { nome: '', categoria: '', titulo: '', corpo: '', scope: 'user', ativo: true };
+  const loadGuard = createLoadGuard();
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ categorias?: Categoria[]; temas?: Tema[]; templates?: Template[] }>('/api/v1/admin/crm');
+      const payload = await apiGet<{ categorias?: Categoria[]; temas?: Tema[]; templates?: Template[] }>(
+        '/api/v1/admin/crm',
+        undefined,
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       categorias = payload.categorias || [];
       temas = payload.temas || [];
       templates = payload.templates || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar CRM.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

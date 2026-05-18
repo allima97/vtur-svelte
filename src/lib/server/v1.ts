@@ -276,31 +276,32 @@ export async function fetchRankingVendedoresByCompanyIds(
       READ_MODEL_TAGS.ranking,
       ...scopeCacheTags({ companyIds: scopedCompanyIds }),
     ],
-    ttlMs: 60_000,
-    staleTtlMs: 300_000,
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
     loader: async () => {
-      const rows: RankingUserRow[] = [];
-      for (const companyBatch of chunkArray(scopedCompanyIds)) {
-        let query = client
-          .from("users")
-          .select(
-            "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
-          )
-          .eq("active", true)
-          .eq("uso_individual", false)
-          .limit(5000);
+      const batchRows = await Promise.all(
+        chunkArray(scopedCompanyIds).map(async (companyBatch) => {
+          let query = client
+            .from("users")
+            .select(
+              "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
+            )
+            .eq("active", true)
+            .eq("uso_individual", false)
+            .limit(5000);
 
-        query =
-          companyBatch.length === 1
-            ? query.eq("company_id", companyBatch[0])
-            : query.in("company_id", companyBatch);
+          query =
+            companyBatch.length === 1
+              ? query.eq("company_id", companyBatch[0])
+              : query.in("company_id", companyBatch);
 
-        const { data, error } = await query;
-        if (error) throw error;
-        rows.push(...((data || []) as unknown as RankingUserRow[]));
-      }
+          const { data, error } = await query;
+          if (error) throw error;
+          return (data || []) as unknown as RankingUserRow[];
+        }),
+      );
 
-      return rows.filter((row) => {
+      return batchRows.flat().filter((row) => {
         const companyId = String(row?.company_id || "").trim();
         return scopedCompanySet.has(companyId) && isRankingEligibleUser(row);
       });
@@ -467,8 +468,8 @@ export async function fetchMasterEmpresas(
       masterId: scopedMasterId,
     }),
     tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ userId: scopedMasterId })],
-    ttlMs: 60_000,
-    staleTtlMs: 300_000,
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
     loader: async () => {
       const { data, error: companiesError } = await client
         .from("master_empresas")
@@ -510,8 +511,8 @@ export async function fetchFinanceiroEmpresas(
       READ_MODEL_TAGS.finance,
       ...scopeCacheTags({ userId: scopedFinanceiroId }),
     ],
-    ttlMs: 60_000,
-    staleTtlMs: 300_000,
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
     loader: async () => {
       const { data, error: companiesError } = await client
         .from("financeiro_empresas")
@@ -606,11 +607,11 @@ export async function resolveUserScope(
   const key = buildReadModelCacheKey("user-scope", { userId });
   return getCachedReadModel({
     key,
-    // user-scope é chamado em toda requisição autenticada. 60s fresh evita
-    // que o banco seja consultado em bursts de requisições do mesmo usuário.
-    // stale de 5min mantém o cache quente entre requisições espaçadas.
-    ttlMs: 60_000,
-    staleTtlMs: 300_000,
+    // user-scope é chamado em toda requisição autenticada. Cache mais longo
+    // evita repetir permissões/perfil em cada widget de dashboard e relatório;
+    // alterações de usuário continuam limpando o read model pelas tags.
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
     tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ userId })],
     loader: () => resolveUserScopeUncached(client, userId),
   });
@@ -801,8 +802,8 @@ export async function resolveAccessibleClientIds(
       READ_MODEL_TAGS.sales,
       ...scopeCacheTags({ companyIds, vendedorIds }),
     ],
-    ttlMs: 30_000,
-    staleTtlMs: 120_000,
+    ttlMs: 120_000,
+    staleTtlMs: 900_000,
     loader: async () => {
       const clientIds = new Set<string>();
       const hasVendedorScope = vendedorIds.length > 0;

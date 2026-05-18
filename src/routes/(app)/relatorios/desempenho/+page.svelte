@@ -64,6 +64,8 @@
   let vendedores: VendedorFiltro[] = [];
   let loading = false;
   let data: EvolucaoAnualResult | null = null;
+  let baseRequestSeq = 0;
+  let baseAbortController: AbortController | null = null;
   let desempenhoRequestSeq = 0;
   let desempenhoAbortController: AbortController | null = null;
 
@@ -101,8 +103,18 @@
   // Carregamento de dados base
   // ---------------------------------------------------------------------------
   async function loadBase() {
+    const requestSeq = ++baseRequestSeq;
+    baseAbortController?.abort();
+    const controller = new AbortController();
+    baseAbortController = controller;
     try {
-      const res = await apiGet<RelatoriosBaseResponse>('/api/v1/relatorios/base');
+      const res = await apiGet<RelatoriosBaseResponse>(
+        '/api/v1/relatorios/base',
+        undefined,
+        controller.signal,
+        60_000
+      );
+      if (requestSeq !== baseRequestSeq) return;
       empresas = (res.empresas || []).map((e) => ({
         id: String(e.id || ''),
         nome: String(e.nome || e.nome_fantasia || e.nome_empresa || 'Empresa'),
@@ -112,9 +124,15 @@
         nome: String(v.nome || v.nome_completo || 'Usuário'),
         company_id: String(v.company_id || ''),
       }));
-    } catch {
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== baseRequestSeq) return;
       empresas = [];
       vendedores = [];
+    } finally {
+      if (requestSeq === baseRequestSeq && baseAbortController === controller) {
+        baseAbortController = null;
+      }
     }
   }
 
@@ -159,11 +177,11 @@
   }
 
   onMount(async () => {
-    await loadBase();
-    await loadDesempenho();
+    await Promise.all([loadBase(), loadDesempenho()]);
   });
 
   onDestroy(() => {
+    baseAbortController?.abort();
     desempenhoAbortController?.abort();
   });
 

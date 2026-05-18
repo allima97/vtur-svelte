@@ -141,13 +141,14 @@ async function fetchBatched<T>(
     batch: string[],
   ) => PromiseLike<{ data: T[] | null; error: unknown }>,
 ) {
-  const rows: T[] = [];
-  for (const batch of chunkArray(values, SUPABASE_IN_BATCH_SIZE)) {
-    const { data, error } = await loader(batch);
-    if (error) throw error;
-    rows.push(...(data || []));
-  }
-  return rows;
+  const batchResults = await Promise.all(
+    chunkArray(values, SUPABASE_IN_BATCH_SIZE).map(async (batch) => {
+      const { data, error } = await loader(batch);
+      if (error) throw error;
+      return data || [];
+    })
+  );
+  return batchResults.flat();
 }
 
 export async function GET(event) {
@@ -208,8 +209,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.clients,
         ...scopeCacheTags({ companyIds: [companyId], userId: user.id }),
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         let query = client
           .from('conciliacao_recibos')

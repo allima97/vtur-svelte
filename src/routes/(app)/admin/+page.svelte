@@ -7,7 +7,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { toUserMessage } from '$lib/utils/errors';
   import {
     BookOpen,
@@ -40,6 +41,7 @@
 
   let loading = true;
   let summary: AdminSummary | null = null;
+  const loadGuard = createLoadGuard();
 
   const modules = [
     {
@@ -141,14 +143,17 @@
   ];
 
   async function loadSummary() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      summary = await apiGet<AdminSummary>('/api/v1/admin/summary');
+      summary = await apiGet<AdminSummary>('/api/v1/admin/summary', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Nao foi possivel carregar o resumo administrativo.'));
       summary = null;
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

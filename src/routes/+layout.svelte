@@ -2,8 +2,10 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
+  import { beforeNavigate } from '$app/navigation';
   import { browser, dev } from '$app/environment';
   import { supabase } from '$lib/db/supabase';
+  import { abortInFlightApiReads } from '$lib/services/api';
   import { auth, sessionSynced } from '$lib/stores/auth';
   import { toast } from '$lib/stores/ui';
   import type { LayoutData } from './$types';
@@ -21,6 +23,12 @@
   let lastSessionAt = 0;
   let checkingSession = false;
   const SESSION_SYNC_TIMEOUT_MS = 12_000;
+
+  if (browser) {
+    beforeNavigate(() => {
+      abortInFlightApiReads();
+    });
+  }
 
   function isPublicRoute(path: string): boolean {
     return path.startsWith('/auth/') || path === '/negado';

@@ -8,7 +8,8 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { BottomSheet, FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
-  import { apiDelete, apiGet } from '$lib/services/api';
+  import { apiDelete, apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Plus, Route, MapPin, Calendar, DollarSign, Search, SlidersHorizontal, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -47,6 +48,7 @@
   let filtroStatus = '';
   let searchQuery = '';
   let showFilterSheet = false;
+  const loadGuard = createLoadGuard();
   const BRL_INTEGER_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -68,22 +70,29 @@
   });
 
   async function carregarCircuitos() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const data = await apiGet<CircuitosResponse>('/api/v1/circuitos', {
-        tipo: filtroTipo || undefined,
-        ativo: filtroStatus ? filtroStatus === 'ativo' : undefined
-      });
+      const data = await apiGet<CircuitosResponse>(
+        '/api/v1/circuitos',
+        {
+          tipo: filtroTipo || undefined,
+          ativo: filtroStatus ? filtroStatus === 'ativo' : undefined
+        },
+        request.signal
+      );
+      if (!loadGuard.isCurrent(request.seq)) return;
       circuitos = (data.items || []).map((c): Circuito => ({
         ...c,
         destinos: Array.isArray(c.destinos) ? c.destinos : c.destinos ? [c.destinos] : [],
         destinos_str: Array.isArray(c.destinos) ? c.destinos.join(', ') : c.destinos || ''
       }));
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (dev) console.error('Erro ao carregar circuitos:', err);
       toast.error('Erro ao carregar circuitos');
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

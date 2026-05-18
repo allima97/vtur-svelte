@@ -192,10 +192,10 @@ export async function GET(event: RequestEvent) {
         };
       }
 
-      const rows: DashboardConsultoriaRow[] = [];
-      for (const batch of chunkArray(creatorIds)) {
-        rows.push(...(await fetchRows(batch)));
-      }
+      const batchRows = await Promise.all(
+        chunkArray(creatorIds).map((batch) => fetchRows(batch))
+      );
+      const rows = batchRows.flat();
 
       const rowsById = new Map<string, DashboardConsultoriaRow>();
       for (const row of rows) {
@@ -227,8 +227,8 @@ export async function GET(event: RequestEvent) {
               userId: user.id,
             }),
           ],
-          ttlMs: 30_000,
-          staleTtlMs: 120_000,
+          ttlMs: 120_000,
+          staleTtlMs: 600_000,
           loader: loadPayload,
         });
 

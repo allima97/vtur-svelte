@@ -13,7 +13,8 @@
   } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { apiDelete, apiFetch, apiGet } from '$lib/services/api';
+  import { apiDelete, apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { ImagePlus, Pencil, RefreshCw, Save, Shield, Trash2, X } from 'lucide-svelte';
   import type { VoucherAssetRecord, VoucherAssetKind, VoucherAssetProvider } from '$lib/vouchers/types';
   import { escapeHtml } from '$lib/utils/html';
@@ -41,6 +42,8 @@
     { value: 'image', label: 'Imagem' },
     { value: 'app_icon', label: 'Ícone de app' }
   ];
+  const contextGuard = createLoadGuard();
+  const assetsGuard = createLoadGuard();
 
   function createDefaultForm(): AssetForm {
     return {
@@ -129,20 +132,33 @@
   ];
 
   onMount(async () => {
-    await loadUserContext();
-    await loadAssets();
+    if (await loadUserContext()) {
+      await loadAssets();
+    } else {
+      loading = false;
+    }
   });
 
   async function loadUserContext() {
+    const request = contextGuard.next();
     try {
-      const payload = await apiGet<{ company_id?: string | null }>('/api/v1/user/context');
+      const payload = await apiGet<{ company_id?: string | null }>(
+        '/api/v1/user/context',
+        undefined,
+        request.signal
+      );
+      if (!contextGuard.isCurrent(request.seq)) return false;
       companyId = payload.company_id || null;
+      return true;
     } catch (err) {
+      if (isCanceledApiError(err)) return false;
       toast.error(toUserMessage(err, 'Erro ao carregar contexto da empresa.'));
+      return false;
     }
   }
 
   async function loadAssets() {
+    const request = assetsGuard.next();
     if (!companyId) {
       loading = false;
       return;
@@ -150,14 +166,18 @@
 
     loading = true;
     try {
-      const payload = await apiGet<{ items?: VoucherAssetRecord[] }>('/api/v1/voucher-assets', {
-        company_id: companyId
-      });
+      const payload = await apiGet<{ items?: VoucherAssetRecord[] }>(
+        '/api/v1/voucher-assets',
+        { company_id: companyId },
+        request.signal
+      );
+      if (!assetsGuard.isCurrent(request.seq)) return;
       assets = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar assets de voucher.'));
     } finally {
-      loading = false;
+      if (assetsGuard.isCurrent(request.seq)) loading = false;
     }
   }
 

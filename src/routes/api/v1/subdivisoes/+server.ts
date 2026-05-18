@@ -59,8 +59,8 @@ export async function GET(event) {
       const item = await getCachedReadModel<SubdivisaoRow | null>({
         key: buildReadModelCacheKey('subdivisoes:get', { id }),
         tags: [READ_MODEL_TAGS.catalog],
-        ttlMs: 60_000,
-        staleTtlMs: 300_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: async () => {
           const { data, error: queryError } = await client
             .from('subdivisoes')
@@ -87,8 +87,8 @@ export async function GET(event) {
     const { items, total } = await getCachedReadModel<{ items: SubdivisaoRow[]; total: number }>({
       key: buildReadModelCacheKey('subdivisoes:list', { q, paisId, page, pageSize }),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         // Sem join de pais na listagem — evita query lenta com join desnecessário
         let query = client

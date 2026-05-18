@@ -58,8 +58,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ companyIds, userId: user.id }),
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       loader: async () => {
         const rows: TarefaUsuarioRow[] = [];
         const fetchUsers = async (companyBatch?: string[] | null) => {

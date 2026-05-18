@@ -9,7 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { currentMonthRangeISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import { createDebouncedReloader } from '$lib/utils/autoReload';
 
@@ -82,6 +82,12 @@
   let empresaId = '';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
+  let contextRequestSeq = 0;
+  let contextAbortController: AbortController | null = null;
+  let comissoesRequestSeq = 0;
+  let comissoesAbortController: AbortController | null = null;
+  let vendedoresRequestSeq = 0;
+  let vendedoresAbortController: AbortController | null = null;
   const autoReload = createDebouncedReloader(() => loadComissoes(), 250);
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -141,6 +147,9 @@
 
   onDestroy(() => {
     autoReload.cancel();
+    contextAbortController?.abort();
+    comissoesAbortController?.abort();
+    vendedoresAbortController?.abort();
   });
 
   function buildAutoReloadKey() {
@@ -155,11 +164,16 @@
   $: canSelectEmpresa = empresaOptions.length > 1;
 
   async function loadUserContext() {
+    const requestSeq = ++contextRequestSeq;
+    contextAbortController?.abort();
+    const controller = new AbortController();
+    contextAbortController = controller;
     try {
       const data = await apiGet<{
         company_id?: string | null;
         empresas?: EmpresaOption[];
-      }>('/api/v1/user/context');
+      }>('/api/v1/user/context', undefined, controller.signal, 60_000);
+      if (requestSeq !== contextRequestSeq) return;
 
       empresas = Array.isArray(data.empresas)
         ? data.empresas
@@ -171,9 +185,15 @@
         : [];
       empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== contextRequestSeq) return;
       empresas = [];
       empresaId = '';
       toast.error(toUserMessage(err, 'Erro ao carregar empresas.'));
+    } finally {
+      if (requestSeq === contextRequestSeq && contextAbortController === controller) {
+        contextAbortController = null;
+      }
     }
   }
 
@@ -187,6 +207,10 @@
   }
 
   async function loadComissoes() {
+    const requestSeq = ++comissoesRequestSeq;
+    comissoesAbortController?.abort();
+    const controller = new AbortController();
+    comissoesAbortController = controller;
     loading = true;
     try {
       const data = await apiGet<ComissoesCalculoResponse>(
@@ -197,25 +221,46 @@
           mes: filtroMes,
           ano: filtroAno,
           vendedor_id: filtroVendedor || undefined
-        }
+        },
+        controller.signal,
+        90_000
       );
+      if (requestSeq !== comissoesRequestSeq) return;
       comissoesPendentes = data.items || [];
       persistenciaDisponivel = data.persistencia_disponivel !== false;
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== comissoesRequestSeq) return;
       toast.error(toUserMessage(err, 'Erro ao carregar comissões pendentes'));
     } finally {
-      loading = false;
+      if (requestSeq === comissoesRequestSeq) {
+        loading = false;
+        if (comissoesAbortController === controller) {
+          comissoesAbortController = null;
+        }
+      }
     }
   }
 
   async function loadVendedores() {
+    const requestSeq = ++vendedoresRequestSeq;
+    vendedoresAbortController?.abort();
+    const controller = new AbortController();
+    vendedoresAbortController = controller;
     try {
       const data = await apiGet<VendedoresResponse>('/api/v1/financeiro/comissoes/vendedores', {
         empresa_id: empresaId || undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== vendedoresRequestSeq) return;
       vendedores = data.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== vendedoresRequestSeq) return;
       vendedores = [];
+    } finally {
+      if (requestSeq === vendedoresRequestSeq && vendedoresAbortController === controller) {
+        vendedoresAbortController = null;
+      }
     }
   }
 

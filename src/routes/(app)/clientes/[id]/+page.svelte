@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -31,7 +31,7 @@
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
 
   type ClienteDetalhe = {
     id: string;
@@ -104,6 +104,8 @@
   let loading = true;
   let errorMessage: string | null = null;
   let showAvisoModal = false;
+  let loadController: AbortController | null = null;
+  let loadSeq = 0;
 
   $: totalGasto = historicoVendas.reduce((acc, item) => acc + Number(item.valor_total || 0), 0);
   $: ticketMedio = historicoVendas.length > 0 ? totalGasto / historicoVendas.length : 0;
@@ -167,30 +169,41 @@
   }
 
   async function carregarCliente() {
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     loading = true;
     errorMessage = null;
 
     try {
       const [clientePayload, historicoPayload] = await Promise.all([
-        apiGet<ClienteDetalhe>(`/api/v1/clientes/${clienteId}`),
-        apiGet<HistoricoClienteResponse>('/api/v1/clientes/historico', { cliente_id: clienteId })
+        apiGet<ClienteDetalhe>(`/api/v1/clientes/${clienteId}`, undefined, controller.signal),
+        apiGet<HistoricoClienteResponse>('/api/v1/clientes/historico', { cliente_id: clienteId }, controller.signal)
       ]);
 
+      if (seq !== loadSeq) return;
       cliente = clientePayload;
       historicoVendas = Array.isArray(historicoPayload?.vendas) ? historicoPayload.vendas : [];
       historicoOrcamentos = Array.isArray(historicoPayload?.orcamentos)
         ? historicoPayload.orcamentos
         : [];
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
       errorMessage = toUserMessage(error, 'Erro ao carregar cliente.');
       toast.error(errorMessage);
     } finally {
-      loading = false;
+      if (seq === loadSeq) loading = false;
     }
   }
 
   onMount(() => {
     void carregarCliente();
+  });
+
+  onDestroy(() => {
+    loadSeq += 1;
+    loadController?.abort();
   });
 </script>
 

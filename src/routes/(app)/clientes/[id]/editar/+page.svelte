@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import {
     Button,
     Card,
@@ -27,7 +27,7 @@
     Users
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { ApiError, apiGet, apiPatch } from '$lib/services/api';
+  import { ApiError, apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import {
     buildClientePayload,
@@ -52,6 +52,10 @@
   let cepStatus: string | null = null;
   let errorMessage: string | null = null;
   let abaAtiva: 'dados' | 'acompanhantes' = 'dados';
+  let loadController: AbortController | null = null;
+  let cepController: AbortController | null = null;
+  let loadSeq = 0;
+  let cepSeq = 0;
 
   type CepResponse = {
     erro?: boolean;
@@ -71,22 +75,35 @@
   }));
 
   async function carregarCliente() {
+    loadController?.abort();
+    const controller = new AbortController();
+    loadController = controller;
+    const seq = ++loadSeq;
     loading = true;
     errorMessage = null;
 
     try {
-      const data = await apiGet<Record<string, unknown>>(`/api/v1/clientes/${clienteId}`);
+      const data = await apiGet<Record<string, unknown>>(`/api/v1/clientes/${clienteId}`, undefined, controller.signal);
+      if (seq !== loadSeq) return;
       formData = fillClienteFormFromApi(data);
     } catch (error: unknown) {
+      if (isCanceledApiError(error)) return;
       errorMessage = toUserMessage(error, 'Erro ao carregar cliente.');
       toast.error(errorMessage);
     } finally {
-      loading = false;
+      if (seq === loadSeq) loading = false;
     }
   }
 
   onMount(() => {
     void carregarCliente();
+  });
+
+  onDestroy(() => {
+    loadSeq += 1;
+    cepSeq += 1;
+    loadController?.abort();
+    cepController?.abort();
   });
 
   function setTipoPessoa(value: 'PF' | 'PJ') {
@@ -126,13 +143,20 @@
   async function buscarCepIfNeeded() {
     const digits = String(formData.cep || '').replace(/\D/g, '');
     if (digits.length !== 8) {
+      cepController?.abort();
+      cepSeq += 1;
       cepStatus = null;
       return;
     }
 
+    cepController?.abort();
+    const controller = new AbortController();
+    cepController = controller;
+    const seq = ++cepSeq;
     try {
       cepStatus = 'Buscando CEP...';
-      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits });
+      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits }, controller.signal);
+      if (seq !== cepSeq) return;
       if (data?.erro) {
         throw new Error('CEP nao encontrado.');
       }
@@ -145,6 +169,7 @@
       };
       cepStatus = 'Endereco carregado pelo CEP.';
     } catch (error) {
+      if (isCanceledApiError(error)) return;
       cepStatus = 'Nao foi possivel carregar o CEP.';
     }
   }

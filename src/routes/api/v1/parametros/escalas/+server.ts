@@ -239,8 +239,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ companyIds, vendedorIds: equipeIds, userId: scope.userId })
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 600_000,
       loader: async () => {
         // Busca escala_mes
         const buildMesQuery = (companyIdsFilter = scope.companyIds || []) => {

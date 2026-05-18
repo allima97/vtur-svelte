@@ -6,7 +6,8 @@
   import { FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Upload, FileText, CheckCircle, AlertCircle, Download } from 'lucide-svelte';
 
   type TipoProduto = { id: string; nome: string };
@@ -29,17 +30,25 @@
   let tipoId = '';
   let subdivisaoId = '';
   let textoProdutos = '';
+  const baseGuard = createLoadGuard();
   $: produtosNaLista = textoProdutos
     .split('\n')
     .reduce((total, linha) => total + (linha.trim() ? 1 : 0), 0);
 
   async function loadBase() {
-    const [tiposPayload, subPayload] = await Promise.all([
-      apiGet<TipoProdutosResponse>('/api/v1/tipo-produtos', { all: 1 }),
-      apiGet<SubdivisoesResponse>('/api/v1/subdivisoes', { pageSize: 5000 })
-    ]);
-    tipos = tiposPayload.items || [];
-    subdivisoes = subPayload.items || [];
+    const request = baseGuard.next();
+    try {
+      const [tiposPayload, subPayload] = await Promise.all([
+        apiGet<TipoProdutosResponse>('/api/v1/tipo-produtos', { all: 1 }, request.signal),
+        apiGet<SubdivisoesResponse>('/api/v1/subdivisoes', { pageSize: 5000 }, request.signal)
+      ]);
+      if (!baseGuard.isCurrent(request.seq)) return;
+      tipos = tiposPayload.items || [];
+      subdivisoes = subPayload.items || [];
+    } catch (err) {
+      if (isCanceledApiError(err)) return;
+      toast.error(toUserMessage(err, 'Erro ao carregar dados base.'));
+    }
   }
 
   async function importarLote() {

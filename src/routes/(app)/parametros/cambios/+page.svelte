@@ -8,7 +8,8 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
@@ -30,6 +31,7 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
+  const loadGuard = createLoadGuard();
 
   const MOEDAS = ['USD', 'EUR', 'ARS', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'MXN', 'CLP', 'UYU', 'PYG'];
   const CAMBIO_VALUE_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -70,14 +72,17 @@
   ];
 
   async function load() {
+    const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: Cambio[] }>('/api/v1/parametros/cambios');
+      const payload = await apiGet<{ items?: Cambio[] }>('/api/v1/parametros/cambios', undefined, request.signal);
+      if (!loadGuard.isCurrent(request.seq)) return;
       cambios = payload.items || [];
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar câmbios.'));
     } finally {
-      loading = false;
+      if (loadGuard.isCurrent(request.seq)) loading = false;
     }
   }
 
