@@ -42,6 +42,15 @@ export type EvolucaoAnualResult = {
   crescimentoYoY: Record<string, number | null>;
 };
 
+type DashboardCompanyRow = {
+  id?: string | null;
+  active?: boolean | null;
+};
+
+type ExecutionContextLike = {
+  waitUntil: (promise: Promise<unknown>) => void;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -52,6 +61,38 @@ function emptyMeses(): MesBucket[] {
     totalVendas: 0,
     qtdVendas: 0,
   }));
+}
+
+function getExecutionContext(platform: unknown): ExecutionContextLike | null {
+  const ctx =
+    platform && typeof platform === 'object'
+      ? (platform as { ctx?: unknown }).ctx
+      : null;
+  return ctx && typeof ctx === 'object' && typeof (ctx as ExecutionContextLike).waitUntil === 'function'
+    ? (ctx as ExecutionContextLike)
+    : null;
+}
+
+async function fetchAllVisibleCompanyIds(client: ReturnType<typeof getAdminClient>) {
+  return getCachedReadModel<string[]>({
+    key: buildReadModelCacheKey('dashboard:evolucao-anual:all-visible-companies', {}),
+    tags: [READ_MODEL_TAGS.dashboard, READ_MODEL_TAGS.catalog],
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
+    loader: async () => {
+      const { data, error } = await client
+        .from('companies')
+        .select('id, active')
+        .limit(1000);
+
+      if (error) throw error;
+
+      return ((data || []) as DashboardCompanyRow[])
+        .filter((row) => row?.active !== false)
+        .map((row) => String(row?.id || '').trim())
+        .filter(isUuid);
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -73,6 +114,7 @@ export async function GET(event) {
     const isMaster = tipoNome.includes('MASTER');
     const isGestor = tipoNome.includes('GESTOR');
     const isVendedor = !isMaster && !isGestor && !scope.isAdmin;
+    const hasConfiguredCompanyScope = (scope.companyIds || []).some(isUuid);
 
     const { searchParams } = event.url;
 
@@ -102,12 +144,21 @@ export async function GET(event) {
     if (scope.isAdmin) {
       // Admin: filtra só se passou company_id explícito
       effectiveCompanyIds = isUuid(companyIdParam) ? [companyIdParam!] : [];
+      if (!companyIdParam) {
+        effectiveCompanyIds = await fetchAllVisibleCompanyIds(client);
+      }
     } else if (isMaster) {
       const scopedIds = resolveScopedCompanyIds(scope, null);
       const scopedIdSet = cleanStringSet(scopedIds);
       // Filtro por empresa: só aceita empresas do escopo do master
-      if (companyIdParam && isUuid(companyIdParam) && scopedIdSet.has(companyIdParam)) {
+      if (
+        companyIdParam &&
+        isUuid(companyIdParam) &&
+        (!hasConfiguredCompanyScope || scopedIdSet.has(companyIdParam))
+      ) {
         effectiveCompanyIds = [companyIdParam];
+      } else if (!companyIdParam && !hasConfiguredCompanyScope) {
+        effectiveCompanyIds = await fetchAllVisibleCompanyIds(client);
       } else {
         effectiveCompanyIds = scopedIds;
       }
@@ -152,6 +203,10 @@ export async function GET(event) {
         const anosOrdenados = [...requestedAnos].sort();
         const dataInicio = `${anosOrdenados[0]}-01-01`;
         const dataFim = `${anosOrdenados[anosOrdenados.length - 1]}-12-31`;
+        const useNonBlockingReadModel =
+          (scope.isAdmin || isMaster) &&
+          effectiveCompanyIds.length > 1 &&
+          effectiveVendedorIds.length === 0;
 
         // IMPORTANTE: passamos vendedorIds vazio para que fetchSalesReportRows filtre
         // apenas por companyIds (AND company_id IN ...) sem duplo filtro AND vendedor_id IN.
@@ -162,7 +217,13 @@ export async function GET(event) {
           companyIds: effectiveCompanyIds,
           vendedorIds: [],
           accessibleClientIds: [],
-        });
+        }, useNonBlockingReadModel
+          ? {
+              mode: 'stale-while-revalidate',
+              executionContext: getExecutionContext(event.platform),
+              fallbackToRawOnReadError: false,
+            }
+          : undefined);
 
         // Inicializa buckets
         const anosMap = new Map<number, MesBucket[]>();

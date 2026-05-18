@@ -51,6 +51,7 @@
     destino_cidade_id?: string | null;
     destino_cidade?: { nome?: string | null } | null;
     produto_resolvido?: { nome?: string | null } | null;
+    tipo_produtos?: { nome?: string | null; tipo?: string | null } | null;
     produto?: { nome?: string | null } | null;
   };
 
@@ -167,6 +168,8 @@
   let produtosBase: Array<{ id: string; nome: string; cidade_id?: string | null }> = [];
   let cidadesBase: Array<{ id: string; label?: string | null; nome?: string | null }> = [];
   let tiposPacoteBase: Array<{ id: string; nome: string }> = [];
+  let reciboBaseLoaded = false;
+  let reciboBaseLoading: Promise<void> | null = null;
 
   // Ranking e Conciliação por recibo
   let rankingRecibos: RankingReciboSnapshot[] = [];
@@ -190,30 +193,44 @@
   };
 
   async function loadReciboBaseData() {
-    try {
-      const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
-      produtosBase = (data.produtos || []).map((item) => ({
-        id: String(item.id),
-        nome: item.nome || 'Produto',
-        cidade_id: item.cidade_id || null
-      }));
-      cidadesBase = (data.cidades || []).map((item) => ({
-        id: String(item.id),
-        label: item.label || item.nome || 'Cidade',
-        nome: item.nome || 'Cidade'
-      }));
-      tiposPacoteBase = (data.tiposPacote || [])
-        .map((item) => ({ id: String(item.id || item.nome || ''), nome: item.nome || '' }))
-        .filter((item) => item.nome);
-    } catch {
-      // Nao bloqueia a tela principal.
-    }
+    if (reciboBaseLoaded) return;
+    if (reciboBaseLoading) return reciboBaseLoading;
+
+    reciboBaseLoading = (async () => {
+      try {
+        const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
+        produtosBase = (data.produtos || []).map((item) => ({
+          id: String(item.id),
+          nome: item.nome || 'Produto',
+          cidade_id: item.cidade_id || null
+        }));
+        cidadesBase = (data.cidades || []).map((item) => ({
+          id: String(item.id),
+          label: item.label || item.nome || 'Cidade',
+          nome: item.nome || 'Cidade'
+        }));
+        tiposPacoteBase = (data.tiposPacote || [])
+          .map((item) => ({ id: String(item.id || item.nome || ''), nome: item.nome || '' }))
+          .filter((item) => item.nome);
+        reciboBaseLoaded = true;
+      } catch {
+        // Nao bloqueia a tela principal.
+      } finally {
+        reciboBaseLoading = null;
+      }
+    })();
+
+    return reciboBaseLoading;
   }
 
   function ensureReciboFormOptions(recibo: VendaReciboResumo) {
     const produtoId = String(recibo?.produto_resolvido_id || recibo?.produto_id || '').trim();
     const produtoNome =
-      produtosCache[produtoId]?.nome || recibo?.produto_resolvido?.nome || recibo?.produto?.nome || 'Produto';
+      produtosCache[produtoId]?.nome ||
+      recibo?.produto_resolvido?.nome ||
+      recibo?.tipo_produtos?.nome ||
+      recibo?.produto?.nome ||
+      'Produto';
     if (produtoId && !produtosBase.some((item) => item.id === produtoId)) {
       produtosBase = [...produtosBase, { id: produtoId, nome: produtoNome }];
     }
@@ -231,8 +248,9 @@
   }
 
   function startEditRecibo(recibo: VendaReciboResumo) {
+    const reciboId = recibo.id ? String(recibo.id) : null;
     ensureReciboFormOptions(recibo);
-    editingReciboId = recibo.id ? String(recibo.id) : null;
+    editingReciboId = reciboId;
     isEditingReciboDetails = false;
     reciboForm = {
       numero_recibo: String(recibo?.numero_recibo || ''),
@@ -245,6 +263,9 @@
       tipo_pacote: String(recibo?.tipo_pacote || '')
     };
     showEditReciboDialog = true;
+    void loadReciboBaseData().then(() => {
+      if (editingReciboId === reciboId) ensureReciboFormOptions(recibo);
+    });
   }
 
   function cancelEditRecibo() {
@@ -350,7 +371,7 @@
 
   onMount(async () => {
     await ensureServerSessionCookie();
-    await Promise.all([loadReciboBaseData(), carregarVenda()]);
+    await carregarVenda();
     if (venda) void carregarRankingRecibos();
   });
 
@@ -410,13 +431,23 @@
       }
     }
 
-    if (opts.loadProdutos !== false && Array.isArray(venda?.recibos)) {
-      const ids = new Set<string>();
+    if (Array.isArray(venda?.recibos)) {
+      const idsWithoutNames = new Set<string>();
       for (const r of venda.recibos) {
-        if (r?.produto_resolvido_id) ids.add(String(r.produto_resolvido_id));
-        if (r?.produto_id) ids.add(String(r.produto_id));
+        const produtoId = String(r?.produto_resolvido_id || r?.produto_id || '').trim();
+        const produtoNome = String(r?.produto_resolvido?.nome || r?.tipo_produtos?.nome || '').trim();
+        if (produtoId && produtoNome) {
+          produtosCache[produtoId] = { id: produtoId, nome: produtoNome };
+          continue;
+        }
+        if (r?.produto_resolvido_id) idsWithoutNames.add(String(r.produto_resolvido_id));
+        if (r?.produto_id) idsWithoutNames.add(String(r.produto_id));
       }
-      await Promise.all(Array.from(ids).map((id) => ensureProduto(id)));
+      produtosCache = { ...produtosCache };
+
+      if (opts.loadProdutos !== false) {
+        await Promise.all(Array.from(idsWithoutNames).map((id) => ensureProduto(id)));
+      }
     }
   }
 
