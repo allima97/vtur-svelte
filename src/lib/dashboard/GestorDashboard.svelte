@@ -9,7 +9,7 @@
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Award, BarChart2, Building2, Calendar, Clock, Gift, MapPin, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { goto } from '$app/navigation';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
@@ -176,6 +176,8 @@
   let lastAppliedFilterKey = '';
   let lastBaseCompanyId = '';
   let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
+  let dashboardRequestSeq = 0;
+  let dashboardAbortController: AbortController | null = null;
 
   let vendasAgg: NonNullable<SummaryPayload['vendasAgg']> = {
     totalVendas: 0,
@@ -471,6 +473,10 @@
   }
 
   async function loadDashboard() {
+    const requestSeq = ++dashboardRequestSeq;
+    dashboardAbortController?.abort();
+    const controller = new AbortController();
+    dashboardAbortController = controller;
     loading = true;
     errorMessage = null;
 
@@ -481,20 +487,33 @@
         include_orcamentos: 0,
         company_id: empresaSelecionada || undefined,
         vendedor_ids: vendedorSelecionado || undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== dashboardRequestSeq) return;
 
       userCtx = payload.userCtx || null;
       vendasAgg = payload.vendasAgg || vendasAgg;
       metas = payload.metas || [];
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== dashboardRequestSeq) return;
       errorMessage = toUserMessage(err, 'Erro ao carregar dashboard do gestor.');
       toast.error('Erro ao carregar dashboard do gestor.');
     } finally {
-      loading = false;
+      if (requestSeq === dashboardRequestSeq) {
+        loading = false;
+        if (dashboardAbortController === controller) {
+          dashboardAbortController = null;
+        }
+      }
     }
   }
 
   async function loadOperational() {
+    if (widgetVisible.followups === false) {
+      followUps = [];
+      return;
+    }
+
     const params: Record<string, string> = {};
     if (userCtx?.papel !== 'MASTER') {
       if (empresaSelecionada) params.company_id = empresaSelecionada;
@@ -516,6 +535,17 @@
   }
 
   async function loadComprasResumo() {
+    const needsCompras =
+      widgetVisible.top_vendedores !== false ||
+      widgetVisible.clientes !== false ||
+      widgetVisible.ultimas_compras !== false;
+    if (!needsCompras) {
+      topVendedores = [];
+      topClientes = [];
+      ultimasCompras = [];
+      return;
+    }
+
     try {
       const isMaster = userCtx?.papel === 'MASTER';
       const payload = await apiGet<DashboardCompraPayload>('/api/v1/dashboard/ultimas-compras', {
@@ -536,6 +566,11 @@
   }
 
   async function loadAniversariantes() {
+    if (widgetVisible.aniversariantes === false) {
+      aniversariantes = [];
+      return;
+    }
+
     try {
       const data = await apiGet<{ items?: Aniversariante[] }>('/api/v1/dashboard/aniversariantes', {
         dias: 30,
@@ -607,14 +642,16 @@
     empresaSelecionada = params.get('empresa_id') || '';
     vendedorSelecionado = params.get('vendedor_id') || '';
 
-    await loadBase();
-    await loadDashboard();
+    await Promise.all([loadBase(), loadDashboard()]);
     await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes(), loadComparativo()]);
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });
 
-  onDestroy(() => { if (applyFiltersTimer) clearTimeout(applyFiltersTimer); });
+  onDestroy(() => {
+    dashboardAbortController?.abort();
+    if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
+  });
 </script>
 
 <svelte:head>

@@ -13,7 +13,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { formatCurrency } from '$lib/utils/formatters';
   import { createDebouncedReloader } from '$lib/utils/autoReload';
   import { toUserMessage } from '$lib/utils/errors';
@@ -64,6 +64,8 @@
   let recorte = 'todos';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
+  let relatorioRequestSeq = 0;
+  let relatorioAbortController: AbortController | null = null;
   let showFilterSheet = false;
   const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
@@ -108,6 +110,10 @@
   ];
 
   async function loadRelatorio(showSuccess = false) {
+    const requestSeq = ++relatorioRequestSeq;
+    relatorioAbortController?.abort();
+    const controller = new AbortController();
+    relatorioAbortController = controller;
     loading = true;
 
     try {
@@ -116,17 +122,25 @@
         data_fim: dataFim,
         empresa_id: empresaSelecionada || undefined,
         vendedor_id: vendedorSelecionado || undefined
-      });
+      }, controller.signal, 90_000);
+      if (requestSeq !== relatorioRequestSeq) return;
       destinos = data.items || [];
 
       if (showSuccess) {
         toast.success('Relatorio atualizado!');
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== relatorioRequestSeq) return;
       destinos = [];
       toast.error(toUserMessage(err, 'Erro ao carregar relatório de destinos'));
     } finally {
-      loading = false;
+      if (requestSeq === relatorioRequestSeq) {
+        loading = false;
+        if (relatorioAbortController === controller) {
+          relatorioAbortController = null;
+        }
+      }
     }
   }
 
@@ -140,6 +154,7 @@
   });
 
   onDestroy(() => {
+    relatorioAbortController?.abort();
     autoReload.cancel();
   });
 

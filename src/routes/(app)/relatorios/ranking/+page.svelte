@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -12,7 +12,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { apiFetch } from '$lib/services/api';
+  import { apiFetch, isCanceledApiError } from '$lib/services/api';
   import { diffDaysISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
 
   interface VendedorRanking {
@@ -105,6 +105,7 @@
   };
   let vendedoresSeguro: VendedorRanking[] = [];
   let showFilterSheet = false;
+  let rankingAbortController: AbortController | null = null;
 
   function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
@@ -233,12 +234,16 @@
 
   async function loadRanking(showSuccess = false) {
     const requestSeq = ++rankingRequestSeq;
+    rankingAbortController?.abort();
+    const controller = new AbortController();
+    rankingAbortController = controller;
     loading = true;
     errorMessage = null;
     try {
       const data = await apiFetch<{ items: VendedorRanking[]; resumo: Resumo }>('/api/v1/relatorios/ranking', {
         method: 'GET',
         timeoutMs: 90_000,
+        signal: controller.signal,
         query: {
           data_inicio: dataInicio,
           data_fim: dataFim
@@ -251,6 +256,7 @@
 
       if (showSuccess) toast.success('Ranking atualizado');
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
       if (requestSeq !== rankingRequestSeq) return;
       vendedores = [];
       errorMessage = toUserMessage(err, 'Erro ao carregar ranking de vendas.');
@@ -258,6 +264,9 @@
     } finally {
       if (requestSeq === rankingRequestSeq) {
         loading = false;
+        if (rankingAbortController === controller) {
+          rankingAbortController = null;
+        }
       }
     }
   }
@@ -337,6 +346,10 @@
     dataInicio = range.start;
     dataFim = range.end;
     await loadRanking();
+  });
+
+  onDestroy(() => {
+    rankingAbortController?.abort();
   });
 
   $: top3 = vendedores.slice(0, 3);

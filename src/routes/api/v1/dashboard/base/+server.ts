@@ -94,8 +94,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.catalog,
         ...scopeCacheTags({ companyIds: scope.companyIds, userId: user.id })
       ],
-      ttlMs: 30_000,
-      staleTtlMs: 120_000,
+      ttlMs: 120_000,
+      staleTtlMs: 900_000,
       loader: async () => {
         const rows: DashboardCompanyRow[] = [];
         const companyBatches =
@@ -139,7 +139,27 @@ export async function GET(event) {
 
     let vendedores: DashboardVendedorRow[] = [];
     if (scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor) {
-      vendedores = await fetchRankingVendedoresByCompanyIds(client, companyIdsForVendedores);
+      vendedores = await getCachedReadModel<DashboardVendedorRow[]>({
+        key: buildReadModelCacheKey('dashboard:base:vendedores', {
+          userId: user.id,
+          companyIdsForVendedores,
+          isAdmin: scope.isAdmin,
+          isMaster: scope.isMaster,
+          isFinanceiro: scope.isFinanceiro,
+          isGestor: scope.isGestor
+        }),
+        tags: [
+          READ_MODEL_TAGS.dashboard,
+          READ_MODEL_TAGS.users,
+          ...scopeCacheTags({
+            companyIds: companyIdsForVendedores,
+            userId: user.id
+          })
+        ],
+        ttlMs: 120_000,
+        staleTtlMs: 900_000,
+        loader: () => fetchRankingVendedoresByCompanyIds(client, companyIdsForVendedores)
+      });
     } else {
       const { data: currentUser, error: userError } = await client
         .from('users')

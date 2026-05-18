@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -16,7 +16,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet } from '$lib/services/api';
+  import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
 
   // ---------------------------------------------------------------------------
   // Types
@@ -64,6 +64,8 @@
   let vendedores: VendedorFiltro[] = [];
   let loading = false;
   let data: EvolucaoAnualResult | null = null;
+  let desempenhoRequestSeq = 0;
+  let desempenhoAbortController: AbortController | null = null;
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -121,27 +123,48 @@
   // ---------------------------------------------------------------------------
   async function loadDesempenho() {
     if (anosSelecionados.length === 0) return;
+    const requestSeq = ++desempenhoRequestSeq;
+    desempenhoAbortController?.abort();
+    const controller = new AbortController();
+    desempenhoAbortController = controller;
     loading = true;
     data = null;
     try {
-      const params = new URLSearchParams({ anos: anosSelecionados.join(',') });
-      if (empresaSelecionada)  params.set('company_id',  empresaSelecionada);
-      if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
-
-      const res = await apiGet<{ data: EvolucaoAnualResult }>(`/api/v1/dashboard/evolucao-anual?${params}`);
+      const res = await apiFetch<{ data: EvolucaoAnualResult }>('/api/v1/dashboard/evolucao-anual', {
+        method: 'GET',
+        timeoutMs: 90_000,
+        signal: controller.signal,
+        query: {
+          anos: anosSelecionados.join(','),
+          company_id: empresaSelecionada || undefined,
+          vendedor_id: vendedorSelecionado || undefined
+        }
+      });
+      if (requestSeq !== desempenhoRequestSeq) return;
       data = res.data ?? null;
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== desempenhoRequestSeq) return;
       const message = toUserMessage(err, 'Erro ao carregar análise de desempenho.');
       toast.error(message);
       data = null;
     } finally {
-      loading = false;
+      if (requestSeq === desempenhoRequestSeq) {
+        loading = false;
+        if (desempenhoAbortController === controller) {
+          desempenhoAbortController = null;
+        }
+      }
     }
   }
 
   onMount(async () => {
     await loadBase();
     await loadDesempenho();
+  });
+
+  onDestroy(() => {
+    desempenhoAbortController?.abort();
   });
 
   // Vendedores filtrados pela empresa selecionada

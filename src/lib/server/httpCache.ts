@@ -1,11 +1,11 @@
 export const DYNAMIC_READ_HEADERS = {
-  "Cache-Control": "private, max-age=5, stale-while-revalidate=20",
+  "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
   Vary: "Cookie",
   "X-Content-Type-Options": "nosniff",
 } as const;
 
 export const SHORT_DYNAMIC_READ_HEADERS = {
-  "Cache-Control": "private, max-age=10, stale-while-revalidate=30",
+  "Cache-Control": "private, max-age=15, stale-while-revalidate=60",
   Vary: "Cookie",
   "X-Content-Type-Options": "nosniff",
 } as const;

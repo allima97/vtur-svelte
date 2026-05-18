@@ -18,6 +18,12 @@ import {
 } from '$lib/server/relatorios';
 import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 import { cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
@@ -149,75 +155,98 @@ export async function GET(event) {
     const limit = normalizeLimit(searchParams.get('limit'), 5, 100);
     const { companyIds, vendedorIds } = await resolveDashboardSalesScope(client, scope, searchParams);
 
-    const rows = await fetchSalesReportRows(client, {
-      dataInicio: inicio,
-      dataFim: fim,
-      companyIds,
-      vendedorIds,
-      filterByReceiptDate: true
+    const payload = await getCachedReadModel({
+      key: buildReadModelCacheKey('dashboard:ultimas-compras', {
+        userId: user.id,
+        inicio,
+        fim,
+        limit,
+        companyIds,
+        vendedorIds
+      }),
+      tags: [
+        READ_MODEL_TAGS.dashboard,
+        READ_MODEL_TAGS.sales,
+        READ_MODEL_TAGS.clients,
+        READ_MODEL_TAGS.users,
+        ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id })
+      ],
+      ttlMs: 120_000,
+      staleTtlMs: 900_000,
+      loader: async () => {
+        const rows = await fetchSalesReportRows(client, {
+          dataInicio: inicio,
+          dataFim: fim,
+          companyIds,
+          vendedorIds,
+          filterByReceiptDate: true
+        });
+
+        const clienteIds = uniqueCleanStrings(rows.map((row) => row.cliente_id));
+        const clienteExtra = new Map<string, ClienteExtraRow>();
+        if (clienteIds.length > 0) {
+          const { data, error } = await client
+            .from('clientes')
+            .select('id, email, telefone, whatsapp, nascimento')
+            .in('id', clienteIds);
+          if (error) throw error;
+          for (const row of data || []) {
+            clienteExtra.set(String(row.id), row as ClienteExtraRow);
+          }
+        }
+
+        const sales = rows.map((row) => normalizeSale(row, clienteExtra));
+
+        const vendedorMap = new Map<string, VendedorAggregate>();
+        for (const item of sales) {
+          const id = item.vendedor_id || 'sem-vendedor';
+          const current = vendedorMap.get(id) || {
+            vendedor_id: id,
+            vendedor_nome: item.vendedor_nome || 'Vendedor não informado',
+            valor: 0,
+            quantidade: 0
+          };
+          current.valor += item.valor;
+          current.quantidade += 1;
+          vendedorMap.set(id, current);
+        }
+
+        const clienteMap = new Map<string, ClienteAggregate>();
+        for (const item of sales) {
+          const id = item.cliente_id || `sem-cliente:${item.cliente_nome}`;
+          const current = clienteMap.get(id) || {
+            cliente_id: item.cliente_id,
+            cliente_nome: item.cliente_nome,
+            data_saida: item.data_saida,
+            destino: item.destino,
+            valor: 0,
+            quantidade: 0
+          };
+          current.valor += item.valor;
+          current.quantidade += 1;
+          if (String(item.data_saida || '') > String(current.data_saida || '')) {
+            current.data_saida = item.data_saida;
+            current.destino = item.destino;
+          }
+          clienteMap.set(id, current);
+        }
+
+        const ultimasCompras = sales
+          .sort((left, right) => String(right.data_compra || '').localeCompare(String(left.data_compra || '')))
+          .slice(0, limit);
+
+        return {
+          inicio,
+          fim,
+          topVendedores: Array.from(vendedorMap.values()).sort((a, b) => b.valor - a.valor).slice(0, 3),
+          topClientes: Array.from(clienteMap.values()).sort((a, b) => b.valor - a.valor).slice(0, 5),
+          ultimasCompras,
+          total: sales.length
+        };
+      }
     });
 
-    const clienteIds = uniqueCleanStrings(rows.map((row) => row.cliente_id));
-    const clienteExtra = new Map<string, ClienteExtraRow>();
-    if (clienteIds.length > 0) {
-      const { data, error } = await client
-        .from('clientes')
-        .select('id, email, telefone, whatsapp, nascimento')
-        .in('id', clienteIds);
-      if (error) throw error;
-      for (const row of data || []) {
-        clienteExtra.set(String(row.id), row as ClienteExtraRow);
-      }
-    }
-
-    const sales = rows.map((row) => normalizeSale(row, clienteExtra));
-
-    const vendedorMap = new Map<string, VendedorAggregate>();
-    for (const item of sales) {
-      const id = item.vendedor_id || 'sem-vendedor';
-      const current = vendedorMap.get(id) || {
-        vendedor_id: id,
-        vendedor_nome: item.vendedor_nome || 'Vendedor não informado',
-        valor: 0,
-        quantidade: 0
-      };
-      current.valor += item.valor;
-      current.quantidade += 1;
-      vendedorMap.set(id, current);
-    }
-
-    const clienteMap = new Map<string, ClienteAggregate>();
-    for (const item of sales) {
-      const id = item.cliente_id || `sem-cliente:${item.cliente_nome}`;
-      const current = clienteMap.get(id) || {
-        cliente_id: item.cliente_id,
-        cliente_nome: item.cliente_nome,
-        data_saida: item.data_saida,
-        destino: item.destino,
-        valor: 0,
-        quantidade: 0
-      };
-      current.valor += item.valor;
-      current.quantidade += 1;
-      if (String(item.data_saida || '') > String(current.data_saida || '')) {
-        current.data_saida = item.data_saida;
-        current.destino = item.destino;
-      }
-      clienteMap.set(id, current);
-    }
-
-    const ultimasCompras = sales
-      .sort((left, right) => String(right.data_compra || '').localeCompare(String(left.data_compra || '')))
-      .slice(0, limit);
-
-    return json({
-      inicio,
-      fim,
-      topVendedores: Array.from(vendedorMap.values()).sort((a, b) => b.valor - a.valor).slice(0, 3),
-      topClientes: Array.from(clienteMap.values()).sort((a, b) => b.valor - a.valor).slice(0, 5),
-      ultimasCompras,
-      total: sales.length
-    }, { headers: DYNAMIC_READ_HEADERS });
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar últimas compras.');
   }

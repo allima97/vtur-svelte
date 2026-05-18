@@ -15,7 +15,7 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 
-import { fetchVendasKpiReciboContributionsRaw } from "$lib/server/vendas-kpis";
+import { fetchVendasKpiReciboContributions } from "$lib/server/vendas-kpis";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { addDaysISODate, diffDaysISODate, monthRangeFromKey } from "$lib/date";
 import {
@@ -121,7 +121,7 @@ async function buildRankingSimple(
   },
 ): Promise<RankingContributionRow[]> {
   const { dataInicio, dataFim, companyIds, vendedorIds } = params;
-  const canonical = await fetchVendasKpiReciboContributionsRaw(client, {
+  const canonical = await fetchVendasKpiReciboContributions(client, {
     dataInicio,
     dataFim,
     companyIds,
@@ -250,10 +250,23 @@ export async function GET(event) {
       vendedorIds.length === 0 &&
       companyIds.length > 0
     ) {
-      const companyUsers = await fetchRankingVendedoresByCompanyIds(
-        client,
-        companyIds,
-      );
+      const companyUsers = await getCachedReadModel<RankingTeamUserRow[]>({
+        key: buildReadModelCacheKey("ranking:company-vendedores", {
+          companyIds,
+        }),
+        tags: [
+          READ_MODEL_TAGS.users,
+          READ_MODEL_TAGS.ranking,
+          ...scopeCacheTags({ companyIds, userId: user.id }),
+        ],
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
+        loader: () =>
+          fetchRankingVendedoresByCompanyIds(
+            client,
+            companyIds,
+          ) as Promise<RankingTeamUserRow[]>,
+      });
 
       vendedorIds = (companyUsers || [])
         .map((row) => String(row?.id || "").trim())
@@ -273,8 +286,8 @@ export async function GET(event) {
           READ_MODEL_TAGS.ranking,
           ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
         ],
-        ttlMs: 45_000,
-        staleTtlMs: 180_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: async () => {
           const rows: RankingTeamUserRow[] = [];
           const vendedorBatches = chunkArray(vendedorIds);
@@ -377,8 +390,8 @@ export async function GET(event) {
           READ_MODEL_TAGS.ranking,
           ...scopeCacheTags({ companyIds, userId: user.id }),
         ],
-        ttlMs: 30_000,
-        staleTtlMs: 120_000,
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
         loader: async () => {
           const rows: ParametrosComissaoRow[] = [];
           for (const companyBatch of chunkArray(companyIds)) {
@@ -428,8 +441,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 30_000,
-          staleTtlMs: 120_000,
+          ttlMs: 180_000,
+          staleTtlMs: 900_000,
           loader: () =>
             buildRankingSimple(client, {
               dataInicio,
@@ -449,8 +462,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 30_000,
-          staleTtlMs: 120_000,
+          ttlMs: 180_000,
+          staleTtlMs: 900_000,
           loader: async () => {
             const rows: RankingQuoteRow[] = [];
             const vendedorBatches =
@@ -484,8 +497,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 30_000,
-          staleTtlMs: 120_000,
+          ttlMs: 180_000,
+          staleTtlMs: 900_000,
           loader: async () => {
             const metasReference =
               getMonthRangeFromKey(dataInicio.slice(0, 7)) || getMonthRange();

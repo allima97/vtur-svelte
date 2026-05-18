@@ -12,7 +12,7 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
-import { fetchVendasKpiReciboContributionsRaw } from "$lib/server/vendas-kpis";
+import { fetchVendasKpiReciboContributions } from "$lib/server/vendas-kpis";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -299,8 +299,8 @@ export async function GET(event) {
 
     const payload = await getCachedReadModel({
       key: dashboardCacheKey,
-      ttlMs: 60_000,      // era 15s — aumentado para 60s; dados de dashboard não precisam de refresh sub-minuto
-      staleTtlMs: 300_000, // stale por até 5min enquanto recarrega em background
+      ttlMs: 120_000,
+      staleTtlMs: 900_000,
       tags: [
         READ_MODEL_TAGS.dashboard,
         READ_MODEL_TAGS.sales,
@@ -409,7 +409,7 @@ export async function GET(event) {
 
         const [vendasCanonical, metasData, orcamentos, widgetPrefsData] =
           await Promise.all([
-            fetchVendasKpiReciboContributionsRaw(client, {
+            fetchVendasKpiReciboContributions(client, {
               dataInicio: inicio,
               dataFim: fim,
               companyIds,

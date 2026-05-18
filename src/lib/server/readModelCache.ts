@@ -33,6 +33,7 @@ const MAX_CACHE_KEY_LENGTH = 900;
 // após cada mutação. TTL de 30s é o equilíbrio entre frescura e throughput.
 const TRANSACTIONAL_TTL_MS = 30_000;
 const TRANSACTIONAL_STALE_TTL_MS = 120_000;
+const ERROR_FALLBACK_STALE_MS = 300_000;
 
 const cache = new Map<string, CacheEntry<unknown>>();
 const inflight = new Map<string, Promise<unknown>>();
@@ -299,6 +300,18 @@ export async function getCachedReadModel<T>(
   const promise = options
     .loader()
     .then(writeEntry)
+    .catch((error) => {
+      // Produção deve preferir dado antigo a erro/timeout em telas analíticas.
+      // Se já havia uma versão em memória, mantém por uma janela curta enquanto
+      // a próxima tentativa tenta recomputar novamente.
+      if (existing) {
+        const fallbackAt = nowMs();
+        existing.lastAccessAt = fallbackAt;
+        existing.staleUntil = fallbackAt + Math.min(staleTtlMs, ERROR_FALLBACK_STALE_MS);
+        return existing.value;
+      }
+      throw error;
+    })
     .finally(() => {
       if (inflight.get(options.key) === promise) {
         inflight.delete(options.key);

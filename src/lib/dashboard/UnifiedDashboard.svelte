@@ -32,7 +32,7 @@
     Clock
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import {
     buildDashboardPrefsPayload,
     createVisibilityMap,
@@ -199,6 +199,8 @@
   let lastAppliedFilterKey = '';
   let lastBaseCompanyId = '';
   let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
+  let dashboardRequestSeq = 0;
+  let dashboardAbortController: AbortController | null = null;
 
   let vendasAgg: VendasAgg = {
     totalVendas: 0,
@@ -555,7 +557,22 @@
     }
   }
 
+  function shouldRequestOrcamentos() {
+    return (
+      (widgetOrder.includes('orcamentos') && widgetVisible.orcamentos !== false) ||
+      (kpiOrder.includes('orcamentos') && kpiVisible.orcamentos !== false)
+    );
+  }
+
+  function shouldLoadWidget(id: DashboardWidgetId) {
+    return widgetOrder.includes(id) && widgetVisible[id] !== false;
+  }
+
   async function loadDashboard() {
+    const requestSeq = ++dashboardRequestSeq;
+    dashboardAbortController?.abort();
+    const controller = new AbortController();
+    dashboardAbortController = controller;
     loading = true;
     errorMessage = null;
 
@@ -563,10 +580,11 @@
       const data = await apiGet<DashboardSummaryResponse>('/api/v1/dashboard/summary', {
         inicio: periodoInicio,
         fim: periodoFim,
-        include_orcamentos: 1,
+        include_orcamentos: shouldRequestOrcamentos() ? 1 : 0,
         company_id: empresaSelecionada || undefined,
         vendedor_ids: vendedorSelecionado || undefined
-      });
+      }, controller.signal, 60_000);
+      if (requestSeq !== dashboardRequestSeq) return;
 
       vendasAgg = data.vendasAgg || vendasAgg;
       metas = data.metas || [];
@@ -576,10 +594,17 @@
       podeVerConsultoria = Boolean(data.podeVerConsultoria);
       applyPrefs((data.widgetPrefs || []) as WidgetPrefRow[]);
     } catch (err: unknown) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== dashboardRequestSeq) return;
       errorMessage = toUserMessage(err, 'Erro ao carregar dashboard.');
       toast.error('Erro ao carregar dashboard');
     } finally {
-      loading = false;
+      if (requestSeq === dashboardRequestSeq) {
+        loading = false;
+        if (dashboardAbortController === controller) {
+          dashboardAbortController = null;
+        }
+      }
     }
   }
 
@@ -588,8 +613,10 @@
     if (empresaSelecionada) params.empresa_id = empresaSelecionada;
     if (vendedorSelecionado) params.vendedor_id = vendedorSelecionado;
 
-    await Promise.allSettled([
-      (async () => {
+    const tasks: Array<Promise<void>> = [];
+
+    if (shouldLoadWidget('aniversariantes')) {
+      tasks.push((async () => {
         try {
           const d = await apiGet<{ items: Aniversariante[] }>('/api/v1/dashboard/aniversariantes', {
             ...params,
@@ -599,8 +626,13 @@
         } catch {
           aniversariantes = [];
         }
-      })(),
-      (async () => {
+      })());
+    } else {
+      aniversariantes = [];
+    }
+
+    if (shouldLoadWidget('viagens') && (!userCtx || podeVerOperacao)) {
+      tasks.push((async () => {
         try {
           const d = await apiGet<{ items?: Viagem[]; proximas?: ViagemProximaRow[] }>('/api/v1/dashboard/viagens', {
             ...params,
@@ -624,8 +656,13 @@
         } catch {
           viagens = [];
         }
-      })(),
-      (async () => {
+      })());
+    } else {
+      viagens = [];
+    }
+
+    if (shouldLoadWidget('followups')) {
+      tasks.push((async () => {
         try {
           const d = await apiGet<{ items: FollowUpRow[] }>('/api/v1/dashboard/follow-ups', {
             ...params,
@@ -645,8 +682,13 @@
         } catch {
           followUps = [];
         }
-      })(),
-      (async () => {
+      })());
+    } else {
+      followUps = [];
+    }
+
+    if (shouldLoadWidget('consultorias') && (!userCtx || podeVerConsultoria)) {
+      tasks.push((async () => {
         try {
           const d = await apiGet<{ items: Consultoria[] }>('/api/v1/dashboard/consultorias', {
             ...params,
@@ -656,8 +698,12 @@
         } catch {
           consultorias = [];
         }
-      })()
-    ]);
+      })());
+    } else {
+      consultorias = [];
+    }
+
+    await Promise.allSettled(tasks);
   }
 
   async function atualizar() {
@@ -748,6 +794,7 @@
   });
 
   onDestroy(() => {
+    dashboardAbortController?.abort();
     if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
   });
 

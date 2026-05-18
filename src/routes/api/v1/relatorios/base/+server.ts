@@ -10,6 +10,12 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 import { chunkArray } from '$lib/utils/array';
 
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
@@ -141,39 +147,59 @@ export async function GET(event) {
       return rows;
     };
 
-    const [companiesRows, usersRows] = await Promise.all([fetchCompanies(), fetchUsers()]);
+    const payload = await getCachedReadModel({
+      key: buildReadModelCacheKey('relatorios:base', {
+        userId: user.id,
+        requestedCompanyId,
+        scopeCompanyIds: scope.companyIds,
+        companyIdsForUsers,
+        scopedTeamIds,
+        isAdminByType,
+        isGestorByType,
+        isMasterByType,
+        enforceCorporateOnly
+      }),
+      tags: [
+        READ_MODEL_TAGS.dashboard,
+        READ_MODEL_TAGS.users,
+        READ_MODEL_TAGS.catalog,
+        ...scopeCacheTags({ companyIds: scope.companyIds, userId: user.id })
+      ],
+      ttlMs: 120_000,
+      staleTtlMs: 900_000,
+      loader: async () => {
+        const [companiesRows, usersRows] = await Promise.all([fetchCompanies(), fetchUsers()]);
 
-    const empresas = companiesRows.map((row) => ({
-      id: String(row.id || ''),
-      nome: String(row.nome_fantasia || row.nome_empresa || 'Empresa sem nome'),
-      active: row.active !== false
-    }));
+        const empresas = companiesRows.map((row) => ({
+          id: String(row.id || ''),
+          nome: String(row.nome_fantasia || row.nome_empresa || 'Empresa sem nome'),
+          active: row.active !== false
+        }));
 
-    const vendedores = usersRows
-      .filter((row) => {
-        if (row?.active === false) return false;
-        if (row?.uso_individual === true && String(row?.id || '') !== user.id) return false;
-        if (isGestorByType && scopedTeamIds.length > 0) return true;
-        if (String(row?.id || '') === user.id && scope.isVendedor) return true;
-        return isRankingEligibleUser(row);
-      })
-      .map((row) => {
-        const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
-        const company = Array.isArray(row?.companies) ? row.companies[0] : row?.companies;
+        const vendedores = usersRows
+          .filter((row) => {
+            if (row?.active === false) return false;
+            if (row?.uso_individual === true && String(row?.id || '') !== user.id) return false;
+            if (isGestorByType && scopedTeamIds.length > 0) return true;
+            if (String(row?.id || '') === user.id && scope.isVendedor) return true;
+            return isRankingEligibleUser(row);
+          })
+          .map((row) => {
+            const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
+            const company = Array.isArray(row?.companies) ? row.companies[0] : row?.companies;
+
+            return {
+              id: String(row.id || ''),
+              nome: String(row.nome_completo || row.email || 'Usuário sem nome'),
+              company_id: String(row.company_id || ''),
+              company_name: String(company?.nome_fantasia || company?.nome_empresa || ''),
+              papel: String(userType?.name || '')
+            };
+          })
+          .filter((row) => row.id)
+          .sort((left, right) => PT_BR_COLLATOR.compare(left.nome, right.nome));
 
         return {
-        id: String(row.id || ''),
-        nome: String(row.nome_completo || row.email || 'Usuário sem nome'),
-        company_id: String(row.company_id || ''),
-        company_name: String(company?.nome_fantasia || company?.nome_empresa || ''),
-        papel: String(userType?.name || '')
-      };
-      })
-      .filter((row) => row.id)
-      .sort((left, right) => PT_BR_COLLATOR.compare(left.nome, right.nome));
-
-    return json(
-      {
         empresas,
         vendedores,
         statusVendas: [
@@ -182,9 +208,11 @@ export async function GET(event) {
           { value: 'concluida', label: 'Concluída' },
           { value: 'cancelada', label: 'Cancelada' }
         ]
-      },
-      { headers: SHORT_DYNAMIC_READ_HEADERS }
-    );
+        };
+      }
+    });
+
+    return json(payload, { headers: SHORT_DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar base analítica.');
   }

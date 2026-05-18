@@ -63,6 +63,8 @@ import {
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 
 const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
+const DEFAULT_ITEMS_LIMIT = 1000;
+const MAX_ITEMS_LIMIT = 5000;
 
 type AdminClient = ReturnType<typeof getAdminClient>;
 
@@ -159,6 +161,17 @@ type ConsultaVendaRow = ReportVendaRow & {
   recibos: ConsultaReceiptRow[];
   vendas_recibos?: ConsultaReceiptRow[] | null;
 };
+
+function clampIntParam(
+  value: string | null,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
+}
 
 function isReportReceiptItem(
   recibo: ReportReceiptRow,
@@ -600,6 +613,18 @@ export async function GET(event) {
     const tipoProdutoFilter = String(searchParams.get("tipo_produto") || "")
       .trim()
       .toLowerCase();
+    const itemsLimit = clampIntParam(
+      searchParams.get("items_limit"),
+      DEFAULT_ITEMS_LIMIT,
+      0,
+      MAX_ITEMS_LIMIT,
+    );
+    const itemsOffset = clampIntParam(
+      searchParams.get("items_offset"),
+      0,
+      0,
+      1_000_000,
+    );
     const accessibleClientIds =
       !scope.isAdmin &&
       !scope.isMaster &&
@@ -671,66 +696,64 @@ export async function GET(event) {
       periodStart: string,
       periodEnd: string,
     ) => {
-      let rows = toRateioShape(
-        await fetchSalesReportRows(client, {
-          dataInicio: periodStart,
-          dataFim: periodEnd,
-          companyIds,
-          vendedorIds,
-          includeCancelled: true,
-        }),
-      );
-
-      if (vendedorIds.length > 0) {
-        let splitSaleIds: string[] = [];
-        try {
-          splitSaleIds = await fetchSplitSaleIdsForDestinationVendedores(
-            client,
-            {
+      const baseRowsPromise = fetchSalesReportRows(client, {
+        dataInicio: periodStart,
+        dataFim: periodEnd,
+        companyIds,
+        vendedorIds,
+        includeCancelled: true,
+      });
+      const splitSaleIdsPromise =
+        vendedorIds.length > 0
+          ? fetchSplitSaleIdsForDestinationVendedores(client, {
               companyId: companyIds[0] || null,
               companyIds,
               vendedorIds,
-            },
-          );
-        } catch (error) {
-          logServerError(
-            "[relatorios/vendas] split sales indisponivel, seguindo sem rateio destino",
-            error,
-          );
-        }
-
-        if (splitSaleIds.length > 0) {
-          const splitRows = toRateioShape(
-            await fetchSalesReportRows(client, {
-              dataInicio: periodStart,
-              dataFim: periodEnd,
-              companyIds,
-              vendaIds: splitSaleIds,
-              includeCancelled: true,
-            }),
-          );
-          rows = mergeRowsById(rows, splitRows);
-        }
-      }
-
-      let concReceipts: ConciliacaoReceiptView[] = [];
-      try {
-        concReceipts = await fetchEffectiveConciliacaoReceipts({
-          client,
-          companyId: companyIds[0] || null,
-          companyIds,
-          inicio: periodStart,
-          fim: periodEnd,
-          vendedorIds,
-          excludeVendedorIds: undefined,
-        });
-      } catch (error) {
+            }).catch((error) => {
+              logServerError(
+                "[relatorios/vendas] split sales indisponivel, seguindo sem rateio destino",
+                error,
+              );
+              return [] as string[];
+            })
+          : Promise.resolve([] as string[]);
+      const concReceiptsPromise = fetchEffectiveConciliacaoReceipts({
+        client,
+        companyId: companyIds[0] || null,
+        companyIds,
+        inicio: periodStart,
+        fim: periodEnd,
+        vendedorIds,
+        excludeVendedorIds: undefined,
+      }).catch((error) => {
         logServerError(
           "[relatorios/vendas] conciliacao indisponivel, seguindo sem overrides",
           error,
         );
-        concReceipts = [];
+        return [] as ConciliacaoReceiptView[];
+      });
+
+      const [baseRowsRaw, splitSaleIds, concReceiptsBase] = await Promise.all([
+        baseRowsPromise,
+        splitSaleIdsPromise,
+        concReceiptsPromise,
+      ]);
+      let rows = toRateioShape(baseRowsRaw);
+
+      if (splitSaleIds.length > 0) {
+        const splitRows = toRateioShape(
+          await fetchSalesReportRows(client, {
+            dataInicio: periodStart,
+            dataFim: periodEnd,
+            companyIds,
+            vendaIds: splitSaleIds,
+            includeCancelled: true,
+          }),
+        );
+        rows = mergeRowsById(rows, splitRows);
       }
+
+      const concReceipts: ConciliacaoReceiptView[] = concReceiptsBase;
       let concReceiptsAllCache: ConciliacaoReceiptView[] | null = null;
       const loadConcReceiptsAll = async () => {
         if (concReceiptsAllCache) return concReceiptsAllCache;
@@ -1161,8 +1184,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
-      ttlMs: 45_000,
-      staleTtlMs: 120_000,
+      ttlMs: 180_000,
+      staleTtlMs: 900_000,
       loader: () => loadRowsViewForPeriod(dataInicio, dataFim),
     })) as ReportSalesViewRow[];
     const hydratedRowsView = await hydrateMissingVendedores(client, rowsViewRaw);
@@ -1212,23 +1235,45 @@ export async function GET(event) {
           })
           .filter((row): row is ReportSalesViewRow => Boolean(row))
       : hydratedRowsView;
+    const rowIds: string[] = [];
+    for (const row of rowsView) {
+      const id = toStr(row?.id);
+      if (id) rowIds.push(id);
+    }
+
+    const filteredRows = filterRowsForReport(rowsView);
+    const statusFilteredRows = statusFilter
+      ? filteredRows.filter((row) => getVendaStatus(row) === statusFilter)
+      : filteredRows;
+
+    const [naoComissionadoPorVenda, receiptCommissionMap] = await Promise.all([
+      fetchNaoComissionadoPorVenda(client, rowIds),
+      resolveGroupedReceiptCommissions(client, {
+        companyIds,
+        rows: statusFilteredRows,
+      }),
+    ]);
+
+    const detailRows =
+      itemsLimit > 0
+        ? statusFilteredRows.slice(itemsOffset, itemsOffset + itemsLimit)
+        : statusFilteredRows;
+    const detailRowIds = uniqueCleanStrings(detailRows.map((row) => row?.id));
     const reciboVendedorIds = Array.from(
       new Set(
-        rowsView
+        detailRows
           .flatMap((row) =>
             (Array.isArray(row?.recibos)
               ? row.recibos.filter(isReportReceiptItem)
-              : []).map(
-              (recibo) => getReciboVendedorId(row, recibo),
-            ),
+              : []).map((recibo) => getReciboVendedorId(row, recibo)),
           )
           .filter(Boolean),
       ),
     ) as string[];
-    const reciboVendedores = await fetchVendedoresByIds(
-      client,
-      reciboVendedorIds,
-    );
+    const [paymentForms, reciboVendedores] = await Promise.all([
+      fetchLatestPaymentForms(client, detailRowIds),
+      fetchVendedoresByIds(client, reciboVendedorIds),
+    ]);
     const getVendedorNomeById = (
       vendedorId: string | null,
       fallback: string,
@@ -1238,32 +1283,7 @@ export async function GET(event) {
       return vendedor ? getVendaVendedorNome({ vendedor }) : fallback;
     };
 
-    const rowIds: string[] = [];
-    for (const row of rowsView) {
-      const id = toStr(row?.id);
-      if (id) rowIds.push(id);
-    }
-
-    const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
-      client,
-      rowIds,
-    );
-
-    const paymentForms = await fetchLatestPaymentForms(
-      client,
-      rowIds,
-    );
-
-    const filteredRows = filterRowsForReport(rowsView);
-    const receiptCommissionMap = await resolveGroupedReceiptCommissions(
-      client,
-      {
-        companyIds,
-        rows: filteredRows,
-      },
-    );
-
-    let items = filteredRows.map((row) => {
+    let items = detailRows.map((row) => {
       const status = getVendaStatus(row);
       const vendaVendedorNome = getVendaVendedorNome(row);
       const receiptRows = getRecibosAtivos(row);
@@ -1485,13 +1505,9 @@ export async function GET(event) {
         .filter(Boolean) as typeof items;
     }
 
-    if (statusFilter) {
-      items = items.filter((item) => item.status === statusFilter);
-    }
-
     const vendedores = Array.from(
       new Map(
-        filteredRows
+        statusFilteredRows
           .filter((row) => row.vendedor_id)
           .map((row) => [row.vendedor_id as string, getVendaVendedorNome(row)]),
       ).entries(),
@@ -1501,7 +1517,7 @@ export async function GET(event) {
 
     const historyBuckets = getLastSixMonthBuckets(dataFim);
     const dayBuckets = getCurrentMonthDayBuckets(dataFim);
-    const seriesRowsRaw = rowsView;
+    const seriesRowsRaw = statusFilteredRows;
     const seriesNaoComissionadoPorVenda = naoComissionadoPorVenda;
     const seriesRankingEntries = computeReceiptRankingEntries(
       seriesRowsRaw,
@@ -1528,29 +1544,58 @@ export async function GET(event) {
             ),
     }));
 
+    const totalComissao = roundToMoney(
+      statusFilteredRows.reduce((sum, row) => {
+        const recibos = getRecibosAtivos(row);
+        return (
+          sum +
+          recibos.reduce((receiptSum, recibo) => {
+            const commissionByReceipt = toStr(recibo?.id)
+              ? receiptCommissionMap.get(toStr(recibo.id))
+              : null;
+            const valorComissao =
+              Number(commissionByReceipt?.valorComissao || 0) > 0
+                ? Number(commissionByReceipt?.valorComissao || 0)
+                : Number(recibo?.valor_comissao_loja || 0);
+            return receiptSum + valorComissao;
+          }, 0)
+        );
+      }, 0),
+    );
+    const totalRecibosSet = new Set<string>();
+    for (const row of statusFilteredRows) {
+      for (const recibo of getRecibosAtivos(row)) {
+        const key =
+          toStr(recibo?.id) ||
+          [
+            toStr(row?.id),
+            toStr(recibo?.numero_recibo),
+            toStr(recibo?.data_venda || row?.data_venda),
+            toNum(recibo?.valor_total),
+          ].join("|");
+        if (key.trim()) totalRecibosSet.add(key);
+      }
+    }
+
     // KPIs agregados
-    const totalVendas = items.length;
-    const vendasConfirmadas = items.filter(
-      (i) => i.status === "confirmada",
+    const totalVendas = statusFilteredRows.length;
+    const vendasConfirmadas = statusFilteredRows.filter(
+      (row) => getVendaStatus(row) === "confirmada",
     ).length;
-    const vendasCanceladas = items.filter(
-      (i) => i.status === "cancelada",
+    const vendasCanceladas = statusFilteredRows.filter(
+      (row) => getVendaStatus(row) === "cancelada",
     ).length;
     const totalValor = Number(
-      items
-        .reduce((sum, item) => sum + Number(item.valor_total || 0), 0)
-        .toFixed(2),
-    );
-    const totalComissao = items.reduce(
-      (sum, item) => sum + Number(item.comissao || 0),
-      0,
+      sumRankingEntriesBetween(seriesRankingEntries, dataInicio, dataFim).toFixed(2),
     );
     const ticketMedio = totalVendas > 0 ? totalValor / totalVendas : 0;
+    const totalItems = totalVendas;
+    const pagedItems = items;
 
     return json(
       {
-        items,
-        total: items.length,
+        items: pagedItems,
+        total: totalItems,
         vendedores,
         resumo: {
           total_vendas: totalVendas,
@@ -1559,6 +1604,7 @@ export async function GET(event) {
           total_valor: totalValor,
           total_comissao: totalComissao,
           ticket_medio: ticketMedio,
+          total_recibos: totalRecibosSet.size,
         },
         series: {
           mensal: monthlySeries.map((item) => ({
@@ -1573,6 +1619,13 @@ export async function GET(event) {
         periodo: {
           data_inicio: dataInicio,
           data_fim: dataFim,
+        },
+        pagination: {
+          offset: itemsOffset,
+          limit: itemsLimit,
+          returned: pagedItems.length,
+          total: totalItems,
+          truncated: pagedItems.length < totalItems,
         },
       },
       { headers: DYNAMIC_READ_HEADERS },

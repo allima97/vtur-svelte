@@ -9,7 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from '$lib/server/v1';
-import { fetchVendasKpiReciboContributionsRaw } from '$lib/server/vendas-kpis';
+import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -141,8 +141,8 @@ export async function GET(event) {
 
     const result = await getCachedReadModel<EvolucaoAnualResult>({
       key: cacheKey,
-      ttlMs: 120_000,
-      staleTtlMs: 600_000,
+      ttlMs: 300_000,
+      staleTtlMs: 1_800_000,
       tags: [
         READ_MODEL_TAGS.dashboard,
         READ_MODEL_TAGS.sales,
@@ -156,7 +156,7 @@ export async function GET(event) {
         // IMPORTANTE: passamos vendedorIds vazio para que fetchSalesReportRows filtre
         // apenas por companyIds (AND company_id IN ...) sem duplo filtro AND vendedor_id IN.
         // Para filtro por vendedor específico, filtramos DEPOIS nas contributions.
-        const { contributions } = await fetchVendasKpiReciboContributionsRaw(client, {
+        const { contributions } = await fetchVendasKpiReciboContributions(client, {
           dataInicio,
           dataFim,
           companyIds: effectiveCompanyIds,

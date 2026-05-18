@@ -11,6 +11,8 @@ export interface ApiOptions {
   query?: Record<string, string | number | boolean | undefined | null>;
   signal?: AbortSignal;
   timeoutMs?: number;
+  cacheTtlMs?: number;
+  noCache?: boolean;
   redirectOnForbidden?: boolean;
   redirectOnUnauthorized?: boolean;
 }
@@ -27,8 +29,8 @@ export class ApiError extends Error {
   }
 }
 
-const DEFAULT_API_TIMEOUT_MS = 20_000;  // era 90s — reduzido para 20s (falha rápida, não trava a tela)
-const DEFAULT_GET_CACHE_TTL_MS = 15_000; // era 5s — aumentado para 15s (navegações rápidas reaproveitam cache)
+const DEFAULT_API_TIMEOUT_MS = 20_000;  // falha rápida para chamadas comuns
+const DEFAULT_GET_CACHE_TTL_MS = 15_000; // navegações rápidas reaproveitam cache
 
 type CachedGetEntry = {
   expiresAt: number;
@@ -38,14 +40,16 @@ type CachedGetEntry = {
 
 const getCache = new Map<string, CachedGetEntry>();
 
-function shouldBypassLocalGetCache(url: string) {
+function shouldBypassLocalGetValueCache(url: string) {
   return [
-    '/api/v1/dashboard/summary',
-    '/api/v1/relatorios/ranking',
-    '/api/v1/relatorios/vendas',
-    '/api/v1/vendas/kpis',
     '/api/v1/vendas/list'
   ].some((prefix) => url.startsWith(prefix));
+}
+
+export function isCanceledApiError(err: unknown) {
+  if (!(err instanceof ApiError)) return false;
+  const payload = err.payload as { aborted?: boolean; timeout?: boolean } | undefined;
+  return err.status === 0 && payload?.aborted === true && payload?.timeout !== true;
 }
 
 function buildQueryString(query?: Record<string, string | number | boolean | undefined | null>): string {
@@ -107,30 +111,46 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
   const queryString = buildQueryString(options.query);
   const url = `${path}${queryString}`;
   const method = options.method || 'GET';
-  const isCacheableGet =
+  const isLocalCacheCandidate =
     browser &&
     method === 'GET' &&
     !options.signal &&
     !options.headers &&
     !options.body &&
-    !shouldBypassLocalGetCache(url);
+    options.noCache !== true;
+  const shouldKeepGetValue =
+    isLocalCacheCandidate && !shouldBypassLocalGetValueCache(url);
 
-  if (isCacheableGet) {
+  if (isLocalCacheCandidate) {
     const cached = getCache.get(url);
     const now = Date.now();
     if (cached && cached.expiresAt > now) {
       if (cached.promise) return cached.promise as Promise<T>;
-      return cached.value as T;
+      if (shouldKeepGetValue) return cached.value as T;
+      getCache.delete(url);
     }
   } else if (browser && method !== 'GET') {
     getCache.clear();
   }
 
   const timeoutMs = Math.max(1_000, Number(options.timeoutMs || DEFAULT_API_TIMEOUT_MS));
-  const controller = options.signal ? null : new AbortController();
-  const timeout = controller
-    ? setTimeout(() => controller.abort(), timeoutMs)
-    : null;
+  const controller = new AbortController();
+  let didTimeout = false;
+  const timeout = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
+  let removeExternalAbortListener: (() => void) | null = null;
+
+  if (options.signal) {
+    if (options.signal.aborted) {
+      controller.abort();
+    } else {
+      const onAbort = () => controller.abort();
+      options.signal.addEventListener('abort', onAbort, { once: true });
+      removeExternalAbortListener = () => options.signal?.removeEventListener('abort', onAbort);
+    }
+  }
 
   const isFormData = options.body instanceof FormData;
   const isString = typeof options.body === 'string';
@@ -156,18 +176,25 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
         method,
         headers,
         body: requestBody,
-        signal: options.signal || controller?.signal,
+        signal: controller.signal,
         credentials: 'same-origin'
       });
     } catch (err) {
-      const aborted = err instanceof DOMException && err.name === 'AbortError';
+      const aborted =
+        controller.signal.aborted ||
+        (err instanceof DOMException && err.name === 'AbortError');
       throw new ApiError(
-        aborted ? 'A requisição demorou demais. Tente novamente.' : 'Falha de conexão com o servidor.',
+        aborted
+          ? didTimeout
+            ? 'A requisição demorou demais. Tente novamente.'
+            : 'Requisição cancelada.'
+          : 'Falha de conexão com o servidor.',
         0,
-        err
+        aborted ? { aborted: true, timeout: didTimeout, cause: err } : err
       );
     } finally {
-      if (timeout) clearTimeout(timeout);
+      clearTimeout(timeout);
+      removeExternalAbortListener?.();
     }
 
     if (response.status === 401) {
@@ -197,17 +224,22 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
     return response.json() as Promise<T>;
   })();
 
-  if (isCacheableGet) {
+  if (isLocalCacheCandidate) {
+    const ttlMs = Math.max(0, Number(options.cacheTtlMs ?? DEFAULT_GET_CACHE_TTL_MS));
     const entry: CachedGetEntry = {
-      expiresAt: Date.now() + DEFAULT_GET_CACHE_TTL_MS,
+      expiresAt: Date.now() + Math.max(ttlMs, timeoutMs),
       promise: requestPromise
     };
     getCache.set(url, entry);
     try {
       const value = await requestPromise;
-      entry.value = value;
-      entry.promise = undefined;
-      entry.expiresAt = Date.now() + DEFAULT_GET_CACHE_TTL_MS;
+      if (shouldKeepGetValue && ttlMs > 0) {
+        entry.value = value;
+        entry.promise = undefined;
+        entry.expiresAt = Date.now() + ttlMs;
+      } else {
+        getCache.delete(url);
+      }
       return value as T;
     } catch (err) {
       getCache.delete(url);

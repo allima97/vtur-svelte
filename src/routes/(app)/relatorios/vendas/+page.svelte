@@ -24,7 +24,7 @@
   import { formatCurrency, formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
   import { createDebouncedReloader } from '$lib/utils/autoReload';
-  import { apiFetch, apiGet } from '$lib/services/api';
+  import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
 
   interface Recibo {
     id: string | null;
@@ -84,6 +84,7 @@
     total_valor: number;
     total_comissao: number;
     ticket_medio: number;
+    total_recibos?: number;
   }
 
   interface VendedorFiltro {
@@ -103,10 +104,18 @@
 
   interface RelatorioPayload {
     items: VendaRelatorio[];
+    total?: number;
     resumo: Resumo;
     series?: {
       mensal?: Array<{ key: string; total_valor: number }>;
       diaria?: Array<{ date: string; value: number }>;
+    };
+    pagination?: {
+      offset: number;
+      limit: number;
+      returned: number;
+      total: number;
+      truncated: boolean;
     };
   }
 
@@ -260,6 +269,7 @@
 
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
+  const RELATORIO_ITEMS_LIMIT = 1000;
   let vendas: VendaRelatorio[] = [];
   let vendedores: VendedorFiltro[] = [];
   let empresas: EmpresaFiltro[] = [];
@@ -290,6 +300,9 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let relatorioRequestSeq = 0;
+  let relatorioAbortController: AbortController | null = null;
+  let totalDetalheVendas = 0;
+  let detalheTruncado = false;
   let showFilterSheet = false;
   const autoReload = createDebouncedReloader(() => loadRelatorio(), 250);
 
@@ -419,24 +432,33 @@
     void loadRelatorio();
   }
 
-  async function fetchRelatorioRange(start: string, end: string): Promise<RelatorioPayload> {
+  async function fetchRelatorioRange(start: string, end: string, signal?: AbortSignal): Promise<RelatorioPayload> {
     const params = buildRelatorioParams(start, end);
     return apiFetch<RelatorioPayload>('/api/v1/relatorios/vendas', {
       method: 'GET',
       timeoutMs: 90_000,
-      query: Object.fromEntries(params)
+      signal,
+      query: {
+        ...Object.fromEntries(params),
+        items_limit: RELATORIO_ITEMS_LIMIT
+      }
     });
   }
 
   async function loadRelatorio(showSuccess = false) {
     const requestSeq = ++relatorioRequestSeq;
+    relatorioAbortController?.abort();
+    const controller = new AbortController();
+    relatorioAbortController = controller;
     loading = true;
 
     try {
-      const principal = await fetchRelatorioRange(dataInicio, dataFim);
+      const principal = await fetchRelatorioRange(dataInicio, dataFim, controller.signal);
       if (requestSeq !== relatorioRequestSeq) return;
 
       vendas = principal.items || [];
+      totalDetalheVendas = Number(principal.pagination?.total ?? principal.total ?? vendas.length);
+      detalheTruncado = Boolean(principal.pagination?.truncated);
       resumo = principal.resumo || resumo;
       chartSeries = {
         mensal: principal.series?.mensal || [],
@@ -449,16 +471,22 @@
         toast.success('Relatório atualizado');
       }
     } catch (err) {
+      if (isCanceledApiError(err)) return;
       if (requestSeq !== relatorioRequestSeq) return;
 
       if (vendas.length === 0) {
         vendas = [];
       }
+      totalDetalheVendas = 0;
+      detalheTruncado = false;
       chartSeries = { mensal: [], diaria: [] };
       toast.error(toUserMessage(err, 'Erro ao carregar relatório de vendas'));
     } finally {
       if (requestSeq === relatorioRequestSeq) {
         loading = false;
+        if (relatorioAbortController === controller) {
+          relatorioAbortController = null;
+        }
       }
     }
   }
@@ -514,6 +542,7 @@
   });
 
   onDestroy(() => {
+    relatorioAbortController?.abort();
     autoReload.cancel();
   });
 
@@ -649,7 +678,7 @@
   $: recibosFiltrados = buildReciboLinhas(vendas, { inicio: dataInicio, fim: dataFim });
   $: totalVendas = Number(resumo.total_valor || 0);
   $: totalComissoes = Number(resumo.total_comissao || 0);
-  $: totalRecibos = recibosFiltrados.length;
+  $: totalRecibos = Number(resumo.total_recibos ?? recibosFiltrados.length);
   $: ticketMedio = Number(resumo.ticket_medio || 0);
   $: monthKeys = (() => {
     const reference = parseISODateParts(dataFim || todayISODateLocal());
@@ -927,6 +956,13 @@
     {/if}
   </Card>
 </div>
+
+{#if detalheTruncado}
+  <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    Mostrando {vendas.length} de {totalDetalheVendas} vendas no detalhamento para manter a tela responsiva.
+    Use filtros mais específicos para carregar/exportar um conjunto menor.
+  </div>
+{/if}
 
 <DataTable
   {columns}

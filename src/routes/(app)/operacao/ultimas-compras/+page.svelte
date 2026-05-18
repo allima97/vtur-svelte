@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
@@ -48,6 +48,8 @@
   let vendedores: BaseOption[] = [];
   let avisoOpen = false;
   let selectedCompra: Compra | null = null;
+  let comprasRequestSeq = 0;
+  let comprasAbortController: AbortController | null = null;
 
   $: if (periodoModo === 'mes') {
     const range = monthRangeFromKey(mes);
@@ -91,6 +93,10 @@
   }
 
   async function loadCompras() {
+    const requestSeq = ++comprasRequestSeq;
+    comprasAbortController?.abort();
+    const controller = new AbortController();
+    comprasAbortController = controller;
     loading = true;
     try {
       const payload = await apiGet<{ ultimasCompras?: Compra[]; total?: number }>('/api/v1/dashboard/ultimas-compras', {
@@ -99,22 +105,29 @@
         company_id: empresaId || undefined,
         vendedor_ids: vendedorId || undefined,
         limit: 100
-      });
+      }, controller.signal, 90_000);
+      if (requestSeq !== comprasRequestSeq) return;
       compras = payload.ultimasCompras || [];
       total = Number(payload.total || compras.length || 0);
     } catch (err) {
+      if (isCanceledApiError(err)) return;
+      if (requestSeq !== comprasRequestSeq) return;
       compras = [];
       total = 0;
       toast.error(toUserMessage(err, 'Erro ao carregar últimas compras.'));
     } finally {
-      loading = false;
+      if (requestSeq === comprasRequestSeq) {
+        loading = false;
+        if (comprasAbortController === controller) {
+          comprasAbortController = null;
+        }
+      }
     }
   }
 
   async function handleEmpresaChange() {
     vendedorId = '';
-    await loadBase();
-    await loadCompras();
+    await Promise.all([loadBase(), loadCompras()]);
   }
 
   function abrirAviso(compra: Compra) {
@@ -127,8 +140,11 @@
   }
 
   onMount(async () => {
-    await loadBase();
-    await loadCompras();
+    await Promise.all([loadBase(), loadCompras()]);
+  });
+
+  onDestroy(() => {
+    comprasAbortController?.abort();
   });
 </script>
 
