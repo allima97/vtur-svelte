@@ -17,6 +17,7 @@ import {
 } from '$lib/server/readModelCache';
 import { getPlatformExecutionContext } from '$lib/server/readModelRebuild';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
+import { fetchCompanyComparativoReadModelRpc } from '$lib/server/reciboContribuicoesReadModel';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 // ---------------------------------------------------------------------------
@@ -170,6 +171,38 @@ export async function GET(event) {
           return map;
         })();
 
+        const [empresaMap, aggregatedRows] = await Promise.all([
+          empresaMapPromise,
+          fetchCompanyComparativoReadModelRpc(client, {
+            dataInicio: inicio,
+            dataFim: fim,
+            metaInicio,
+            metaFim,
+            companyIds
+          })
+        ]);
+
+        if (aggregatedRows) {
+          const empresas = aggregatedRows
+            .map((row) => {
+              const totalVendas = Number(toNum(row.totalVendas).toFixed(2));
+              const totalMeta = toNum(row.totalMeta);
+              return {
+                company_id: row.company_id,
+                nome: empresaMap.get(row.company_id) || 'Empresa',
+                totalVendas,
+                qtdVendas: row.qtdVendas,
+                totalMeta,
+                atingimentoPct: totalMeta > 0
+                  ? Math.round((totalVendas / totalMeta) * 1000) / 10
+                  : 0
+              };
+            })
+            .sort((a, b) => b.totalVendas - a.totalVendas);
+
+          return { inicio, fim, empresas };
+        }
+
         const vendedorCompanyMapPromise = (async () => {
           const map = new Map<string, string>();
           const batchRows = await Promise.all(
@@ -203,8 +236,7 @@ export async function GET(event) {
             }
           : undefined);
 
-        const [empresaMap, vendedorCompanyMap, { contributions }] = await Promise.all([
-          empresaMapPromise,
+        const [vendedorCompanyMap, { contributions }] = await Promise.all([
           vendedorCompanyMapPromise,
           contributionsPromise
         ]);

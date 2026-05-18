@@ -74,6 +74,8 @@ export async function GET(event) {
     }
 
     const requestedCompanyId = String(event.url.searchParams.get('empresa_id') || '').trim();
+    const includeVendedores =
+      String(event.url.searchParams.get('include_vendedores') || '1').trim() !== '0';
 
     let scopedCompanyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
     if (scope.isGestor && scope.companyId) {
@@ -141,7 +143,7 @@ export async function GET(event) {
     })();
 
     let vendedores: DashboardVendedorRow[] = [];
-    if (scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor) {
+    if (includeVendedores && (scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor)) {
       vendedores = await getCachedReadModel<DashboardVendedorRow[]>({
         key: buildReadModelCacheKey('dashboard:base:vendedores', {
           userId: user.id,
@@ -163,6 +165,8 @@ export async function GET(event) {
         staleTtlMs: 1_800_000,
         loader: () => fetchRankingVendedoresByCompanyIds(client, companyIdsForVendedores)
       });
+    } else if (!includeVendedores && (scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor)) {
+      vendedores = [];
     } else {
       const { data: currentUser, error: userError } = await client
         .from('users')

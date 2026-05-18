@@ -13,13 +13,14 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
-import { fetchVendasKpiReciboContributions } from "$lib/server/vendas-kpis";
+import { fetchVendasKpiDashboardSummary } from "$lib/server/vendas-kpis";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { fetchDashboardMetasSummaryRpc } from "$lib/server/reciboContribuicoesReadModel";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from "$lib/utils/array";
 import { toFiniteNumber as toNum } from "$lib/utils/values";
@@ -96,10 +97,6 @@ function dedupeDashboardQuotes(rows: DashboardQuoteRow[]) {
       String(right.created_at || "").localeCompare(String(left.created_at || "")),
     )
     .slice(0, DASHBOARD_QUOTES_LIMIT);
-}
-
-function toDateKey(value?: string | null) {
-  return String(value || "").slice(0, 10);
 }
 
 function getExecutionContext(platform: unknown): ExecutionContextLike | null {
@@ -313,33 +310,33 @@ export async function GET(event) {
       companyIds = scope.companyId
         ? [scope.companyId]
         : resolveScopedCompanyIds(scope, requestedCompanyIdValue);
-      const allowedGestorIds = await fetchGestorCompanyScopeIds(client, {
-        companyIds,
-      });
-      const allowedGestorIdSet = new Set(allowedGestorIds);
-      vendedorIds =
-        hasRequestedVendedorFilter
-          ? requestedVendedorIds.filter((id) => allowedGestorIdSet.has(id))
-          : allowedGestorIds;
-      if (hasRequestedVendedorFilter && vendedorIds.length === 0) {
-        vendedorIds = [NO_MATCH_USER_ID];
+      if (hasRequestedVendedorFilter) {
+        const allowedGestorIds = await fetchGestorCompanyScopeIds(client, {
+          companyIds,
+        });
+        const allowedGestorIdSet = new Set(allowedGestorIds);
+        vendedorIds = requestedVendedorIds.filter((id) =>
+          allowedGestorIdSet.has(id),
+        );
+        if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
+      } else {
+        vendedorIds = [];
       }
     } else if (isMasterByType) {
       companyIds = await expandGlobalCompanyScope(
         resolveScopedCompanyIds(scope, requestedCompanyIdValue),
       );
-      const allowedMasterIds = await fetchGestorCompanyScopeIds(client, {
-        companyIds,
-      });
-      const allowedMasterIdSet = new Set(allowedMasterIds);
-
       if (hasRequestedVendedorFilter) {
+        const allowedMasterIds = await fetchGestorCompanyScopeIds(client, {
+          companyIds,
+        });
+        const allowedMasterIdSet = new Set(allowedMasterIds);
         vendedorIds = requestedVendedorIds.filter((id) =>
           allowedMasterIdSet.has(id),
         );
         if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
       } else {
-        vendedorIds = allowedMasterIds;
+        vendedorIds = [];
       }
     } else {
       companyIds = resolveScopedCompanyIds(scope, requestedCompanyIdValue);
@@ -406,7 +403,38 @@ export async function GET(event) {
             .lte("periodo", fim)
             .limit(5000);
 
-        const fetchMetasParallel = async (): Promise<DashboardMetaRow[]> => {
+        const fetchMetasParallel = async (): Promise<{
+          metasResumo: DashboardMetaRow[];
+          vendedorCount: number;
+        }> => {
+          const metasRpc = await fetchDashboardMetasSummaryRpc(client, {
+            dataInicio: inicio,
+            dataFim: fim,
+            companyIds,
+            vendedorIds,
+          });
+          if (metasRpc) {
+            const metasResumo =
+              metasRpc.metaGeral > 0 || metasRpc.metaDiferenciada > 0
+                ? [
+                    {
+                      id: "dashboard-summary",
+                      vendedor_id: "",
+                      periodo: inicio,
+                      meta_geral: metasRpc.metaGeral,
+                      meta_diferenciada: metasRpc.metaDiferenciada,
+                      ativo: true,
+                      scope: "summary",
+                    },
+                  ]
+                : [];
+
+            return {
+              metasResumo,
+              vendedorCount: metasRpc.vendedorCount,
+            };
+          }
+
           const rows: DashboardMetaRow[] = [];
           const metasVendedorIds =
             vendedorIds.length > 0
@@ -429,7 +457,31 @@ export async function GET(event) {
             if (metasError) throw metasError;
             rows.push(...((data || []) as DashboardMetaRow[]));
           }
-          return rows;
+          const metaGeralTotal = (rows || []).reduce(
+            (sum, item) => sum + toNum(item?.meta_geral),
+            0,
+          );
+          const metaDiferenciadaTotal = (rows || []).reduce(
+            (sum, item) => sum + toNum(item?.meta_diferenciada),
+            0,
+          );
+          return {
+            metasResumo:
+              metaGeralTotal > 0 || metaDiferenciadaTotal > 0
+                ? [
+                    {
+                      id: "dashboard-summary",
+                      vendedor_id: "",
+                      periodo: inicio,
+                      meta_geral: metaGeralTotal,
+                      meta_diferenciada: metaDiferenciadaTotal,
+                      ativo: true,
+                      scope: "summary",
+                    },
+                  ]
+                : [],
+            vendedorCount: metasVendedorIds.length || vendedorIds.length,
+          };
         };
 
         const buildQuotesQuery = () =>
@@ -496,9 +548,9 @@ export async function GET(event) {
           companyIds.length > 1 &&
           !hasRequestedVendedorFilter;
 
-        const [vendasCanonical, metasData, orcamentos, widgetPrefsData] =
+        const [vendasSummary, metasResult, orcamentos, widgetPrefsData] =
           await Promise.all([
-            fetchVendasKpiReciboContributions(client, {
+            fetchVendasKpiDashboardSummary(client, {
               dataInicio: inicio,
               dataFim: fim,
               companyIds,
@@ -514,87 +566,7 @@ export async function GET(event) {
             fetchWidgetPrefsParallel(),
           ]);
 
-        const vendasKpis = vendasCanonical.agg;
-
-        const timelineMap = new Map<string, number>();
-        const destinoMap = new Map<string, number>();
-        const destinoCountMap = new Map<string, number>();
-        const produtoMap = new Map<
-          string,
-          { id: string; name: string; value: number }
-        >();
-        const destinoReceiptCount = new Set<string>();
-
-        for (const contribution of vendasCanonical.contributions) {
-          const bruto = toNum(contribution.bruto);
-          if (bruto <= 0) continue;
-
-          const reciboDate = toDateKey(contribution.reciboDate);
-          if (reciboDate) {
-            timelineMap.set(
-              reciboDate,
-              (timelineMap.get(reciboDate) || 0) + bruto,
-            );
-          }
-
-          const destinoNome =
-            String(contribution.destinoNome || "").trim() ||
-            "Destino nao informado";
-          destinoMap.set(
-            destinoNome,
-            (destinoMap.get(destinoNome) || 0) + bruto,
-          );
-
-          const destinoKey = [
-            destinoNome,
-            contribution.vendaKey,
-            contribution.reciboId || contribution.reciboNumero,
-          ].join("|");
-          if (!destinoReceiptCount.has(destinoKey)) {
-            destinoReceiptCount.add(destinoKey);
-            destinoCountMap.set(
-              destinoNome,
-              (destinoCountMap.get(destinoNome) || 0) + 1,
-            );
-          }
-
-          const productId =
-            String(contribution.produtoId || "").trim() || "sem-produto";
-          const productName =
-            String(contribution.produtoNome || "").trim() || "Produto";
-          const curProd = produtoMap.get(productId) || {
-            id: productId,
-            name: productName,
-            value: 0,
-          };
-          produtoMap.set(productId, {
-            ...curProd,
-            value: curProd.value + bruto,
-          });
-        }
-
-        const metaGeralTotal = (metasData || []).reduce(
-          (sum, item) => sum + toNum(item?.meta_geral),
-          0,
-        );
-        const metaDiferenciadaTotal = (metasData || []).reduce(
-          (sum, item) => sum + toNum(item?.meta_diferenciada),
-          0,
-        );
-        const metasResumo =
-          metaGeralTotal > 0 || metaDiferenciadaTotal > 0
-            ? [
-                {
-                  id: "dashboard-summary",
-                  vendedor_id: "",
-                  periodo: inicio,
-                  meta_geral: metaGeralTotal,
-                  meta_diferenciada: metaDiferenciadaTotal,
-                  ativo: true,
-                  scope: "summary",
-                },
-              ]
-            : [];
+        const vendasKpis = vendasSummary.agg;
 
         return {
           inicio,
@@ -604,6 +576,7 @@ export async function GET(event) {
             nome: scope.nome,
             papel: responsePapel,
             vendedorIds,
+            vendedorCount: metasResult.vendedorCount || vendedorIds.length,
           },
           podeVerOperacao: canOperacao,
           podeVerConsultoria: canConsultoria,
@@ -617,22 +590,11 @@ export async function GET(event) {
               vendasKpis.countAtivas > 0
                 ? vendasKpis.totalVendas / vendasKpis.countAtivas
                 : 0,
-            timeline: Array.from(timelineMap.entries()).map(
-              ([date, value]) => ({ date, value }),
-            ),
-            topDestinos: Array.from(destinoMap.entries())
-              .map(([name, value]) => ({
-                name,
-                value,
-                count: destinoCountMap.get(name) || 0,
-              }))
-              .sort((a, b) => b.value - a.value)
-              .slice(0, 5),
-            porProduto: Array.from(produtoMap.values())
-              .sort((a, b) => b.value - a.value)
-              .slice(0, 6),
+            timeline: vendasSummary.timeline,
+            topDestinos: vendasSummary.topDestinos,
+            porProduto: vendasSummary.porProduto,
           },
-          metas: metasResumo,
+          metas: metasResult.metasResumo,
           orcamentos,
           widgetPrefs: widgetPrefsData || [],
         };

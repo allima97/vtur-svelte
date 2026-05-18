@@ -7,6 +7,7 @@ import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/valu
 import type {
   VendasKpiAgg,
   VendasKpiReciboContribution,
+  VendasTimelinePoint,
 } from "$lib/server/vendas-kpis";
 
 type ReadModelParams = {
@@ -28,7 +29,52 @@ type ContributionPayload = {
   contributions: VendasKpiReciboContribution[];
 };
 
-type RawLoader = (params: ReadModelParams) => Promise<ContributionPayload>;
+export type ReciboContribuicoesRawLoader = (params: ReadModelParams) => Promise<ContributionPayload>;
+type RawLoader = ReciboContribuicoesRawLoader;
+
+export type ReadModelDashboardSummary = {
+  agg: VendasKpiAgg;
+  timeline: VendasTimelinePoint[];
+  topDestinos: Array<{ name: string; value: number; count: number }>;
+  porProduto: Array<{ id: string; name: string; value: number }>;
+};
+
+export type ReadModelCompanyComparativoRow = {
+  company_id: string;
+  totalVendas: number;
+  qtdVendas: number;
+  totalMeta: number;
+};
+
+export type ReadModelMetasSummary = {
+  metaGeral: number;
+  metaDiferenciada: number;
+  vendedorCount: number;
+};
+
+type DashboardSummaryRpcRow = {
+  total_vendas?: number | string | null;
+  total_taxas?: number | string | null;
+  total_seguro?: number | string | null;
+  qtd_vendas?: number | string | null;
+  qtd_recibos?: number | string | null;
+  timeline?: unknown;
+  top_destinos?: unknown;
+  por_produto?: unknown;
+};
+
+type CompanyComparativoRpcRow = {
+  company_id?: string | null;
+  total_vendas?: number | string | null;
+  qtd_vendas?: number | string | null;
+  total_meta?: number | string | null;
+};
+
+type MetasSummaryRpcRow = {
+  meta_geral?: number | string | null;
+  meta_diferenciada?: number | string | null;
+  vendedor_count?: number | string | null;
+};
 
 type StatusRow = {
   company_id: string;
@@ -96,6 +142,19 @@ function isUnavailableError(error: unknown) {
     message.includes("schema cache") ||
     message.includes(TABLE_CONTRIBUICOES) ||
     message.includes(TABLE_STATUS)
+  );
+}
+
+function isRpcUnavailableError(error: unknown) {
+  const details = errorDetails(error);
+  const code = toStr(details.code);
+  const message = toStr(details.message).toLowerCase();
+  return (
+    isUnavailableError(error) ||
+    code === "42883" ||
+    code === "PGRST202" ||
+    message.includes("could not find the function") ||
+    message.includes("function public.dashboard_")
   );
 }
 
@@ -292,6 +351,66 @@ function emptyContributionPayload(): ContributionPayload {
       countAtivas: 0,
     },
     contributions: [],
+  };
+}
+
+function emptyDashboardSummary(): ReadModelDashboardSummary {
+  return {
+    agg: emptyContributionPayload().agg,
+    timeline: [],
+    topDestinos: [],
+    porProduto: [],
+  };
+}
+
+function rpcIdArray(values?: string[] | null) {
+  const ids = normalizeIds(values);
+  return ids.length > 0 ? ids : null;
+}
+
+function parseJsonArray(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) return value.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed)
+        ? parsed.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normalizeDashboardSummaryRow(row?: DashboardSummaryRpcRow | null): ReadModelDashboardSummary {
+  if (!row) return emptyDashboardSummary();
+  const totalVendas = toNum(row.total_vendas);
+  const totalTaxas = toNum(row.total_taxas);
+  const totalSeguro = toNum(row.total_seguro);
+  return {
+    agg: {
+      totalVendas,
+      totalTaxas,
+      totalLiquido: totalVendas - totalTaxas,
+      totalSeguro,
+      countVendas: Math.max(0, Math.round(toNum(row.qtd_recibos))),
+      countAtivas: Math.max(0, Math.round(toNum(row.qtd_vendas))),
+    },
+    timeline: parseJsonArray(row.timeline).map((item) => ({
+      date: toStr(item.date),
+      value: toNum(item.value),
+    })).filter((item) => item.date),
+    topDestinos: parseJsonArray(row.top_destinos).map((item) => ({
+      name: toStr(item.name) || "Destino nao informado",
+      value: toNum(item.value),
+      count: Math.max(0, Math.round(toNum(item.count))),
+    })),
+    porProduto: parseJsonArray(row.por_produto).map((item) => ({
+      id: toStr(item.id) || "sem-produto",
+      name: toStr(item.name) || "Produto",
+      value: toNum(item.value),
+    })),
   };
 }
 
@@ -583,6 +702,150 @@ function scheduleReadModelEnsure(
     executionContext.waitUntil(ensurePromise);
   } else {
     void ensurePromise;
+  }
+}
+
+export function scheduleReciboContribuicoesReadModelEnsure(
+  _client: SupabaseClient,
+  params: ReadModelParams,
+  rawLoader: RawLoader,
+  executionContext?: ReciboContribuicoesReadModelOptions["executionContext"],
+) {
+  const companyIds = normalizeIds(params.companyIds);
+  if (companyIds.length === 0 || readModelUnavailable) return;
+  scheduleReadModelEnsure(
+    getAdminClient(),
+    { ...params, companyIds },
+    rawLoader,
+    executionContext,
+  );
+}
+
+export async function fetchDashboardSummaryReadModelRpc(
+  _client: SupabaseClient,
+  params: ReadModelParams,
+): Promise<ReadModelDashboardSummary | null> {
+  if (readModelUnavailable) return null;
+
+  try {
+    const { data, error } = await getAdminClient().rpc(
+      "dashboard_vendas_summary_from_read_model",
+      {
+        p_company_ids: rpcIdArray(params.companyIds),
+        p_vendedor_ids: rpcIdArray(params.vendedorIds),
+        p_cliente_ids: rpcIdArray(params.accessibleClientIds),
+        p_inicio: params.dataInicio,
+        p_fim: params.dataFim,
+      },
+    );
+
+    if (error) {
+      if (!isRpcUnavailableError(error)) {
+        logServerError("[read-model] RPC dashboard_vendas_summary_from_read_model falhou; usando fallback.", error);
+      }
+      return null;
+    }
+
+    const row = Array.isArray(data)
+      ? (data[0] as DashboardSummaryRpcRow | undefined)
+      : (data as DashboardSummaryRpcRow | null);
+    return normalizeDashboardSummaryRow(row);
+  } catch (error) {
+    if (!isRpcUnavailableError(error)) {
+      logServerError("[read-model] erro ao executar RPC de resumo do dashboard; usando fallback.", error);
+    }
+    return null;
+  }
+}
+
+export async function fetchCompanyComparativoReadModelRpc(
+  _client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    metaInicio: string;
+    metaFim: string;
+    companyIds: string[];
+  },
+): Promise<ReadModelCompanyComparativoRow[] | null> {
+  const companyIds = normalizeIds(params.companyIds);
+  if (readModelUnavailable || companyIds.length === 0) return null;
+
+  try {
+    const { data, error } = await getAdminClient().rpc(
+      "dashboard_empresa_comparativo_from_read_model",
+      {
+        p_company_ids: companyIds,
+        p_inicio: params.dataInicio,
+        p_fim: params.dataFim,
+        p_meta_inicio: params.metaInicio,
+        p_meta_fim: params.metaFim,
+      },
+    );
+
+    if (error) {
+      if (!isRpcUnavailableError(error)) {
+        logServerError("[read-model] RPC dashboard_empresa_comparativo_from_read_model falhou; usando fallback.", error);
+      }
+      return null;
+    }
+
+    return ((data || []) as CompanyComparativoRpcRow[])
+      .map((row) => ({
+        company_id: toStr(row.company_id),
+        totalVendas: toNum(row.total_vendas),
+        qtdVendas: Math.max(0, Math.round(toNum(row.qtd_vendas))),
+        totalMeta: toNum(row.total_meta),
+      }))
+      .filter((row) => row.company_id);
+  } catch (error) {
+    if (!isRpcUnavailableError(error)) {
+      logServerError("[read-model] erro ao executar RPC de comparativo por empresa; usando fallback.", error);
+    }
+    return null;
+  }
+}
+
+export async function fetchDashboardMetasSummaryRpc(
+  _client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+  },
+): Promise<ReadModelMetasSummary | null> {
+  try {
+    const { data, error } = await getAdminClient().rpc(
+      "dashboard_metas_summary",
+      {
+        p_company_ids: rpcIdArray(params.companyIds),
+        p_vendedor_ids: rpcIdArray(params.vendedorIds),
+        p_inicio: params.dataInicio,
+        p_fim: params.dataFim,
+      },
+    );
+
+    if (error) {
+      if (!isRpcUnavailableError(error)) {
+        logServerError("[read-model] RPC dashboard_metas_summary falhou; usando fallback.", error);
+      }
+      return null;
+    }
+
+    const row = Array.isArray(data)
+      ? (data[0] as MetasSummaryRpcRow | undefined)
+      : (data as MetasSummaryRpcRow | null);
+    return {
+      metaGeral: toNum(row?.meta_geral),
+      metaDiferenciada: toNum(row?.meta_diferenciada),
+      vendedorCount: Math.max(0, Math.round(toNum(row?.vendedor_count))),
+    };
+  } catch (error) {
+    if (!isRpcUnavailableError(error)) {
+      logServerError("[read-model] erro ao executar RPC de metas do dashboard; usando fallback.", error);
+    }
+    return null;
   }
 }
 

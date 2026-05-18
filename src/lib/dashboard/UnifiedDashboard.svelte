@@ -128,7 +128,7 @@
     vendasAgg?: VendasAgg | null;
     metas?: Meta[] | null;
     orcamentos?: Orcamento[] | null;
-    userCtx?: { nome: string | null; papel: string; vendedorIds: string[] } | null;
+    userCtx?: { nome: string | null; papel: string; vendedorIds: string[]; vendedorCount?: number } | null;
     podeVerOperacao?: boolean | null;
     podeVerConsultoria?: boolean | null;
     widgetPrefs?: WidgetPrefRow[] | null;
@@ -219,7 +219,7 @@
   };
   let metas: Meta[] = [];
   let orcamentos: Orcamento[] = [];
-  let userCtx: { nome: string | null; papel: string; vendedorIds: string[] } | null = null;
+  let userCtx: { nome: string | null; papel: string; vendedorIds: string[]; vendedorCount?: number } | null = null;
   let podeVerOperacao = false;
   let podeVerConsultoria = false;
 

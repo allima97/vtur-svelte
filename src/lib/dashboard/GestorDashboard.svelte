@@ -97,7 +97,7 @@
   };
 
   type SummaryPayload = {
-    userCtx?: { nome: string | null; papel: string; vendedorIds: string[] } | null;
+    userCtx?: { nome: string | null; papel: string; vendedorIds: string[]; vendedorCount?: number } | null;
     vendasAgg?: {
       totalVendas: number;
       totalTaxas: number;
@@ -260,9 +260,10 @@
   $: atingimentoVendasColor = getAtingimentoColor(atingimento);
   $: atingimentoMetaColor = getAtingimentoColor(atingimento);
   $: atingimentoSeguroColor = getAtingimentoColor(atingimentoSeguro);
-  $: teamSize = userCtx?.vendedorIds?.length || 0;
+  $: teamSize = userCtx?.vendedorCount ?? userCtx?.vendedorIds?.length ?? 0;
   $: rolePapel = String(userCtx?.papel || '').toUpperCase();
   $: isMasterDashboard = rolePapel.includes('MASTER');
+  $: isMasterPage = title.toLowerCase().includes('master');
   $: canSeeCompanyComparativos = isMasterDashboard || rolePapel.includes('ADMIN');
   $: vendedorSelecionadoNome =
     vendedoresFiltro.find((item) => item.id === vendedorSelecionado)?.nome?.trim() || '';
@@ -464,10 +465,14 @@
     baseAbortController?.abort();
     const controller = new AbortController();
     baseAbortController = controller;
+    const shouldLoadVendedores = !isMasterPage || Boolean(empresaSelecionada || vendedorSelecionado);
     try {
       const data = await apiGet<{ empresas: { id: string; nome: string }[]; vendedores: { id: string; nome: string }[] }>(
         '/api/v1/dashboard/base',
-        { empresa_id: empresaSelecionada || undefined },
+        {
+          empresa_id: empresaSelecionada || undefined,
+          include_vendedores: shouldLoadVendedores ? 1 : 0
+        },
         controller.signal,
         60_000
       );

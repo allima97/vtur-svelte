@@ -15,7 +15,9 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import {
+  fetchDashboardSummaryReadModelRpc,
   fetchReciboContribuicoesReadModel,
+  scheduleReciboContribuicoesReadModelEnsure,
   type ReciboContribuicoesReadModelOptions,
 } from "$lib/server/reciboContribuicoesReadModel";
 import { getAdminClient, logServerError } from "$lib/server/v1";
@@ -120,6 +122,13 @@ export type VendasKpiAgg = {
 export type VendasTimelinePoint = {
   date: string;
   value: number;
+};
+
+export type VendasKpiDashboardSummary = {
+  agg: VendasKpiAgg;
+  timeline: VendasTimelinePoint[];
+  topDestinos: Array<{ name: string; value: number; count: number }>;
+  porProduto: Array<{ id: string; name: string; value: number }>;
 };
 
 export type VendasKpiReciboContribution = {
@@ -1407,6 +1416,109 @@ export async function fetchVendasKpiReciboContributions(
     (loaderParams) =>
       fetchVendasKpiReciboContributionsRaw(getAdminClient(), loaderParams),
     readModelOptions,
+  );
+}
+
+function buildDashboardSummaryFromContributions(payload: {
+  agg: VendasKpiAgg;
+  contributions: VendasKpiReciboContribution[];
+}): VendasKpiDashboardSummary {
+  const timelineMap = new Map<string, number>();
+  const destinoMap = new Map<string, number>();
+  const destinoCountMap = new Map<string, number>();
+  const destinoReceiptCount = new Set<string>();
+  const produtoMap = new Map<
+    string,
+    { id: string; name: string; value: number }
+  >();
+
+  for (const contribution of payload.contributions) {
+    const bruto = toNum(contribution.bruto);
+    if (bruto <= 0) continue;
+
+    const reciboDate = toDateKey(contribution.reciboDate);
+    if (reciboDate) {
+      timelineMap.set(reciboDate, (timelineMap.get(reciboDate) || 0) + bruto);
+    }
+
+    const destinoNome =
+      toStr(contribution.destinoNome) || "Destino nao informado";
+    destinoMap.set(destinoNome, (destinoMap.get(destinoNome) || 0) + bruto);
+
+    const destinoKey = [
+      destinoNome,
+      contribution.vendaKey,
+      contribution.reciboId || contribution.reciboNumero,
+    ].join("|");
+    if (!destinoReceiptCount.has(destinoKey)) {
+      destinoReceiptCount.add(destinoKey);
+      destinoCountMap.set(destinoNome, (destinoCountMap.get(destinoNome) || 0) + 1);
+    }
+
+    const productId = toStr(contribution.produtoId) || "sem-produto";
+    const productName = toStr(contribution.produtoNome) || "Produto";
+    const curProd = produtoMap.get(productId) || {
+      id: productId,
+      name: productName,
+      value: 0,
+    };
+    produtoMap.set(productId, {
+      ...curProd,
+      value: curProd.value + bruto,
+    });
+  }
+
+  return {
+    agg: payload.agg,
+    timeline: Array.from(timelineMap.entries()).map(([date, value]) => ({
+      date,
+      value,
+    })),
+    topDestinos: Array.from(destinoMap.entries())
+      .map(([name, value]) => ({
+        name,
+        value,
+        count: destinoCountMap.get(name) || 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5),
+    porProduto: Array.from(produtoMap.values())
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6),
+  };
+}
+
+export async function fetchVendasKpiDashboardSummary(
+  client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    accessibleClientIds?: string[];
+  },
+  readModelOptions?: ReciboContribuicoesReadModelOptions,
+): Promise<VendasKpiDashboardSummary> {
+  const useAggregatedReadModel =
+    readModelOptions?.mode === "stale-while-revalidate" &&
+    normalizeCompanyScopeIds(params.companyIds).length > 0;
+
+  if (useAggregatedReadModel) {
+    const aggregated = await fetchDashboardSummaryReadModelRpc(client, params);
+    if (aggregated) {
+      scheduleReciboContribuicoesReadModelEnsure(
+        client,
+        params,
+        (loaderParams) =>
+          fetchVendasKpiReciboContributionsRaw(getAdminClient(), loaderParams),
+        readModelOptions?.executionContext,
+      );
+      return aggregated;
+    }
+  }
+
+  return buildDashboardSummaryFromContributions(
+    await fetchVendasKpiReciboContributions(client, params, readModelOptions),
   );
 }
 
