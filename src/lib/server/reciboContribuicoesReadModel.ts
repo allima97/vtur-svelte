@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "$lib/vendas/rateio";
 import { getAdminClient, logServerError } from "$lib/server/v1";
+import { buildReadModelCacheKey } from "$lib/server/readModelCache";
 import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 import type {
@@ -14,6 +15,12 @@ type ReadModelParams = {
   companyIds: string[];
   vendedorIds: string[];
   accessibleClientIds?: string[];
+};
+
+export type ReciboContribuicoesReadModelOptions = {
+  mode?: "blocking" | "stale-while-revalidate";
+  executionContext?: { waitUntil: (promise: Promise<unknown>) => void } | null;
+  fallbackToRawOnReadError?: boolean;
 };
 
 type ContributionPayload = {
@@ -61,9 +68,11 @@ const READ_PAGE_SIZE = 1000;
 const READ_FILTER_BATCH_SIZE = 100;
 const READ_MODEL_REBUILD_CONCURRENCY = 2;
 const READ_MODEL_READ_CONCURRENCY = 4;
+const BACKGROUND_ENSURE_THROTTLE_MS = 60_000;
 
 let readModelUnavailable = false;
 let readModelUnavailableLogged = false;
+const backgroundEnsureSchedule = new Map<string, number>();
 
 function normalizeIds(values?: string[] | null) {
   return uniqueCleanStrings(values || []).sort();
@@ -269,6 +278,20 @@ function aggregateContributions(
     totalSeguro,
     countVendas: receiptKeys.size,
     countAtivas: saleKeys.size,
+  };
+}
+
+function emptyContributionPayload(): ContributionPayload {
+  return {
+    agg: {
+      totalVendas: 0,
+      totalTaxas: 0,
+      totalLiquido: 0,
+      totalSeguro: 0,
+      countVendas: 0,
+      countAtivas: 0,
+    },
+    contributions: [],
   };
 }
 
@@ -529,19 +552,91 @@ async function readPersistentContributions(
   };
 }
 
+function scheduleReadModelEnsure(
+  client: SupabaseClient,
+  params: ReadModelParams,
+  rawLoader: RawLoader,
+  executionContext?: ReciboContribuicoesReadModelOptions["executionContext"],
+) {
+  const companyIds = normalizeIds(params.companyIds);
+  if (companyIds.length === 0) return;
+
+  const key = buildReadModelCacheKey("recibo-contribuicoes:background-ensure", {
+    dataInicio: params.dataInicio,
+    dataFim: params.dataFim,
+    companyIds,
+  });
+  const now = Date.now();
+  const lastScheduledAt = backgroundEnsureSchedule.get(key) || 0;
+  if (now - lastScheduledAt < BACKGROUND_ENSURE_THROTTLE_MS) return;
+  backgroundEnsureSchedule.set(key, now);
+
+  const ensurePromise = ensureReadModelReady(
+    client,
+    { ...params, companyIds },
+    rawLoader,
+  ).catch((error) => {
+    logServerError("[read-model] reconstrução em background falhou", error);
+  });
+
+  if (executionContext?.waitUntil) {
+    executionContext.waitUntil(ensurePromise);
+  } else {
+    void ensurePromise;
+  }
+}
+
 export async function fetchReciboContribuicoesReadModel(
   _client: SupabaseClient,
   params: ReadModelParams,
   rawLoader: RawLoader,
   rebuildRawLoader: RawLoader = rawLoader,
+  options: ReciboContribuicoesReadModelOptions = {},
 ): Promise<ContributionPayload> {
   const companyIds = normalizeIds(params.companyIds);
-  if (companyIds.length === 0 || readModelUnavailable) {
+  if (companyIds.length === 0) {
+    return rawLoader(params);
+  }
+  if (readModelUnavailable) {
+    if (options.mode === "stale-while-revalidate" && options.fallbackToRawOnReadError === false) {
+      return emptyContributionPayload();
+    }
     return rawLoader(params);
   }
 
   try {
     const modelClient = getAdminClient();
+    if (options.mode === "stale-while-revalidate") {
+      try {
+        const payload = await readPersistentContributions(modelClient, {
+          ...params,
+          companyIds,
+        });
+        scheduleReadModelEnsure(
+          modelClient,
+          { ...params, companyIds },
+          rebuildRawLoader,
+          options.executionContext,
+        );
+        return payload;
+      } catch (error) {
+        if (isUnavailableError(error)) {
+          markUnavailable(error);
+          if (options.fallbackToRawOnReadError !== false) return rawLoader(params);
+          return emptyContributionPayload();
+        }
+        logServerError("[read-model] falha ao ler dados persistidos em modo stale; seguindo sem bloquear.", error);
+        scheduleReadModelEnsure(
+          modelClient,
+          { ...params, companyIds },
+          rebuildRawLoader,
+          options.executionContext,
+        );
+        if (options.fallbackToRawOnReadError !== false) return rawLoader(params);
+        return emptyContributionPayload();
+      }
+    }
+
     await ensureReadModelReady(
       modelClient,
       { ...params, companyIds },

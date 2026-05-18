@@ -4,6 +4,7 @@ import {
   getMonthRange,
   hasModuloAccess,
   fetchRankingVendedoresByCompanyIds,
+  isUuid,
   isRankingEligibleUser,
   parseUuidList,
   requireAuthenticatedUser,
@@ -68,6 +69,15 @@ type DashboardMetaRow = {
   scope?: string | null;
 };
 
+type DashboardCompanyRow = {
+  id?: string | null;
+  active?: boolean | null;
+};
+
+type ExecutionContextLike = {
+  waitUntil: (promise: Promise<unknown>) => void;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -90,6 +100,38 @@ function dedupeDashboardQuotes(rows: DashboardQuoteRow[]) {
 
 function toDateKey(value?: string | null) {
   return String(value || "").slice(0, 10);
+}
+
+function getExecutionContext(platform: unknown): ExecutionContextLike | null {
+  const ctx =
+    platform && typeof platform === "object"
+      ? (platform as { ctx?: unknown }).ctx
+      : null;
+  return ctx && typeof ctx === "object" && typeof (ctx as ExecutionContextLike).waitUntil === "function"
+    ? (ctx as ExecutionContextLike)
+    : null;
+}
+
+async function fetchAllVisibleCompanyIds(client: ReturnType<typeof getAdminClient>) {
+  return getCachedReadModel<string[]>({
+    key: buildReadModelCacheKey("dashboard-summary:all-visible-companies", {}),
+    tags: [READ_MODEL_TAGS.dashboard, READ_MODEL_TAGS.catalog],
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
+    loader: async () => {
+      const { data, error } = await client
+        .from("companies")
+        .select("id, active")
+        .limit(1000);
+
+      if (error) throw error;
+
+      return ((data || []) as DashboardCompanyRow[])
+        .filter((row) => row?.active !== false)
+        .map((row) => String(row?.id || "").trim())
+        .filter(isUuid);
+    },
+  });
 }
 
 async function fetchGestorCompanyScopeIds(
@@ -205,6 +247,9 @@ export async function GET(event) {
       String(searchParams.get("include_orcamentos") || "1").trim() === "1";
 
     const requestedCompanyId = searchParams.get("company_id");
+    const requestedCompanyIdValue = String(
+      requestedCompanyId || searchParams.get("empresa_id") || "",
+    ).trim();
     const requestedVendedorRaw =
       searchParams.get("vendedor_ids") || searchParams.get("vendedor_id");
     const hasRequestedVendedorFilter =
@@ -216,6 +261,7 @@ export async function GET(event) {
     const isFinanceiroByType = tipoNome.includes("FINANCEIRO");
     const isGestorByType = tipoNome.includes("GESTOR");
     const isMasterByType = tipoNome.includes("MASTER");
+    const hasConfiguredCompanyScope = (scope.companyIds || []).some(isUuid);
     const responsePapel = isAdminByType
       ? "ADMIN"
       : isMasterByType
@@ -229,11 +275,26 @@ export async function GET(event) {
     let companyIds: string[] = [];
     let vendedorIds: string[] = [];
 
+    const expandGlobalCompanyScope = async (ids: string[]) => {
+      const normalized = uniqueCleanStrings(ids).filter(isUuid);
+      if (normalized.length > 0) return normalized;
+
+      const canSeeAllCompanies =
+        isAdminByType || (isMasterByType && !hasConfiguredCompanyScope);
+      if (!canSeeAllCompanies) return normalized;
+
+      if (isUuid(requestedCompanyIdValue)) return [requestedCompanyIdValue];
+      if (!requestedCompanyIdValue) return fetchAllVisibleCompanyIds(client);
+      return normalized;
+    };
+
     if (isAdminByType) {
-      companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+      companyIds = await expandGlobalCompanyScope(
+        resolveScopedCompanyIds(scope, requestedCompanyIdValue),
+      );
       vendedorIds = requestedVendedorIds;
     } else if (isFinanceiroByType) {
-      companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+      companyIds = resolveScopedCompanyIds(scope, requestedCompanyIdValue);
       const allowedFinanceiroIds = await fetchGestorCompanyScopeIds(client, {
         companyIds,
       });
@@ -251,7 +312,7 @@ export async function GET(event) {
     } else if (isGestorByType) {
       companyIds = scope.companyId
         ? [scope.companyId]
-        : resolveScopedCompanyIds(scope, requestedCompanyId);
+        : resolveScopedCompanyIds(scope, requestedCompanyIdValue);
       const allowedGestorIds = await fetchGestorCompanyScopeIds(client, {
         companyIds,
       });
@@ -264,7 +325,9 @@ export async function GET(event) {
         vendedorIds = [NO_MATCH_USER_ID];
       }
     } else if (isMasterByType) {
-      companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+      companyIds = await expandGlobalCompanyScope(
+        resolveScopedCompanyIds(scope, requestedCompanyIdValue),
+      );
       const allowedMasterIds = await fetchGestorCompanyScopeIds(client, {
         companyIds,
       });
@@ -279,7 +342,7 @@ export async function GET(event) {
         vendedorIds = allowedMasterIds;
       }
     } else {
-      companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+      companyIds = resolveScopedCompanyIds(scope, requestedCompanyIdValue);
       vendedorIds = [scope.userId];
     }
 
@@ -415,6 +478,11 @@ export async function GET(event) {
           return data;
         };
 
+        const useNonBlockingReadModel =
+          (isAdminByType || isMasterByType) &&
+          companyIds.length > 1 &&
+          !hasRequestedVendedorFilter;
+
         const [vendasCanonical, metasData, orcamentos, widgetPrefsData] =
           await Promise.all([
             fetchVendasKpiReciboContributions(client, {
@@ -423,7 +491,11 @@ export async function GET(event) {
               companyIds,
               vendedorIds,
               accessibleClientIds,
-            }),
+            }, useNonBlockingReadModel ? {
+              mode: "stale-while-revalidate",
+              executionContext: getExecutionContext(event.platform),
+              fallbackToRawOnReadError: false,
+            } : undefined),
             fetchMetasParallel(),
             fetchOrcamentosParallel(),
             fetchWidgetPrefsParallel(),

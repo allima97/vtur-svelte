@@ -14,7 +14,10 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
-import { fetchReciboContribuicoesReadModel } from "$lib/server/reciboContribuicoesReadModel";
+import {
+  fetchReciboContribuicoesReadModel,
+  type ReciboContribuicoesReadModelOptions,
+} from "$lib/server/reciboContribuicoesReadModel";
 import { getAdminClient, logServerError } from "$lib/server/v1";
 import {
   fetchRateioByReciboIds,
@@ -1391,6 +1394,7 @@ export async function fetchVendasKpiReciboContributions(
     vendedorIds: string[];
     accessibleClientIds?: string[];
   },
+  readModelOptions?: ReciboContribuicoesReadModelOptions,
 ): Promise<{
   agg: VendasKpiAgg;
   contributions: VendasKpiReciboContribution[];
@@ -1402,6 +1406,7 @@ export async function fetchVendasKpiReciboContributions(
       fetchVendasKpiReciboContributionsRaw(client, loaderParams),
     (loaderParams) =>
       fetchVendasKpiReciboContributionsRaw(getAdminClient(), loaderParams),
+    readModelOptions,
   );
 }
 
