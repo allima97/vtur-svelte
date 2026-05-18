@@ -23,6 +23,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { fetchDashboardComprasResumoRpc } from '$lib/server/reciboContribuicoesReadModel';
 import { chunkArray, cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
@@ -340,6 +341,22 @@ export async function GET(event) {
       ttlMs: 120_000,
       staleTtlMs: 900_000,
       loader: async () => {
+        const rpcResumo = await fetchDashboardComprasResumoRpc(client, {
+          dataInicio: inicio,
+          dataFim: fim,
+          companyIds,
+          vendedorIds,
+          limit
+        });
+
+        if (rpcResumo) {
+          return {
+            inicio,
+            fim,
+            ...rpcResumo
+          };
+        }
+
         const { contributions } = await fetchVendasKpiReciboContributions(
           client,
           {

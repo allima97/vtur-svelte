@@ -52,6 +52,41 @@ export type ReadModelMetasSummary = {
   vendedorCount: number;
 };
 
+export type ReadModelComprasResumo = {
+  topVendedores: Array<{
+    vendedor_id: string;
+    vendedor_nome: string;
+    valor: number;
+    quantidade: number;
+  }>;
+  topClientes: Array<{
+    cliente_id: string | null;
+    cliente_nome: string;
+    data_saida: string | null;
+    destino: string;
+    valor: number;
+    quantidade: number;
+  }>;
+  ultimasCompras: Array<{
+    id: string;
+    numero_venda?: string | null;
+    cliente_id: string | null;
+    cliente_nome: string;
+    cliente_email: string | null;
+    cliente_telefone: string | null;
+    cliente_whatsapp: string | null;
+    cliente_nascimento: string | null;
+    vendedor_id: string | null;
+    vendedor_nome: string;
+    company_id: string | null;
+    data_compra: string | null;
+    data_saida: string | null;
+    destino: string;
+    valor: number;
+  }>;
+  total: number;
+};
+
 type DashboardSummaryRpcRow = {
   total_vendas?: number | string | null;
   total_taxas?: number | string | null;
@@ -74,6 +109,13 @@ type MetasSummaryRpcRow = {
   meta_geral?: number | string | null;
   meta_diferenciada?: number | string | null;
   vendedor_count?: number | string | null;
+};
+
+type ComprasResumoRpcRow = {
+  top_vendedores?: unknown;
+  top_clientes?: unknown;
+  ultimas_compras?: unknown;
+  total?: number | string | null;
 };
 
 type StatusRow = {
@@ -411,6 +453,47 @@ function normalizeDashboardSummaryRow(row?: DashboardSummaryRpcRow | null): Read
       name: toStr(item.name) || "Produto",
       value: toNum(item.value),
     })),
+  };
+}
+
+function normalizeNullableString(value: unknown) {
+  return toStr(value) || null;
+}
+
+function normalizeComprasResumoRow(row?: ComprasResumoRpcRow | null): ReadModelComprasResumo {
+  return {
+    topVendedores: parseJsonArray(row?.top_vendedores).map((item) => ({
+      vendedor_id: toStr(item.vendedor_id),
+      vendedor_nome: toStr(item.vendedor_nome) || "Vendedor não informado",
+      valor: toNum(item.valor),
+      quantidade: Math.max(0, Math.round(toNum(item.quantidade))),
+    })),
+    topClientes: parseJsonArray(row?.top_clientes).map((item) => ({
+      cliente_id: normalizeNullableString(item.cliente_id),
+      cliente_nome: toStr(item.cliente_nome) || "Cliente sem nome",
+      data_saida: normalizeNullableString(item.data_saida),
+      destino: toStr(item.destino) || "Destino não informado",
+      valor: toNum(item.valor),
+      quantidade: Math.max(0, Math.round(toNum(item.quantidade))),
+    })),
+    ultimasCompras: parseJsonArray(row?.ultimas_compras).map((item) => ({
+      id: toStr(item.id),
+      numero_venda: normalizeNullableString(item.numero_venda),
+      cliente_id: normalizeNullableString(item.cliente_id),
+      cliente_nome: toStr(item.cliente_nome) || "Cliente sem nome",
+      cliente_email: normalizeNullableString(item.cliente_email),
+      cliente_telefone: normalizeNullableString(item.cliente_telefone),
+      cliente_whatsapp: normalizeNullableString(item.cliente_whatsapp),
+      cliente_nascimento: normalizeNullableString(item.cliente_nascimento),
+      vendedor_id: normalizeNullableString(item.vendedor_id),
+      vendedor_nome: toStr(item.vendedor_nome) || "Vendedor não informado",
+      company_id: normalizeNullableString(item.company_id),
+      data_compra: normalizeNullableString(item.data_compra),
+      data_saida: normalizeNullableString(item.data_saida),
+      destino: toStr(item.destino) || "Destino não informado",
+      valor: toNum(item.valor),
+    })).filter((item) => item.id),
+    total: Math.max(0, Math.round(toNum(row?.total))),
   };
 }
 
@@ -844,6 +927,49 @@ export async function fetchDashboardMetasSummaryRpc(
   } catch (error) {
     if (!isRpcUnavailableError(error)) {
       logServerError("[read-model] erro ao executar RPC de metas do dashboard; usando fallback.", error);
+    }
+    return null;
+  }
+}
+
+export async function fetchDashboardComprasResumoRpc(
+  _client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    limit: number;
+  },
+): Promise<ReadModelComprasResumo | null> {
+  if (readModelUnavailable) return null;
+
+  try {
+    const { data, error } = await getAdminClient().rpc(
+      "dashboard_compras_resumo_from_read_model",
+      {
+        p_company_ids: rpcIdArray(params.companyIds),
+        p_vendedor_ids: rpcIdArray(params.vendedorIds),
+        p_inicio: params.dataInicio,
+        p_fim: params.dataFim,
+        p_limit: params.limit,
+      },
+    );
+
+    if (error) {
+      if (!isRpcUnavailableError(error)) {
+        logServerError("[read-model] RPC dashboard_compras_resumo_from_read_model falhou; usando fallback.", error);
+      }
+      return null;
+    }
+
+    const row = Array.isArray(data)
+      ? (data[0] as ComprasResumoRpcRow | undefined)
+      : (data as ComprasResumoRpcRow | null);
+    return normalizeComprasResumoRow(row);
+  } catch (error) {
+    if (!isRpcUnavailableError(error)) {
+      logServerError("[read-model] erro ao executar RPC de compras do dashboard; usando fallback.", error);
     }
     return null;
   }
