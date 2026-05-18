@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   getAdminClient,
   getMonthRange,
+  isUuid,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -34,6 +35,7 @@ type CompanyRow = {
   id: string | null;
   nome_fantasia: string | null;
   nome_empresa: string | null;
+  active?: boolean | null;
 };
 
 type VendedorCompanyRow = {
@@ -64,6 +66,28 @@ function companyLabel(row: CompanyRow): string {
 
 const NO_MATCH = '00000000-0000-0000-0000-000000000000';
 
+async function fetchAllVisibleCompanyIds(client: ReturnType<typeof getAdminClient>) {
+  return getCachedReadModel<string[]>({
+    key: buildReadModelCacheKey('dashboard:comparativo-empresas:all-companies', {}),
+    tags: [READ_MODEL_TAGS.dashboard, READ_MODEL_TAGS.catalog],
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
+    loader: async () => {
+      const { data, error } = await client
+        .from('companies')
+        .select('id, active')
+        .limit(1000);
+
+      if (error) throw error;
+
+      return ((data || []) as CompanyRow[])
+        .filter((row) => row?.active !== false)
+        .map((row) => String(row?.id || '').trim())
+        .filter(isUuid);
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // GET
 // ---------------------------------------------------------------------------
@@ -86,12 +110,27 @@ export async function GET(event) {
     const { inicio: defInicio, fim: defFim } = getMonthRange();
     const inicio = String(searchParams.get('inicio') || defInicio).trim();
     const fim    = String(searchParams.get('fim')    || defFim).trim();
+    const requestedCompanyId = String(searchParams.get('company_id') || searchParams.get('empresa_id') || '').trim();
 
-    const companyIds = resolveScopedCompanyIds(scope, null).filter(id => id !== NO_MATCH);
+    let companyIds = resolveScopedCompanyIds(scope, requestedCompanyId).filter(id => id !== NO_MATCH);
+    const hasConfiguredCompanyScope = (scope.companyIds || []).some(isUuid);
+
+    // Master sem master_empresas configurado e Admin sem filtro devem enxergar
+    // o mesmo universo exibido nos filtros do dashboard/base: todas as empresas ativas.
+    if (companyIds.length === 0 && (scope.isAdmin || (scope.isMaster && !hasConfiguredCompanyScope))) {
+      if (isUuid(requestedCompanyId)) {
+        companyIds = [requestedCompanyId];
+      } else if (!requestedCompanyId) {
+        companyIds = await fetchAllVisibleCompanyIds(client);
+      }
+    }
 
     if (companyIds.length === 0) {
       return json({ inicio, fim, empresas: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
+
+    const metaInicio = `${inicio.slice(0, 7)}-01`;
+    const metaFim = `${fim.slice(0, 7)}-01`;
 
     const payload = await getCachedReadModel({
       key: buildReadModelCacheKey('dashboard:comparativo-empresas', {
@@ -185,8 +224,8 @@ export async function GET(event) {
                 .from('metas_vendedor')
                 .select('vendedor_id, meta_geral')
                 .eq('ativo', true)
-                .gte('periodo', inicio.slice(0, 7))
-                .lte('periodo', fim.slice(0, 7))
+                .gte('periodo', metaInicio)
+                .lte('periodo', metaFim)
                 .in('vendedor_id', batch)
                 .limit(2000);
               if (error) throw error;

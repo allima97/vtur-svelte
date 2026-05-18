@@ -97,6 +97,7 @@
     style: 'currency',
     currency: 'BRL'
   });
+  const fieldClass = 'vtur-concorrencia-field';
 
   function carregarConfig() {
     try {
@@ -263,19 +264,19 @@
   }
 </script>
 
-<div class="space-y-4">
+<div class="space-y-5">
 
   <!-- ── Cabeçalho da seção ────────────────────────────────────────────── -->
-  <div class="flex items-center justify-between">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <h4 class="text-lg font-semibold text-slate-800">Análise de Concorrência</h4>
-      <p class="text-sm text-slate-500 mt-0.5">Compare valores e calcule o melhor preço final para o cliente</p>
+      <h4 class="text-xl font-semibold text-slate-900">Análise de Concorrência</h4>
+      <p class="mt-1 text-sm leading-5 text-slate-500">Compare valores e calcule o melhor preço final para o cliente</p>
     </div>
     <Button
       type="button"
       variant="ghost"
       size="sm"
-      class_name="gap-2 text-slate-500 hover:text-indigo-600"
+      class_name="w-full justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-600 sm:w-auto"
       on:click={() => mostrarConfig = !mostrarConfig}
     >
       <Settings size={17} />
@@ -408,13 +409,13 @@
   {/if}
 
   <!-- ── Grid principal 3 colunas: Entradas | Forma de Pagamento | Resultados ── -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+  <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(340px,1.15fr)_minmax(290px,0.95fr)] lg:items-start">
 
     <!-- ════ Coluna 1 — Entradas ════ -->
-    <div class="space-y-3">
+    <div class="space-y-4">
 
       <!-- Valores CVC e Concorrente lado a lado -->
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 gap-3 2xl:grid-cols-2">
         <FieldInput
           id="conc-valor-cvc"
           label="Valor CVC (R$)"
@@ -424,6 +425,7 @@
           step="0.01"
           placeholder="0,00"
           icon={DollarSign}
+          class_name={fieldClass}
         />
         <FieldInput
           id="conc-valor-concorrente"
@@ -434,6 +436,7 @@
           step="0.01"
           placeholder="0,00"
           icon={DollarSign}
+          class_name={fieldClass}
         />
       </div>
 
@@ -447,6 +450,7 @@
         step="0.01"
         placeholder="0,00"
         icon={Percent}
+        class_name={fieldClass}
       />
 
       <FieldSelect
@@ -455,6 +459,7 @@
         bind:value={calc.tipoPacote}
         options={TIPOS_PACOTE}
         placeholder={null}
+        class_name={fieldClass}
       />
 
       <FieldInput
@@ -467,11 +472,12 @@
         placeholder="0,00"
         icon={DollarSign}
         helper={temTaxas ? `Desconto sobre ${fmt(baseDesconto)} (sem taxas)` : 'Deixe 0 se não houver taxas'}
+        class_name={fieldClass}
       />
     </div>
 
     <!-- ════ Coluna 2 — Forma de Pagamento ════ -->
-    <div class="space-y-3">
+    <div class="space-y-4">
       {#if calc.tipoPacote}
         <FieldSelect
           id="conc-forma-pagamento"
@@ -480,20 +486,21 @@
           placeholder="Selecione a forma"
           options={formasDisponiveis.map(f => ({ value: f.id, label: f.label }))}
           on:change={() => { calc.parcelas = 1; }}
+          class_name={fieldClass}
         />
 
         {#if formaSelecionada}
-          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+          <div class="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
 
             {#if formaSelecionada.tipo === 'simples'}
-              <div class="flex items-center justify-between rounded-lg bg-white border border-indigo-200 px-4 py-3">
+              <div class="flex items-center justify-between gap-4 rounded-xl border border-indigo-200 bg-white px-5 py-4">
                 <div>
                   <p class="text-sm text-slate-500">Desconto</p>
-                  <p class="text-lg font-bold text-indigo-700">{fmtPct(formaSelecionada.desconto ?? 0)}</p>
+                  <p class="text-xl font-bold text-indigo-700">{fmtPct(formaSelecionada.desconto ?? 0)}</p>
                 </div>
                 <div class="text-right">
                   <p class="text-sm text-slate-500">Total a pagar</p>
-                  <p class="text-lg font-bold text-green-700">{fmt(totalAPagar)}</p>
+                  <p class="text-xl font-bold text-green-700">{fmt(totalAPagar)}</p>
                 </div>
               </div>
 
@@ -534,17 +541,17 @@
           </div>
         {/if}
       {:else}
-        <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 flex items-center justify-center">
-          <p class="text-sm text-slate-400 text-center">Selecione o tipo de pacote para ver as formas de pagamento</p>
+        <div class="flex min-h-[13.5rem] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10">
+          <p class="max-w-[18rem] text-center text-sm leading-6 text-slate-400">Selecione o tipo de pacote para ver as formas de pagamento</p>
         </div>
       {/if}
     </div>
 
     <!-- ════ Coluna 3 — Resultados ════ -->
-    <div class="space-y-3">
+    <div class="space-y-4">
 
       <!-- Resumo comparativo -->
-      <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2">
+      <div class="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-5">
         <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Resumo</h5>
 
         <div class="flex justify-between items-center py-2 border-b border-slate-100">
@@ -579,7 +586,7 @@
 
       <!-- Total a Pagar -->
       {#if calc.formaPagamentoId && calc.valorCVC > 0 && calc.valorConcorrente > 0}
-        <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2">
+        <div class="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-5">
           <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider">
             {formaSelecionada?.label}{ehCredito && calc.parcelas > 1 ? ` · ${calc.parcelas}x` : ''}
           </h5>
@@ -615,7 +622,7 @@
             </div>
           {/if}
 
-          <div class="rounded-lg bg-green-100 border border-green-200 px-4 py-3 mt-1">
+          <div class="mt-1 rounded-xl border border-green-200 bg-green-100 px-5 py-4">
             <div class="flex justify-between items-center">
               <div>
                 <p class="text-base font-bold text-green-800">Total a Pagar</p>
@@ -654,3 +661,34 @@
     </Button>
   </div>
 </div>
+
+<style>
+  :global(.vtur-concorrencia-field label) {
+    margin-bottom: 0.45rem;
+    font-size: 0.9rem;
+    font-weight: 650;
+    color: #334155;
+  }
+
+  :global(.vtur-concorrencia-field .vtur-input) {
+    min-height: 3.15rem;
+    border-radius: 0.9rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  :global(.vtur-concorrencia-field .vtur-input::placeholder) {
+    color: #94a3b8;
+  }
+
+  :global(.vtur-concorrencia-field .text-slate-500) {
+    font-size: 0.78rem;
+    line-height: 1.2rem;
+  }
+
+  @media (max-width: 1023px) {
+    :global(.vtur-concorrencia-field .vtur-input) {
+      min-height: 3rem;
+    }
+  }
+</style>

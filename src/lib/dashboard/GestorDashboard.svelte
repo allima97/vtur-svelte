@@ -261,12 +261,15 @@
   $: atingimentoMetaColor = getAtingimentoColor(atingimento);
   $: atingimentoSeguroColor = getAtingimentoColor(atingimentoSeguro);
   $: teamSize = userCtx?.vendedorIds?.length || 0;
+  $: rolePapel = String(userCtx?.papel || '').toUpperCase();
+  $: isMasterDashboard = rolePapel.includes('MASTER');
+  $: canSeeCompanyComparativos = isMasterDashboard || rolePapel.includes('ADMIN');
   $: vendedorSelecionadoNome =
     vendedoresFiltro.find((item) => item.id === vendedorSelecionado)?.nome?.trim() || '';
   $: isFiltroVendedorAtivo = Boolean(vendedorSelecionado && vendedorSelecionadoNome);
   $: salesLabel = isFiltroVendedorAtivo
     ? `Vendas de ${vendedorSelecionadoNome}`
-    : userCtx?.papel === 'MASTER'
+    : isMasterDashboard
       ? 'Vendas das equipes'
       : 'Vendas da equipe';
   $: countLabel = isFiltroVendedorAtivo ? `Qtd. vendas de ${vendedorSelecionadoNome}` : 'Qtd. vendas';
@@ -277,24 +280,14 @@
     : `Papel: ${userCtx?.papel || '-'}`;
   $: evolucaoHeader = isFiltroVendedorAtivo
     ? `Evolução das vendas de ${vendedorSelecionadoNome}`
-    : userCtx?.papel === 'MASTER'
+    : isMasterDashboard
       ? 'Evolução das vendas das equipes'
       : 'Evolução das vendas';
   $: destinosHeader = isFiltroVendedorAtivo
     ? `Top destinos de ${vendedorSelecionadoNome}`
-    : userCtx?.papel === 'MASTER'
+    : isMasterDashboard
       ? 'Top destinos das equipes'
       : 'Top destinos da equipe';
-  $: chartsAtivos =
-    (widgetVisible.timeline !== false ? 1 : 0) +
-    (widgetVisible.top_destinos !== false ? 1 : 0) +
-    (widgetVisible.comparativo_vendas !== false && userCtx?.papel === 'MASTER' ? 1 : 0) +
-    (widgetVisible.comparativo_metas !== false && userCtx?.papel === 'MASTER' ? 1 : 0);
-  $: gridCols =
-    chartsAtivos === 1 ? 'grid-cols-1' :
-    chartsAtivos === 2 ? 'grid-cols-1 lg:grid-cols-2' :
-    chartsAtivos === 3 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' :
-                         'grid-cols-1 md:grid-cols-2 xl:grid-cols-4';
   $: followUpHeader = isFiltroVendedorAtivo
     ? `Follow-up de ${vendedorSelecionadoNome}`
     : 'Follow-up';
@@ -386,22 +379,32 @@
     ]
   } satisfies ChartData;
 
+  $: empresasComMeta = empresasComparativo.filter((e) => e.totalMeta > 0);
   $: comparativoMetasChartData = {
-    labels: empresasComparativo.map((e) => e.nome),
+    labels: empresasComMeta.map((e) => e.nome),
     datasets: [
       {
         label: 'Meta do período',
-        data: empresasComparativo.map((e) => e.totalMeta),
-        backgroundColor: empresasComparativo.map((_, i) => EMPRESA_COLORS[i % EMPRESA_COLORS.length] + '40'),
-        borderColor: empresasComparativo.map((_, i) => EMPRESA_COLORS[i % EMPRESA_COLORS.length]),
+        data: empresasComMeta.map((e) => e.totalMeta),
+        backgroundColor: empresasComMeta.map((emp) => {
+          const index = empresasComparativo.indexOf(emp);
+          return EMPRESA_COLORS[index % EMPRESA_COLORS.length] + '40';
+        }),
+        borderColor: empresasComMeta.map((emp) => {
+          const index = empresasComparativo.indexOf(emp);
+          return EMPRESA_COLORS[index % EMPRESA_COLORS.length];
+        }),
         borderWidth: 2,
         borderRadius: 6,
         borderSkipped: false,
       },
       {
         label: 'Vendas realizadas',
-        data: empresasComparativo.map((e) => e.totalVendas),
-        backgroundColor: empresasComparativo.map((_, i) => EMPRESA_COLORS[i % EMPRESA_COLORS.length]),
+        data: empresasComMeta.map((e) => e.totalVendas),
+        backgroundColor: empresasComMeta.map((emp) => {
+          const index = empresasComparativo.indexOf(emp);
+          return EMPRESA_COLORS[index % EMPRESA_COLORS.length];
+        }),
         borderRadius: 6,
         borderSkipped: false,
       }
@@ -537,7 +540,7 @@
     }
 
     const params: Record<string, string> = {};
-    if (userCtx?.papel !== 'MASTER') {
+    if (!isMasterDashboard) {
       if (empresaSelecionada) params.company_id = empresaSelecionada;
       if (vendedorSelecionado) params.vendedor_ids = vendedorSelecionado;
     }
@@ -571,7 +574,7 @@
     }
 
     try {
-      const isMaster = userCtx?.papel === 'MASTER';
+      const isMaster = isMasterDashboard;
       const payload = await apiGet<DashboardCompraPayload>('/api/v1/dashboard/ultimas-compras', {
         inicio: periodoInicio,
         fim: periodoFim,
@@ -600,7 +603,7 @@
     try {
       const data = await apiGet<{ items?: Aniversariante[] }>('/api/v1/dashboard/aniversariantes', {
         dias: 30,
-        company_id: userCtx?.papel === 'MASTER' ? undefined : empresaSelecionada || undefined,
+        company_id: isMasterDashboard ? undefined : empresaSelecionada || undefined,
         limit: 5
       }, signal, 60_000);
       if (!isCurrentAuxiliaryRequest(requestSeq)) return;
@@ -613,14 +616,16 @@
 
   async function loadComparativo(signal?: AbortSignal, requestSeq = auxiliaryRequestSeq) {
     // Só carrega se MASTER (ou ADMIN) e pelo menos um widget de comparativo visível
-    const papel = userCtx?.papel;
-    if (papel !== 'MASTER' && papel !== 'ADMIN') return;
+    if (!canSeeCompanyComparativos) {
+      empresasComparativo = [];
+      return;
+    }
     if (widgetVisible.comparativo_vendas === false && widgetVisible.comparativo_metas === false) return;
     loadingComparativo = true;
     try {
       const data = await apiGet<{ empresas: EmpresaComparativoItem[] }>(
         '/api/v1/dashboard/comparativo-empresas',
-        { inicio: periodoInicio, fim: periodoFim },
+        { inicio: periodoInicio, fim: periodoFim, company_id: empresaSelecionada || undefined },
         signal,
         90_000
       );
@@ -794,7 +799,7 @@
       <FieldInput id="gestor-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
     {/if}
 
-    {#if userCtx?.papel === 'MASTER' && empresas.length > 0}
+    {#if isMasterDashboard && empresas.length > 0}
       <FieldSelect
         id="gestor-empresa"
         label="Empresa"
@@ -931,7 +936,7 @@
     </div>
     <div>
       <h3 class="text-base font-bold text-slate-900">Top 3 vendedores</h3>
-      <p class="text-xs text-slate-500">{userCtx?.papel === 'MASTER' ? 'Ranking de todas as lojas do master por receita' : 'Ranking da equipe por receita'}</p>
+      <p class="text-xs text-slate-500">{isMasterDashboard ? 'Ranking de todas as lojas do master por receita' : 'Ranking da equipe por receita'}</p>
     </div>
   </div>
   <div class="border-t border-slate-100 pt-4">
@@ -958,9 +963,9 @@
   </div>
 </div>
 
-<!-- ── Grade unificada de gráficos: 1–4 painéis, sempre 100% da largura ── -->
-{#if chartsAtivos > 0}
-<div class="mb-6 grid gap-4 sm:gap-6 {gridCols}">
+<!-- Linha principal de gráficos: evolução + destinos -->
+{#if widgetVisible.timeline !== false || widgetVisible.top_destinos !== false}
+<div class="mb-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
 
   <!-- Evolução das vendas -->
   {#if widgetVisible.timeline !== false}
@@ -1010,8 +1015,15 @@
   </div>
   {/if}
 
-  <!-- Comparativo de vendas por empresa (MASTER) -->
-  {#if widgetVisible.comparativo_vendas !== false && userCtx?.papel === 'MASTER'}
+</div>
+{/if}
+
+<!-- Linha de comparativos por empresa (Master/Admin) -->
+{#if canSeeCompanyComparativos && (widgetVisible.comparativo_vendas !== false || widgetVisible.comparativo_metas !== false)}
+<div class="mb-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+
+  <!-- Comparativo de vendas por empresa -->
+  {#if widgetVisible.comparativo_vendas !== false}
   <div class="vtur-card p-6">
     <div class="mb-4 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">
@@ -1044,8 +1056,8 @@
   </div>
   {/if}
 
-  <!-- Atingimento de meta por empresa (MASTER) -->
-  {#if widgetVisible.comparativo_metas !== false && userCtx?.papel === 'MASTER'}
+  <!-- Atingimento de meta por empresa -->
+  {#if widgetVisible.comparativo_metas !== false}
   <div class="vtur-card p-6">
     <div class="mb-4 flex items-center gap-3">
       <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
@@ -1064,10 +1076,9 @@
       {:else if empresasComparativo.every((e) => e.totalMeta === 0)}
         <p class="py-8 text-center text-sm text-slate-400">Nenhuma empresa com meta cadastrada.</p>
       {:else}
-        {@const metaEmpresas = empresasComparativo.filter((e) => e.totalMeta > 0)}
         <!-- Mini badges de atingimento -->
         <div class="mb-3 flex flex-wrap gap-2">
-          {#each metaEmpresas as emp}
+          {#each empresasComMeta as emp}
             {@const color = EMPRESA_COLORS[empresasComparativo.indexOf(emp) % EMPRESA_COLORS.length]}
             <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
               style="background-color:{color}"
@@ -1076,7 +1087,7 @@
             </span>
           {/each}
         </div>
-        {@const chartH = Math.max(180, metaEmpresas.length * 56)}
+        {@const chartH = Math.max(180, empresasComMeta.length * 56)}
         <div style="height:{chartH}px">
           <ChartJS type="bar" data={comparativoMetasChartData} options={metasBarOptions} height={chartH} />
         </div>

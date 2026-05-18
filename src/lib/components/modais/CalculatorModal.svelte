@@ -124,7 +124,7 @@
 <OverlayModal bind:open position="center" zIndex="z-50" padding="p-4" onclose={onClose}>
     <div 
       bind:this={modalEl}
-      class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden will-change-transform"
+      class="flex w-full {abaAtiva === 'concorrencia' ? 'max-w-[72rem]' : 'max-w-2xl'} max-h-[92vh] flex-col overflow-hidden rounded-xl bg-white shadow-xl will-change-transform"
       class:ring-2={isDragging}
       class:ring-vendas-200={isDragging}
       style={`transform: translate3d(${position.x}px, ${position.y}px, 0);`}
@@ -168,8 +168,7 @@
 
       <!-- Content -->
       <div
-        class="vtur-modal-body-dense"
-        style={abaAtiva === 'calculadora' ? 'padding: 0.875rem 1rem; max-height: none; overflow: visible;' : undefined}
+        class="vtur-modal-body-dense flex-1 {abaAtiva === 'concorrencia' ? 'vtur-calculator-modal__body--wide' : 'vtur-calculator-modal__body--compact'}"
       >
 
         <!-- Aba Concorrência -->
@@ -193,3 +192,24 @@
       </div>
     </div>
 </OverlayModal>
+
+<style>
+  :global(.vtur-calculator-modal__body--wide) {
+    padding: 1.35rem 1.5rem;
+    max-height: calc(92vh - 13rem);
+    overflow-y: auto;
+  }
+
+  :global(.vtur-calculator-modal__body--compact) {
+    padding: 0.875rem 1rem;
+    max-height: none;
+    overflow: visible;
+  }
+
+  @media (max-width: 640px) {
+    :global(.vtur-calculator-modal__body--wide) {
+      padding: 1rem;
+      max-height: calc(92vh - 12.5rem);
+    }
+  }
+</style>
