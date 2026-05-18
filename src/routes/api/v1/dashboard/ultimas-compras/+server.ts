@@ -179,7 +179,8 @@ export async function GET(event) {
           dataFim: fim,
           companyIds,
           vendedorIds,
-          filterByReceiptDate: true
+          filterByReceiptDate: true,
+          selectMode: 'basic'
         });
 
         const clienteIds = uniqueCleanStrings(rows.map((row) => row.cliente_id));

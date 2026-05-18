@@ -300,7 +300,12 @@
 
   async function loadCadastroBase(signal?: AbortSignal, seq = loadSeq) {
     try {
-      const payload = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base', undefined, signal);
+      const payload = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base', {
+        include_clientes: 0,
+        include_empresas: 0,
+        include_formas: 0,
+        include_tipos: 0
+      }, signal);
       if (seq !== loadSeq || destroyed) return;
       currentUserId = payload?.user?.id || '';
       canAssignVendedor = Boolean(payload?.user?.can_assign_vendedor);

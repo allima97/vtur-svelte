@@ -229,6 +229,7 @@ export async function fetchSalesReportRows(
     vendaIds?: string[];
     includeCancelled?: boolean;
     filterByReceiptDate?: boolean;
+    selectMode?: 'full' | 'basic';
   }
 ) {
   const companyIds = uniqueCleanStrings(params.companyIds).sort();
@@ -238,6 +239,7 @@ export async function fetchSalesReportRows(
   const dataFim = String(params.dataFim || '').trim();
   const includeCancelled = Boolean(params.includeCancelled);
   const filterByReceiptDate = Boolean(params.filterByReceiptDate);
+  const selectMode = params.selectMode === 'basic' ? 'basic' : 'full';
   const receiptRelation = params.filterByReceiptDate ? 'recibos:vendas_recibos!inner' : 'recibos:vendas_recibos';
 
   return getCachedReadModel({
@@ -248,7 +250,8 @@ export async function fetchSalesReportRows(
       vendedorIds,
       vendaIds,
       includeCancelled,
-      filterByReceiptDate
+      filterByReceiptDate,
+      selectMode
     }),
     tags: [
       READ_MODEL_TAGS.sales,
@@ -339,12 +342,15 @@ export async function fetchSalesReportRows(
         return { data: rows, error: null };
       };
 
-      const selectVariants = [
-        buildSalesSelect(true, true, true, receiptRelation),
-        buildSalesSelect(true, false, true, receiptRelation),
-        buildSalesSelect(true, false, false, receiptRelation),
-        buildSalesSelect(false, false, false, receiptRelation)
-      ];
+      const basicSelect = buildSalesSelect(false, false, false, receiptRelation);
+      const selectVariants = selectMode === 'basic'
+        ? [basicSelect]
+        : [
+            buildSalesSelect(true, true, true, receiptRelation),
+            buildSalesSelect(true, false, true, receiptRelation),
+            buildSalesSelect(true, false, false, receiptRelation),
+            basicSelect
+          ];
 
       let lastError: unknown = null;
 

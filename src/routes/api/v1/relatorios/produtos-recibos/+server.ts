@@ -89,6 +89,7 @@ export async function GET(event: RequestEvent) {
           dataFim: fim || null,
           companyIds,
           vendedorIds,
+          selectMode: "basic",
         });
 
         return rows

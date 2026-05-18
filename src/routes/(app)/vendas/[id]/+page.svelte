@@ -201,7 +201,13 @@
 
     reciboBaseLoading = (async () => {
       try {
-        const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
+        const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base', {
+          include_clientes: 0,
+          include_empresas: 0,
+          include_formas: 0,
+          include_tipos: 0,
+          include_vendedores: 0
+        });
         produtosBase = (data.produtos || []).map((item) => ({
           id: String(item.id),
           nome: item.nome || 'Produto',

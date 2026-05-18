@@ -839,19 +839,16 @@ async function fetchVendaRowsWithFallback(
     destino_cidade:cidades!destino_cidade_id (id, nome),
     destinos:produtos!destino_id (nome, cidade_id),
     recibos:vendas_recibos (
-      id,
       numero_recibo,
       numero_reserva,
-      destino_cidade:cidades!destino_cidade_id (id, nome),
+      destino_cidade:cidades!destino_cidade_id (nome),
       tipo_pacote,
       valor_total,
       valor_taxas,
       valor_du,
       valor_rav,
-      data_inicio,
-      data_fim,
-      tipo_produtos (id, nome, tipo),
-      produto_resolvido:produtos!produto_resolvido_id (id, nome)
+      tipo_produtos (nome, tipo),
+      produto_resolvido:produtos!produto_resolvido_id (nome)
     )
   `;
 
@@ -881,16 +878,13 @@ async function fetchVendaRowsWithFallback(
     destino_cidade:cidades!vendas_destino_cidade_id_fkey (id, nome),
     destinos:produtos!vendas_destino_id_fkey (nome, cidade_id),
     recibos:vendas_recibos (
-      id,
       numero_recibo,
       numero_reserva,
       tipo_pacote,
       valor_total,
       valor_taxas,
       valor_du,
-      valor_rav,
-      data_inicio,
-      data_fim
+      valor_rav
     )
   `;
 
@@ -918,16 +912,13 @@ async function fetchVendaRowsWithFallback(
     cancelada,
     clientes (nome),
     recibos:vendas_recibos (
-      id,
       numero_recibo,
       numero_reserva,
       tipo_pacote,
       valor_total,
       valor_taxas,
       valor_du,
-      valor_rav,
-      data_inicio,
-      data_fim
+      valor_rav
     )
   `;
 

@@ -120,6 +120,19 @@ export async function GET(event: RequestEvent) {
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const activeCompanyIds = companyIds.length > 0 ? companyIds : scope.companyId ? [scope.companyId] : [];
+    const includeFlag = (name: string, defaultValue = true) => {
+      const raw = event.url.searchParams.get(name);
+      if (raw == null || raw === '') return defaultValue;
+      return String(raw).trim() !== '0';
+    };
+    const includeClientes = includeFlag('include_clientes');
+    const includeCidades = includeFlag('include_cidades');
+    const includeProdutos = includeFlag('include_produtos');
+    const includeTipos = includeFlag('include_tipos');
+    const includeTiposPacote = includeFlag('include_tipos_pacote');
+    const includeFormas = includeFlag('include_formas');
+    const includeEmpresas = includeFlag('include_empresas');
+    const includeVendedores = includeFlag('include_vendedores');
 
     let vendedoresEquipe: Array<{ id: string; nome_completo: string | null; company_id?: string | null }> = [
       { id: scope.userId, nome_completo: scope.nome || 'Você', company_id: scope.companyId || null }
@@ -132,13 +145,12 @@ export async function GET(event: RequestEvent) {
     let formasPagamento: unknown[] = [];
     let empresas: Array<{ id: string | null | undefined; nome: string }> = [];
     const canLoadClientes =
-      scope.isAdmin ||
-      !scope.isFinanceiro ||
-      hasModuloAccess(scope, ['clientes', 'clientes_consulta'], 1);
+      includeClientes &&
+      (scope.isAdmin || !scope.isFinanceiro || hasModuloAccess(scope, ['clientes', 'clientes_consulta'], 1));
 
     const cacheScopeTags = scopeCacheTags({ companyIds: activeCompanyIds, userId: user.id });
 
-    if ((scope.isGestor || scope.isMaster || scope.isFinanceiro) && activeCompanyIds.length > 0) {
+    if (includeVendedores && (scope.isGestor || scope.isMaster || scope.isFinanceiro) && activeCompanyIds.length > 0) {
       const data = await getCachedReadModel<Array<{ id?: string | null; nome_completo?: string | null; email?: string | null; company_id?: string | null }>>({
         key: buildReadModelCacheKey('vendas-cadastro-base:vendedores', {
           companyIds: activeCompanyIds
@@ -189,43 +201,59 @@ export async function GET(event: RequestEvent) {
 
     // cidades schema: id, nome, subdivisao_id — state comes from subdivisoes join (nome, codigo_admin1)
     const cidadesQuery = getCachedReadModel({
-      key: buildReadModelCacheKey('vendas-cadastro-base:cidades', {}),
+      key: buildReadModelCacheKey('vendas-cadastro-base:cidades', {
+        includeCidades
+      }),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 600_000,
       staleTtlMs: 3_600_000,
       loader: async () =>
-        await client
-          .from('cidades')
-          .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
-          .order('grau_importancia', { ascending: true, nullsFirst: false })
-          .order('nome', { ascending: true })
-          .limit(INITIAL_CIDADES_LIMIT)
+        includeCidades
+          ? await client
+              .from('cidades')
+              .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
+              .order('grau_importancia', { ascending: true, nullsFirst: false })
+              .order('nome', { ascending: true })
+              .limit(INITIAL_CIDADES_LIMIT)
+          : { data: [], error: null }
     });
     const produtosQuery = getCachedReadModel({
-      key: buildReadModelCacheKey('vendas-cadastro-base:produtos', {}),
+      key: buildReadModelCacheKey('vendas-cadastro-base:produtos', {
+        includeProdutos
+      }),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 600_000,
       staleTtlMs: 3_600_000,
       loader: async () =>
-        await client
-          .from('produtos')
-          .select('id, nome, cidade_id, tipo_produto, destino, todas_as_cidades, ativo, informacoes_importantes, fornecedor_id')
-          .order('nome', { ascending: true })
-          .limit(2000)
+        includeProdutos
+          ? await client
+              .from('produtos')
+              .select('id, nome, cidade_id, tipo_produto, destino, todas_as_cidades, ativo')
+              .order('nome', { ascending: true })
+              .limit(2000)
+          : { data: [], error: null }
     });
     const tiposQuery = getCachedReadModel({
-      key: buildReadModelCacheKey('vendas-cadastro-base:tipos-produto', {}),
+      key: buildReadModelCacheKey('vendas-cadastro-base:tipos-produto', {
+        includeTipos
+      }),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 600_000,
       staleTtlMs: 3_600_000,
-      loader: async () => await client.from('tipo_produtos').select('id, nome, tipo').order('nome', { ascending: true }).limit(200)
+      loader: async () => includeTipos
+        ? await client.from('tipo_produtos').select('id, nome, tipo').order('nome', { ascending: true }).limit(200)
+        : { data: [], error: null }
     });
     const pacotesQuery = getCachedReadModel({
-      key: buildReadModelCacheKey('vendas-cadastro-base:tipos-pacote', {}),
+      key: buildReadModelCacheKey('vendas-cadastro-base:tipos-pacote', {
+        includeTiposPacote
+      }),
       tags: [READ_MODEL_TAGS.catalog, READ_MODEL_TAGS.comissoes],
       ttlMs: 600_000,
       staleTtlMs: 3_600_000,
-      loader: async () => await client.from('tipo_pacotes').select('id, nome, ativo').order('nome', { ascending: true }).limit(200)
+      loader: async () => includeTiposPacote
+        ? await client.from('tipo_pacotes').select('id, nome, ativo').order('nome', { ascending: true }).limit(200)
+        : { data: [], error: null }
     });
     const buildFormasQuery = (idsFilter: string[]) => {
       let query = client
@@ -238,6 +266,7 @@ export async function GET(event: RequestEvent) {
     };
 
     const fetchFormasBase = async () => {
+      if (!includeFormas) return { data: [], error: null };
       if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildFormasQuery(activeCompanyIds);
 
       const rows: FormaPagamentoRow[] = [];
@@ -263,6 +292,7 @@ export async function GET(event: RequestEvent) {
         .order('nome_fantasia', { ascending: true });
 
     const fetchEmpresasBase = async () => {
+      if (!includeEmpresas) return { data: [], error: null };
       if (activeCompanyIds.length === 0) return { data: [], error: null };
       if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildEmpresasQuery(activeCompanyIds);
 
@@ -309,7 +339,8 @@ export async function GET(event: RequestEvent) {
       pacotesQuery,
       getCachedReadModel({
         key: buildReadModelCacheKey('vendas-cadastro-base:formas-pagamento', {
-          companyIds: activeCompanyIds
+          companyIds: activeCompanyIds,
+          includeFormas
         }),
         tags: [READ_MODEL_TAGS.payments, READ_MODEL_TAGS.finance, ...cacheScopeTags],
         ttlMs: 300_000,
@@ -318,7 +349,8 @@ export async function GET(event: RequestEvent) {
       }),
       getCachedReadModel({
         key: buildReadModelCacheKey('vendas-cadastro-base:empresas', {
-          companyIds: activeCompanyIds
+          companyIds: activeCompanyIds,
+          includeEmpresas
         }),
         tags: [READ_MODEL_TAGS.users, ...cacheScopeTags],
         ttlMs: 300_000,

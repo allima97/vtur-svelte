@@ -17,6 +17,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { chunkArray, cleanStringSet, uniqueCleanStrings } from "$lib/utils/array";
 
@@ -153,6 +154,13 @@ export async function GET(event) {
       scope,
       event.url.searchParams,
     );
+    const executionContext = getPlatformExecutionContext(event.platform);
+    const queueStatusSync = (rows: DashboardFollowUpRow[]) => {
+      if (!Array.isArray(rows) || rows.length === 0) return;
+      const task = syncViagensStatus(client, rows).catch(() => undefined);
+      if (executionContext) executionContext.waitUntil(task);
+      else void task;
+    };
     const vendaJoin =
       vendedorIds.length > 0 ? "venda:vendas!inner" : "venda:vendas";
     const cacheKey = buildReadModelCacheKey("dashboard:follow-ups", {
@@ -257,7 +265,7 @@ export async function GET(event) {
         const candidatas = candidatasData.filter((row) =>
           isFollowUpAllowedForVendedores(row, vendedorIdSet),
         );
-        await syncViagensStatus(client, candidatas);
+        queueStatusSync(candidatas);
 
         const vendaIds = uniqueCleanStrings(
           candidatas.map((row) => row?.venda_id || getVendaFromRow(row)?.id),
@@ -285,7 +293,7 @@ export async function GET(event) {
           detalhadas = detalheRows.filter((row) =>
             isFollowUpAllowedForVendedores(row, vendedorIdSet),
           );
-          await syncViagensStatus(client, detalhadas);
+          queueStatusSync(detalhadas);
         }
 
         const grupos = new Map<string, DashboardFollowUpGroupRow>();
