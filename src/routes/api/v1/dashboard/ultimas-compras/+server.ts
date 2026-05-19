@@ -23,7 +23,10 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { fetchDashboardComprasResumoRpc } from '$lib/server/reciboContribuicoesReadModel';
+import {
+  fetchDashboardComprasResumoRpc,
+  type ReadModelComprasResumo
+} from '$lib/server/reciboContribuicoesReadModel';
 import { chunkArray, cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
@@ -299,6 +302,16 @@ async function fetchAllVisibleCompanyIds(client: ReturnType<typeof getAdminClien
   });
 }
 
+function hasComprasResumoData(payload?: ReadModelComprasResumo | null) {
+  if (!payload) return false;
+  return (
+    toNum(payload.total) > 0 ||
+    payload.topVendedores.some((item) => toNum(item.valor) > 0 || toNum(item.quantidade) > 0) ||
+    payload.topClientes.some((item) => toNum(item.valor) > 0 || toNum(item.quantidade) > 0) ||
+    payload.ultimasCompras.some((item) => toNum(item.valor) > 0)
+  );
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -324,6 +337,7 @@ export async function GET(event) {
 
     const payload = await getCachedReadModel({
       key: buildReadModelCacheKey('dashboard:ultimas-compras', {
+        cacheVersion: 2,
         userId: user.id,
         inicio,
         fim,
@@ -349,7 +363,7 @@ export async function GET(event) {
           limit
         });
 
-        if (rpcResumo) {
+        if (rpcResumo && hasComprasResumoData(rpcResumo)) {
           return {
             inicio,
             fim,
@@ -357,7 +371,7 @@ export async function GET(event) {
           };
         }
 
-        const { contributions } = await fetchVendasKpiReciboContributions(
+        let contributionsPayload = await fetchVendasKpiReciboContributions(
           client,
           {
             dataInicio: inicio,
@@ -375,6 +389,21 @@ export async function GET(event) {
             : undefined
         );
 
+        if (useNonBlockingReadModel && contributionsPayload.contributions.length === 0) {
+          contributionsPayload = await fetchVendasKpiReciboContributions(
+            client,
+            {
+              dataInicio: inicio,
+              dataFim: fim,
+              companyIds,
+              vendedorIds,
+              accessibleClientIds: []
+            },
+            { mode: 'blocking' }
+          );
+        }
+
+        const { contributions } = contributionsPayload;
         const sales = buildSaleAggregates(contributions);
 
         const vendedorMap = new Map<string, VendedorAggregate>();

@@ -808,6 +808,7 @@
         id="gestor-empresa"
         label="Empresa"
         bind:value={empresaSelecionada}
+        placeholder={null}
         options={[{ value: '', label: 'Todas' }, ...empresas.map((item) => ({ value: item.id, label: item.nome }))]}
         class_name="w-full"
       />
@@ -817,6 +818,7 @@
         id="gestor-vendedor"
         label="Vendedor"
         bind:value={vendedorSelecionado}
+        placeholder={null}
         options={[{ value: '', label: 'Todos' }, ...vendedoresFiltro.map((item) => ({ value: item.id, label: item.nome }))]}
         class_name="w-full"
       />

@@ -350,6 +350,7 @@ export async function GET(event) {
       hasModuloAccess(scope, ["consultoria_online", "consultoria"], 1);
 
     const dashboardCacheKey = buildReadModelCacheKey("dashboard-summary", {
+      cacheVersion: 2,
       userId: user.id,
       papel: responsePapel,
       inicio,

@@ -17,7 +17,10 @@ import {
 } from '$lib/server/readModelCache';
 import { getPlatformExecutionContext } from '$lib/server/readModelRebuild';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
-import { fetchCompanyComparativoReadModelRpc } from '$lib/server/reciboContribuicoesReadModel';
+import {
+  fetchCompanyComparativoReadModelRpc,
+  type ReadModelCompanyComparativoRow
+} from '$lib/server/reciboContribuicoesReadModel';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +67,16 @@ function chunks<T>(arr: T[], size = BATCH): T[][] {
 
 function companyLabel(row: CompanyRow): string {
   return String(row?.nome_fantasia || row?.nome_empresa || 'Empresa').trim() || 'Empresa';
+}
+
+function hasComparativoData(rows?: ReadModelCompanyComparativoRow[] | null) {
+  return Boolean(
+    rows?.some(
+      (row) =>
+        toNum(row.totalVendas) > 0 ||
+        toNum(row.qtdVendas) > 0
+    )
+  );
 }
 
 const NO_MATCH = '00000000-0000-0000-0000-000000000000';
@@ -137,6 +150,7 @@ export async function GET(event) {
 
     const payload = await getCachedReadModel({
       key: buildReadModelCacheKey('dashboard:comparativo-empresas', {
+        cacheVersion: 2,
         userId: user.id,
         inicio,
         fim,
@@ -182,7 +196,7 @@ export async function GET(event) {
           })
         ]);
 
-        if (aggregatedRows) {
+        if (aggregatedRows && hasComparativoData(aggregatedRows)) {
           const empresas = aggregatedRows
             .map((row) => {
               const totalVendas = Number(toNum(row.totalVendas).toFixed(2));
@@ -223,18 +237,31 @@ export async function GET(event) {
           return map;
         })();
 
-        const contributionsPromise = fetchVendasKpiReciboContributions(client, {
-          dataInicio: inicio,
-          dataFim: fim,
-          companyIds,
-          vendedorIds: []
-        }, useNonBlockingReadModel
-          ? {
-              mode: 'stale-while-revalidate',
-              executionContext: getPlatformExecutionContext(event.platform),
-              fallbackToRawOnReadError: false,
-            }
-          : undefined);
+        const contributionsPromise = (async () => {
+          let payload = await fetchVendasKpiReciboContributions(client, {
+            dataInicio: inicio,
+            dataFim: fim,
+            companyIds,
+            vendedorIds: []
+          }, useNonBlockingReadModel
+            ? {
+                mode: 'stale-while-revalidate',
+                executionContext: getPlatformExecutionContext(event.platform),
+                fallbackToRawOnReadError: false,
+              }
+            : undefined);
+
+          if (useNonBlockingReadModel && payload.contributions.length === 0) {
+            payload = await fetchVendasKpiReciboContributions(client, {
+              dataInicio: inicio,
+              dataFim: fim,
+              companyIds,
+              vendedorIds: []
+            }, { mode: 'blocking' });
+          }
+
+          return payload;
+        })();
 
         const [vendedorCompanyMap, { contributions }] = await Promise.all([
           vendedorCompanyMapPromise,

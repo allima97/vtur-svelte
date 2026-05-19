@@ -1488,6 +1488,26 @@ function buildDashboardSummaryFromContributions(payload: {
   };
 }
 
+function hasDashboardSummaryData(summary?: VendasKpiDashboardSummary | null) {
+  if (!summary) return false;
+  const agg = summary.agg;
+  if (
+    toNum(agg?.totalVendas) > 0 ||
+    toNum(agg?.totalTaxas) > 0 ||
+    toNum(agg?.totalSeguro) > 0 ||
+    toNum(agg?.countVendas) > 0 ||
+    toNum(agg?.countAtivas) > 0
+  ) {
+    return true;
+  }
+
+  return (
+    summary.timeline.some((item) => toNum(item.value) > 0) ||
+    summary.topDestinos.some((item) => toNum(item.value) > 0 || toNum(item.count) > 0) ||
+    summary.porProduto.some((item) => toNum(item.value) > 0)
+  );
+}
+
 export async function fetchVendasKpiDashboardSummary(
   client: SupabaseClient,
   params: {
@@ -1506,14 +1526,25 @@ export async function fetchVendasKpiDashboardSummary(
   if (useAggregatedReadModel) {
     const aggregated = await fetchDashboardSummaryReadModelRpc(client, params);
     if (aggregated) {
-      scheduleReciboContribuicoesReadModelEnsure(
-        client,
-        params,
-        (loaderParams) =>
-          fetchVendasKpiReciboContributionsRaw(getAdminClient(), loaderParams),
-        readModelOptions?.executionContext,
+      if (hasDashboardSummaryData(aggregated)) {
+        scheduleReciboContribuicoesReadModelEnsure(
+          client,
+          params,
+          (loaderParams) =>
+            fetchVendasKpiReciboContributionsRaw(getAdminClient(), loaderParams),
+          readModelOptions?.executionContext,
+        );
+        return aggregated;
+      }
+
+      // Um RPC vazio pode significar read model ainda não reconstruído. Nesse caso
+      // bloqueamos uma vez para popular/ler a tabela antes de responder zero real.
+      return buildDashboardSummaryFromContributions(
+        await fetchVendasKpiReciboContributions(client, params, {
+          mode: "blocking",
+          executionContext: readModelOptions?.executionContext,
+        }),
       );
-      return aggregated;
     }
   }
 
