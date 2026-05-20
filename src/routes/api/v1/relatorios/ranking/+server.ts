@@ -435,6 +435,7 @@ export async function GET(event) {
           mode: "stale-while-revalidate" as const,
           executionContext: getPlatformExecutionContext(event.platform),
           fallbackToRawOnReadError: false,
+          fallbackToRawWhenEmpty: companyIds.length === 1,
         }
       : undefined;
 

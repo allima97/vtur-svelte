@@ -22,6 +22,7 @@ export type ReciboContribuicoesReadModelOptions = {
   mode?: "blocking" | "stale-while-revalidate";
   executionContext?: { waitUntil: (promise: Promise<unknown>) => void } | null;
   fallbackToRawOnReadError?: boolean;
+  fallbackToRawWhenEmpty?: boolean;
 };
 
 type ContributionPayload = {
@@ -438,6 +439,17 @@ function emptyContributionPayload(): ContributionPayload {
     },
     contributions: [],
   };
+}
+
+function hasContributionPayloadData(payload: ContributionPayload) {
+  return (
+    payload.contributions.length > 0 ||
+    toNum(payload.agg.totalVendas) > 0 ||
+    toNum(payload.agg.totalTaxas) > 0 ||
+    toNum(payload.agg.totalSeguro) > 0 ||
+    toNum(payload.agg.countVendas) > 0 ||
+    toNum(payload.agg.countAtivas) > 0
+  );
 }
 
 function emptyDashboardSummary(): ReadModelDashboardSummary {
@@ -1184,6 +1196,9 @@ export async function fetchReciboContribuicoesReadModel(
           rebuildRawLoader,
           options.executionContext,
         );
+        if (options.fallbackToRawWhenEmpty && !hasContributionPayloadData(payload)) {
+          return rawLoader(params);
+        }
         return payload;
       } catch (error) {
         if (isUnavailableError(error)) {

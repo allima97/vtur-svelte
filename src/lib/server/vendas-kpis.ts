@@ -1545,6 +1545,18 @@ export async function fetchVendasKpiDashboardSummary(
             fetchVendasKpiReciboContributionsRaw(getAdminClient(), loaderParams),
           readModelOptions?.executionContext,
         );
+        if (readModelOptions?.fallbackToRawWhenEmpty) {
+          try {
+            return buildDashboardSummaryFromContributions(
+              await fetchVendasKpiReciboContributionsRaw(client, params),
+            );
+          } catch (error) {
+            logServerError(
+              "[vendas-kpis] fallback bruto do dashboard falhou; mantendo read model vazio.",
+              error,
+            );
+          }
+        }
         return aggregated;
       }
 
