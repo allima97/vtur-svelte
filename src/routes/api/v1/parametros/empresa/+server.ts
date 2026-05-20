@@ -16,6 +16,19 @@ type EmpresaUpdateField = (typeof EMPRESA_ALLOWED_UPDATE_FIELDS)[number];
 type EmpresaRequestBody = Partial<Record<EmpresaUpdateField, unknown>>;
 type EmpresaUpdatePayload = Partial<Record<EmpresaUpdateField, unknown | null>>;
 
+function isColumnMissingError(error: unknown, column: string) {
+  const message = String(
+    error && typeof error === 'object' && 'message' in error
+      ? (error as { message?: unknown }).message || ''
+      : error || ''
+  ).toLowerCase();
+  const needle = column.toLowerCase();
+  return (
+    (message.includes('column') && message.includes(needle)) ||
+    message.includes(`${needle} does not exist`)
+  );
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -29,12 +42,22 @@ export async function GET(event) {
     const companyId = scope.companyId;
     if (!companyId) return json({ error: 'Usuário não vinculado a uma empresa.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    // Tenta com todas as colunas, faz fallback para colunas básicas
+    // Tenta incluir logo_url quando a base tiver a coluna, sem quebrar bases legadas.
     let { data, error: queryError } = await client
       .from('companies')
-      .select('id, nome_empresa, nome_fantasia, cnpj, telefone, endereco, cidade, estado, active')
+      .select('id, nome_empresa, nome_fantasia, cnpj, telefone, endereco, cidade, estado, active, logo_url')
       .eq('id', companyId)
       .maybeSingle();
+
+    if (queryError && isColumnMissingError(queryError, 'logo_url')) {
+      const fallbackResp = await client
+        .from('companies')
+        .select('id, nome_empresa, nome_fantasia, cnpj, telefone, endereco, cidade, estado, active')
+        .eq('id', companyId)
+        .maybeSingle();
+      data = fallbackResp.data ? { ...fallbackResp.data, logo_url: null } : fallbackResp.data;
+      queryError = fallbackResp.error;
+    }
 
     if (queryError) throw queryError;
     if (!data) return json({ error: 'Empresa não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });

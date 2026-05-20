@@ -45,7 +45,8 @@ const MAX_CARD_DIMENSION = 2160;
 const MAX_TEXT_PARAM_LENGTH = 900;
 const MAX_SHORT_TEXT_PARAM_LENGTH = 180;
 const MAX_URL_PARAM_LENGTH = 2048;
-const MAX_INLINE_IMAGE_BYTES = 2 * 1024 * 1024;
+// Deve acompanhar o limite aceito no upload de logos em Parametros > Orcamentos.
+const MAX_INLINE_IMAGE_BYTES = 5 * 1024 * 1024;
 const INLINE_IMAGE_FETCH_TIMEOUT_MS = 2500;
 const LOGO_BUCKET = "quotes";
 const DEFAULT_LOGO_SLOT_MASTER = {
@@ -538,6 +539,14 @@ function guessImageMimeFromPath(path?: string | null) {
   return "image/png";
 }
 
+function normalizeImageMime(value?: string | null, fallback = "image/png") {
+  const raw = String(value || "").split(";")[0].trim().toLowerCase();
+  if (!raw || raw === "application/octet-stream" || raw === "binary/octet-stream") {
+    return fallback;
+  }
+  return raw;
+}
+
 function toBase64(buffer: ArrayBuffer) {
   const bytes = new Uint8Array(buffer);
   if (typeof Buffer !== "undefined") {
@@ -557,7 +566,7 @@ async function blobToImageDataUrl(blob: Blob, fallbackMime: string) {
   if (!blob || typeof blob.arrayBuffer !== "function") return "";
   const payload = await blob.arrayBuffer();
   if (!payload.byteLength || payload.byteLength > MAX_INLINE_IMAGE_BYTES) return "";
-  const mime = String(blob.type || fallbackMime || "image/png").trim() || "image/png";
+  const mime = normalizeImageMime(blob.type, fallbackMime || "image/png");
   return `data:${mime};base64,${toBase64(payload)}`;
 }
 
@@ -571,8 +580,11 @@ async function resolveInlineImageHref(sourceUrl: string, appOrigin: string) {
   try {
     const resp = await fetch(raw, { signal: controller.signal });
     if (!resp.ok) return raw;
-    const contentType = String(resp.headers.get("content-type") || "").toLowerCase();
-    if (!contentType.startsWith("image/") || contentType.includes("svg")) return raw;
+    const contentType = normalizeImageMime(
+      resp.headers.get("content-type"),
+      guessImageMimeFromPath(raw),
+    );
+    if (!contentType.startsWith("image/")) return raw;
     const contentLength = Number(resp.headers.get("content-length") || 0);
     if (Number.isFinite(contentLength) && contentLength > MAX_INLINE_IMAGE_BYTES) return raw;
     const payload = await resp.arrayBuffer();

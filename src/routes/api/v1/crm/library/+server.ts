@@ -65,6 +65,11 @@ type BrandingSettingsRow = {
   consultor_nome?: string | null;
 } | null;
 
+type BrandingLogoSource = {
+  logo_url?: string | null;
+  logo_path?: string | null;
+} | null;
+
 type LegacyThemeRow = Omit<ThemeRow, "logo_url" | "logo_path">;
 
 type ThemeFetchResult = {
@@ -117,6 +122,10 @@ function cleanUrl(value?: string | null) {
   const lowered = raw.toLowerCase();
   if (lowered === "null" || lowered === "undefined") return null;
   return raw;
+}
+
+function hasLogoSource(value?: BrandingLogoSource) {
+  return Boolean(String(value?.logo_path || value?.logo_url || "").trim());
 }
 
 function normalizeLibraryKey(value?: string | null) {
@@ -231,6 +240,15 @@ function isThemeLogoColumnMissingError(error: unknown) {
   );
 }
 
+function isColumnMissingError(error: unknown, column: string) {
+  const message = toUserMessage(error, "").toLowerCase();
+  const needle = column.toLowerCase();
+  return (
+    (message.includes("column") && message.includes(needle)) ||
+    message.includes(`${needle} does not exist`)
+  );
+}
+
 async function fetchThemesWithLogoFallback(client: SupabaseClient): Promise<ThemeFetchResult> {
   const withLogoResp = await client
     .from("user_message_template_themes")
@@ -278,10 +296,38 @@ async function fetchThemesWithLogoFallback(client: SupabaseClient): Promise<Them
   };
 }
 
-async function resolveBrandingLogo(client: SupabaseClient, settings: BrandingSettingsRow) {
-  if (!settings) return null;
-  const rawUrl = cleanUrl(settings.logo_url);
-  const logoPath = String(settings.logo_path || extractStoragePath(rawUrl) || "").trim();
+async function fetchCompanyBrandingLogo(client: SupabaseClient, companyId: string | null): Promise<BrandingLogoSource> {
+  if (!companyId) return null;
+
+  const { data, error } = await client
+    .from("companies")
+    .select("logo_url")
+    .eq("id", companyId)
+    .maybeSingle();
+
+  if (error) {
+    if (!isColumnMissingError(error, "logo_url")) {
+      logServerError("[crm/library] erro ao carregar logo da empresa", error);
+    }
+    return null;
+  }
+
+  return {
+    logo_url: cleanUrl(data?.logo_url) || null,
+    logo_path: null,
+  };
+}
+
+async function resolveBrandingLogo(
+  client: SupabaseClient,
+  settings: BrandingSettingsRow,
+  fallbackLogo: BrandingLogoSource = null,
+) {
+  if (!settings && !fallbackLogo) return null;
+  const logoSource = hasLogoSource(settings) ? settings : fallbackLogo;
+  const rawUrl = cleanUrl(logoSource?.logo_url);
+  const logoPath = String(logoSource?.logo_path || extractStoragePath(rawUrl) || "").trim();
+  const baseSettings = settings || {};
 
   if (logoPath) {
     try {
@@ -289,7 +335,7 @@ async function resolveBrandingLogo(client: SupabaseClient, settings: BrandingSet
       const signedUrl = cleanUrl(signed.data?.signedUrl);
       if (signedUrl) {
         return {
-          ...settings,
+          ...baseSettings,
           logo_url: signedUrl,
           logo_path: logoPath,
         };
@@ -300,7 +346,7 @@ async function resolveBrandingLogo(client: SupabaseClient, settings: BrandingSet
   }
 
   return {
-    ...settings,
+    ...baseSettings,
     logo_url: logoPath ? null : rawUrl,
     logo_path: logoPath || null,
   };
@@ -334,7 +380,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
 
     const dataClient: SupabaseClient = getAdminClient();
 
-    const [catsResp, themesResp, messagesResp, sigResp, settingsResp] = await Promise.all([
+    const [catsResp, themesResp, messagesResp, sigResp, settingsResp, companyLogo] = await Promise.all([
       dataClient
         .from("crm_template_categories")
         .select("id, nome, icone, sort_order")
@@ -356,6 +402,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
         .select("logo_url, logo_path, consultor_nome")
         .eq("owner_user_id", userId)
         .maybeSingle(),
+      fetchCompanyBrandingLogo(dataClient, currentCompanyId),
     ]);
 
     if (catsResp.error) {
@@ -428,7 +475,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       }
     }
 
-    const resolvedSettings = await resolveBrandingLogo(authClient, settingsRow);
+    const resolvedSettings = await resolveBrandingLogo(authClient, settingsRow, companyLogo);
 
     return new Response(
       JSON.stringify({

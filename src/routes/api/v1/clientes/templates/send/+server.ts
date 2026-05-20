@@ -3,6 +3,7 @@ import type { RequestHandler } from "./$types";
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse,
@@ -63,6 +64,11 @@ type ThemeSelectionRow = {
   logo_path?: string | null;
 };
 
+type BrandingLogoSource = {
+  logo_url?: string | null;
+  logo_path?: string | null;
+} | null;
+
 type ScopeValue = "system" | "master" | "gestor" | "user";
 
 function normalizeScope(value?: string | null): ScopeValue {
@@ -91,6 +97,51 @@ function isThemeLogoColumnMissingError(error: unknown) {
     message.includes("logo_url does not exist") ||
     message.includes("logo_path does not exist")
   );
+}
+
+function isColumnMissingError(error: unknown, column: string) {
+  const message = String(
+    error && typeof error === "object" && "message" in error
+      ? (error as { message?: unknown }).message || ""
+      : error || "",
+  ).toLowerCase();
+  const needle = column.toLowerCase();
+  return (
+    (message.includes("column") && message.includes(needle)) ||
+    message.includes(`${needle} does not exist`)
+  );
+}
+
+function cleanLogoUrl(value?: string | null) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const lowered = raw.toLowerCase();
+  if (lowered === "null" || lowered === "undefined") return null;
+  return raw;
+}
+
+function hasLogoSource(value?: BrandingLogoSource) {
+  return Boolean(String(value?.logo_path || value?.logo_url || "").trim());
+}
+
+async function fetchCompanyBrandingLogo(client: ReturnType<typeof getAdminClient>, companyId?: string | null): Promise<BrandingLogoSource> {
+  const company = String(companyId || "").trim();
+  if (!company) return null;
+  const { data, error } = await client
+    .from("companies")
+    .select("logo_url")
+    .eq("id", company)
+    .maybeSingle();
+  if (error) {
+    if (!isColumnMissingError(error, "logo_url")) {
+      logServerError("[clientes/templates/send] erro ao carregar logo da empresa", error);
+    }
+    return null;
+  }
+  return {
+    logo_url: cleanLogoUrl(data?.logo_url),
+    logo_path: null,
+  };
 }
 
 function inCompany(companyId: string | null, allowed: Set<string>) {
@@ -313,6 +364,8 @@ export const POST: RequestHandler = async (event) => {
       .select("logo_url, logo_path, consultor_nome")
       .eq("owner_user_id", user.id)
       .maybeSingle();
+    const companyLogo = await fetchCompanyBrandingLogo(client, userScope.companyId);
+    const brandingLogo = hasLogoSource(brandingRow) ? brandingRow : companyLogo;
     const assinaturaPadrao = String(
       brandingRow?.consultor_nome ||
         userRow?.nome_completo ||
@@ -411,11 +464,11 @@ export const POST: RequestHandler = async (event) => {
       if (selectedTheme.logo_path) cardParams.set("logo_path", String(selectedTheme.logo_path));
       if (selectedTheme.logo_url) cardParams.set("logo_url", String(selectedTheme.logo_url));
     }
-    if (!cardParams.has("logo_path") && brandingRow?.logo_path) {
-      cardParams.set("logo_path", String(brandingRow.logo_path));
+    if (!cardParams.has("logo_path") && brandingLogo?.logo_path) {
+      cardParams.set("logo_path", String(brandingLogo.logo_path));
     }
-    if (!cardParams.has("logo_url") && brandingRow?.logo_url) {
-      cardParams.set("logo_url", String(brandingRow.logo_url));
+    if (!cardParams.has("logo_url") && brandingLogo?.logo_url) {
+      cardParams.set("logo_url", String(brandingLogo.logo_url));
     }
 
     const cardUrlPng = `${origin}/api/v1/cards/render.png?${cardParams.toString()}`;
