@@ -47,6 +47,7 @@ const MAX_SHORT_TEXT_PARAM_LENGTH = 180;
 const MAX_URL_PARAM_LENGTH = 2048;
 const MAX_INLINE_IMAGE_BYTES = 2 * 1024 * 1024;
 const INLINE_IMAGE_FETCH_TIMEOUT_MS = 2500;
+const LOGO_BUCKET = "quotes";
 const DEFAULT_LOGO_SLOT_MASTER = {
   x: 848,
   y: 848,
@@ -408,10 +409,26 @@ type ThemeRow = {
   nome?: string | null;
   asset_url?: string | null;
   storage_path?: string | null;
+  logo_url?: string | null;
+  logo_path?: string | null;
   width_px?: number | null;
   height_px?: number | null;
   signature_style?: unknown;
 };
+
+function isThemeLogoColumnMissingError(error: unknown) {
+  const message = String(
+    (error && typeof error === "object" && "message" in error
+      ? (error as { message?: unknown }).message
+      : error) || "",
+  ).toLowerCase();
+  return (
+    (message.includes("column") && message.includes("logo_url")) ||
+    (message.includes("column") && message.includes("logo_path")) ||
+    message.includes("logo_url does not exist") ||
+    message.includes("logo_path does not exist")
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -480,6 +497,21 @@ function absoluteAssetUrl(origin: string, assetUrl: string) {
   return sanitizeImageUrl(`/${raw.replace(/^\.?\//, "")}`, origin);
 }
 
+function sanitizeStoragePath(value?: string | null) {
+  const raw = limitText(value, 512).replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!raw || raw.includes("..") || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return "";
+  return raw;
+}
+
+function guessImageMimeFromPath(path?: string | null) {
+  const clean = String(path || "").split("?")[0].toLowerCase();
+  if (clean.endsWith(".jpg") || clean.endsWith(".jpeg")) return "image/jpeg";
+  if (clean.endsWith(".webp")) return "image/webp";
+  if (clean.endsWith(".gif")) return "image/gif";
+  if (clean.endsWith(".svg")) return "image/svg+xml";
+  return "image/png";
+}
+
 function toBase64(buffer: ArrayBuffer) {
   const bytes = new Uint8Array(buffer);
   if (typeof Buffer !== "undefined") {
@@ -493,6 +525,14 @@ function toBase64(buffer: ArrayBuffer) {
     binary += String.fromCharCode(...chunk);
   }
   return btoa(binary);
+}
+
+async function blobToImageDataUrl(blob: Blob, fallbackMime: string) {
+  if (!blob || typeof blob.arrayBuffer !== "function") return "";
+  const payload = await blob.arrayBuffer();
+  if (!payload.byteLength || payload.byteLength > MAX_INLINE_IMAGE_BYTES) return "";
+  const mime = String(blob.type || fallbackMime || "image/png").trim() || "image/png";
+  return `data:${mime};base64,${toBase64(payload)}`;
 }
 
 async function resolveInlineImageHref(sourceUrl: string, appOrigin: string) {
@@ -518,6 +558,33 @@ async function resolveInlineImageHref(sourceUrl: string, appOrigin: string) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function resolveStorageImageHref(params: {
+  client: RequestEvent["locals"]["supabase"];
+  storagePath?: string | null;
+  fallbackUrl?: string | null;
+  appOrigin: string;
+}) {
+  const storagePath = sanitizeStoragePath(params.storagePath);
+  if (storagePath) {
+    try {
+      const { data, error } = await params.client.storage
+        .from(LOGO_BUCKET)
+        .download(storagePath);
+      if (!error && data) {
+        const dataUrl = await blobToImageDataUrl(
+          data as Blob,
+          guessImageMimeFromPath(storagePath),
+        );
+        if (dataUrl) return dataUrl;
+      }
+    } catch {
+      // Fallback para URL assinada/publica quando o download via storage nao estiver disponivel.
+    }
+  }
+
+  return resolveInlineImageHref(params.fallbackUrl || "", params.appOrigin);
 }
 
 export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResult> {
@@ -563,6 +630,7 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   const mensagemRaw = limitText(url.searchParams.get("mensagem"), MAX_TEXT_PARAM_LENGTH);
   const photoUrlRaw = sanitizeImageUrl(String(url.searchParams.get("photo_url") || url.searchParams.get("photo") || ""), url.origin);
   const logoUrlRaw = sanitizeImageUrl(String(url.searchParams.get("logo_url") || url.searchParams.get("logo") || ""), url.origin);
+  const logoPathRaw = sanitizeStoragePath(url.searchParams.get("logo_path"));
   const templateIdRaw = limitText(url.searchParams.get("template_id"), 80);
   const templateId = isUuid(templateIdRaw) ? templateIdRaw : "";
   const themeIdRaw = limitText(url.searchParams.get("theme_id"), 80);
@@ -585,12 +653,34 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
 
   let themeRow: ThemeRow | null = null;
   if (canReadStoredRows && (themeId || themeName)) {
-    let themeQuery = client
-      .from("user_message_template_themes")
-      .select("id, nome, asset_url, storage_path, width_px, height_px, title_style, body_style, signature_style");
-    if (themeId) themeQuery = themeQuery.eq("id", themeId);
-    else themeQuery = themeQuery.eq("nome", themeName);
-    const themeResp = await themeQuery.maybeSingle();
+    const themeSelectWithLogo = "id, nome, asset_url, storage_path, logo_url, logo_path, width_px, height_px, title_style, body_style, signature_style";
+    const themeSelectLegacy = "id, nome, asset_url, storage_path, width_px, height_px, title_style, body_style, signature_style";
+    let themeResp = themeId
+      ? await client
+          .from("user_message_template_themes")
+          .select(themeSelectWithLogo)
+          .eq("id", themeId)
+          .maybeSingle()
+      : await client
+          .from("user_message_template_themes")
+          .select(themeSelectWithLogo)
+          .eq("nome", themeName)
+          .maybeSingle();
+
+    if (themeResp.error && isThemeLogoColumnMissingError(themeResp.error)) {
+      themeResp = themeId
+        ? await client
+            .from("user_message_template_themes")
+            .select(themeSelectLegacy)
+            .eq("id", themeId)
+            .maybeSingle()
+        : await client
+            .from("user_message_template_themes")
+            .select(themeSelectLegacy)
+            .eq("nome", themeName)
+            .maybeSingle();
+    }
+
     if (!themeResp.error && themeResp.data) themeRow = themeResp.data as ThemeRow;
     if (!themeId && themeRow?.id) themeId = String(themeRow.id);
   }
@@ -741,7 +831,13 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   const hideClientName = Boolean(showPhoto && themeLayout?.photo?.hideClientNameWhenPhoto);
   const hideBody = Boolean(showPhoto && themeLayout?.photo?.hideBodyWhenPhoto);
   const visibility = themeLayout?.visibility;
-  const logoUrl = await resolveInlineImageHref(absoluteAssetUrl(url.origin, logoUrlRaw), url.origin);
+  const themeLogoUrlRaw = sanitizeImageUrl(String(themeRow?.logo_url || ""), url.origin);
+  const logoUrl = await resolveStorageImageHref({
+    client,
+    storagePath: logoPathRaw || themeRow?.logo_path || "",
+    fallbackUrl: absoluteAssetUrl(url.origin, logoUrlRaw || themeLogoUrlRaw),
+    appOrigin: url.origin,
+  });
   const backgroundUrl = await resolveInlineImageHref(
     absoluteAssetUrl(
       url.origin,

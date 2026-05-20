@@ -59,6 +59,8 @@ type ThemeSelectionRow = {
   nome: string | null;
   asset_url?: string | null;
   storage_path?: string | null;
+  logo_url?: string | null;
+  logo_path?: string | null;
 };
 
 type ScopeValue = "system" | "master" | "gestor" | "user";
@@ -75,6 +77,20 @@ function normalizeScope(value?: string | null): ScopeValue {
   )
     return scope;
   return "system";
+}
+
+function isThemeLogoColumnMissingError(error: unknown) {
+  const message = String(
+    error && typeof error === "object" && "message" in error
+      ? (error as { message?: unknown }).message || ""
+      : error || "",
+  ).toLowerCase();
+  return (
+    (message.includes("column") && message.includes("logo_url")) ||
+    (message.includes("column") && message.includes("logo_path")) ||
+    message.includes("logo_url does not exist") ||
+    message.includes("logo_path does not exist")
+  );
 }
 
 function inCompany(companyId: string | null, allowed: Set<string>) {
@@ -347,11 +363,19 @@ export const POST: RequestHandler = async (event) => {
       requestedThemeId || String(tpl.theme_id || "").trim();
     let selectedTheme: ThemeSelectionRow | null = null;
     if (selectedThemeId) {
-      const { data: themeRow, error: themeError } = await client
+      let themeResp = await client
         .from("user_message_template_themes")
-        .select("id, user_id, company_id, scope, nome, asset_url, storage_path")
+        .select("id, user_id, company_id, scope, nome, asset_url, storage_path, logo_url, logo_path")
         .eq("id", selectedThemeId)
         .maybeSingle();
+      if (themeResp.error && isThemeLogoColumnMissingError(themeResp.error)) {
+        themeResp = await client
+          .from("user_message_template_themes")
+          .select("id, user_id, company_id, scope, nome, asset_url, storage_path")
+          .eq("id", selectedThemeId)
+          .maybeSingle();
+      }
+      const { data: themeRow, error: themeError } = themeResp;
       if (themeError) throw themeError;
       if (
         themeRow &&
@@ -384,6 +408,14 @@ export const POST: RequestHandler = async (event) => {
       const themeAsset = resolveThemeAssetMeta(selectedTheme);
       cardParams.set("theme_name", String(selectedTheme.nome || ""));
       if (themeAsset.asset_url) cardParams.set("theme_asset_url", themeAsset.asset_url);
+      if (selectedTheme.logo_path) cardParams.set("logo_path", String(selectedTheme.logo_path));
+      if (selectedTheme.logo_url) cardParams.set("logo_url", String(selectedTheme.logo_url));
+    }
+    if (!cardParams.has("logo_path") && brandingRow?.logo_path) {
+      cardParams.set("logo_path", String(brandingRow.logo_path));
+    }
+    if (!cardParams.has("logo_url") && brandingRow?.logo_url) {
+      cardParams.set("logo_url", String(brandingRow.logo_url));
     }
 
     const cardUrlPng = `${origin}/api/v1/cards/render.png?${cardParams.toString()}`;
