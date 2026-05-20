@@ -549,9 +549,8 @@ export async function GET(event) {
             ? {
                 mode: "stale-while-revalidate" as const,
                 executionContext: getExecutionContext(event.platform),
-                fallbackToRawOnReadError: false,
-                fallbackToRawWhenEmpty:
-                  salesVendedorIds.length > 0 || companyIds.length === 1,
+                fallbackToRawOnReadError: true,
+                fallbackToRawWhenEmpty: true,
               }
             : undefined;
 

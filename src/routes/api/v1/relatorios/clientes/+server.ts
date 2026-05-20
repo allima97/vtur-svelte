@@ -246,7 +246,8 @@ export async function GET(event) {
           ? {
               mode: "stale-while-revalidate",
               executionContext: getPlatformExecutionContext(event.platform),
-              fallbackToRawOnReadError: false,
+              fallbackToRawOnReadError: true,
+              fallbackToRawWhenEmpty: true,
             }
           : undefined);
 

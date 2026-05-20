@@ -62,7 +62,19 @@ export interface UserScope {
 export const NO_MATCH_COMPANY_ID = "00000000-0000-0000-0000-000000000000";
 const DEBUG_ENDPOINT_ENABLED_VALUES = new Set(["1", "true", "yes", "on"]);
 const DEBUG_ENDPOINT_PRODUCTION_VALUES = new Set(["production", "force-production"]);
-const UNFILTERED_REQUEST_VALUES = new Set(["*", "all", "todos", "todas", "todo", "toda", "null", "undefined"]);
+const UNFILTERED_REQUEST_VALUES = new Set([
+  "*",
+  "all",
+  "todos",
+  "todas",
+  "todo",
+  "toda",
+  "todos os vendedores",
+  "todas as empresas",
+  "selecione uma opcao",
+  "null",
+  "undefined",
+]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type HttpErrorLike = {
@@ -730,7 +742,11 @@ export function resolveScopedCompanyIds(
   scope: UserScope,
   requestedCompanyId?: string | null,
 ) {
-  const companyId = String(requestedCompanyId || "").trim();
+  const rawCompanyId = String(requestedCompanyId || "").trim();
+  const normalizedCompanyId = normalizeText(rawCompanyId);
+  const companyId = UNFILTERED_REQUEST_VALUES.has(normalizedCompanyId)
+    ? ""
+    : rawCompanyId;
   const scopedCompanyIds = Array.from(
     new Set((scope.companyIds || []).filter(isUuid)),
   );
