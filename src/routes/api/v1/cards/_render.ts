@@ -14,7 +14,7 @@ import {
   buildCardClientGreeting,
   DEFAULT_CARD_FOOTER_LEAD,
 } from '$lib/cards/templateRuntime';
-import { isUuid } from '$lib/server/v1';
+import { getAdminClient, isUuid } from '$lib/server/v1';
 
 export type CardStyle = {
   x?: number;
@@ -498,9 +498,35 @@ function absoluteAssetUrl(origin: string, assetUrl: string) {
 }
 
 function sanitizeStoragePath(value?: string | null) {
-  const raw = limitText(value, 512).replace(/\\/g, "/").replace(/^\/+/, "");
+  const raw = limitText(value, 512)
+    .split("#")[0]
+    .split("?")[0]
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/^storage\/v1\/object\/public\/quotes\//, "")
+    .replace(/^storage\/v1\/object\/sign\/quotes\//, "")
+    .replace(/^quotes\//, "");
   if (!raw || raw.includes("..") || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return "";
   return raw;
+}
+
+function extractQuoteStoragePath(value?: string | null) {
+  const raw = limitText(value, MAX_URL_PARAM_LENGTH);
+  if (!raw) return "";
+  const withoutQuery = raw.split("#")[0].split("?")[0];
+  const markers = [
+    "/storage/v1/object/public/quotes/",
+    "/storage/v1/object/sign/quotes/",
+    "/quotes/",
+  ];
+
+  for (const marker of markers) {
+    const index = withoutQuery.indexOf(marker);
+    if (index === -1) continue;
+    return sanitizeStoragePath(withoutQuery.slice(index + marker.length));
+  }
+
+  return sanitizeStoragePath(withoutQuery);
 }
 
 function guessImageMimeFromPath(path?: string | null) {
@@ -566,10 +592,13 @@ async function resolveStorageImageHref(params: {
   fallbackUrl?: string | null;
   appOrigin: string;
 }) {
-  const storagePath = sanitizeStoragePath(params.storagePath);
+  const fallbackUrl = params.fallbackUrl || "";
+  const storagePath =
+    sanitizeStoragePath(params.storagePath) ||
+    extractQuoteStoragePath(fallbackUrl);
   if (storagePath) {
     try {
-      const { data, error } = await params.client.storage
+      const { data, error } = await getAdminClient().storage
         .from(LOGO_BUCKET)
         .download(storagePath);
       if (!error && data) {
@@ -584,7 +613,15 @@ async function resolveStorageImageHref(params: {
     }
   }
 
-  return resolveInlineImageHref(params.fallbackUrl || "", params.appOrigin);
+  const fallbackHref = await resolveInlineImageHref(fallbackUrl, params.appOrigin);
+  if (!fallbackHref) return "";
+  if (fallbackHref.startsWith("data:")) return fallbackHref;
+  try {
+    const parsed = new URL(fallbackHref);
+    return parsed.origin === params.appOrigin ? fallbackHref : "";
+  } catch {
+    return fallbackHref.startsWith("/") ? fallbackHref : "";
+  }
 }
 
 export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResult> {

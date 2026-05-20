@@ -86,11 +86,29 @@ function inCompany(companyId: string | null, allowed: Set<string>) {
 }
 
 function extractStoragePath(value?: string | null) {
-  if (!value) return null;
-  const marker = "/quotes/";
-  const index = value.indexOf(marker);
-  if (index === -1) return null;
-  return value.slice(index + marker.length);
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const withoutQuery = raw.split("#")[0].split("?")[0];
+  const markers = [
+    "/storage/v1/object/public/quotes/",
+    "/storage/v1/object/sign/quotes/",
+    "/quotes/",
+  ];
+
+  for (const marker of markers) {
+    const index = withoutQuery.indexOf(marker);
+    if (index === -1) continue;
+    return withoutQuery
+      .slice(index + marker.length)
+      .replace(/^\/+/, "")
+      .replace(/^quotes\//, "") || null;
+  }
+
+  if (/^[a-z][a-z0-9+.-]*:/i.test(withoutQuery)) return null;
+
+  return withoutQuery
+    .replace(/^\/+/, "")
+    .replace(/^quotes\//, "") || null;
 }
 
 function cleanUrl(value?: string | null) {
