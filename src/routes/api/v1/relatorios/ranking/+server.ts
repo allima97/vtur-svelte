@@ -429,10 +429,7 @@ export async function GET(event) {
     }
 
     // Montagem simplificada do ranking: conciliação + vendas manuais, dedup por recibo
-    const useNonBlockingReadModel =
-      (isAdminByType || isMasterByType) &&
-      companyIds.length > 1 &&
-      !hasRequestedVendedorFilter;
+    const useNonBlockingReadModel = companyIds.length > 0;
     const readModelOptions = useNonBlockingReadModel
       ? {
           mode: "stale-while-revalidate" as const,
@@ -459,8 +456,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 300_000,
-          staleTtlMs: 1_800_000,
+          ttlMs: 30_000,
+          staleTtlMs: 300_000,
           loader: () =>
             buildRankingSimple(client, {
               dataInicio,

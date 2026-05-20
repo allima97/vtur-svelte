@@ -1537,6 +1537,17 @@ export async function fetchVendasKpiDashboardSummary(
         return aggregated;
       }
 
+      if (readModelOptions?.fallbackToRawOnReadError === false) {
+        scheduleReciboContribuicoesReadModelEnsure(
+          client,
+          params,
+          (loaderParams) =>
+            fetchVendasKpiReciboContributionsRaw(getAdminClient(), loaderParams),
+          readModelOptions?.executionContext,
+        );
+        return aggregated;
+      }
+
       // Um RPC vazio pode significar read model ainda não reconstruído. Nesse caso
       // bloqueamos uma vez para popular/ler a tabela antes de responder zero real.
       return buildDashboardSummaryFromContributions(

@@ -462,7 +462,8 @@
     const params = buildRelatorioParams(start, end);
     return apiFetch<RelatorioPayload>('/api/v1/relatorios/vendas', {
       method: 'GET',
-      timeoutMs: 90_000,
+      timeoutMs: 120_000,
+      cacheTtlMs: 30_000,
       signal,
       query: {
         ...Object.fromEntries(params),

@@ -242,7 +242,8 @@
     try {
       const data = await apiFetch<{ items: VendedorRanking[]; resumo: Resumo }>('/api/v1/relatorios/ranking', {
         method: 'GET',
-        timeoutMs: 90_000,
+        timeoutMs: 120_000,
+        cacheTtlMs: 30_000,
         signal: controller.signal,
         query: {
           data_inicio: dataInicio,

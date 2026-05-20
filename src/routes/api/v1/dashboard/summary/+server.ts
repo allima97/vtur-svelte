@@ -368,8 +368,8 @@ export async function GET(event) {
 
     const payload = await getCachedReadModel({
       key: dashboardCacheKey,
-      ttlMs: 300_000,
-      staleTtlMs: 1_800_000,
+      ttlMs: 30_000,
+      staleTtlMs: 300_000,
       tags: [
         READ_MODEL_TAGS.dashboard,
         READ_MODEL_TAGS.sales,
@@ -544,10 +544,14 @@ export async function GET(event) {
           return data;
         };
 
-        const useNonBlockingReadModel =
-          (isAdminByType || isMasterByType) &&
-          companyIds.length > 1 &&
-          !hasRequestedVendedorFilter;
+        const readModelOptions =
+          companyIds.length > 0
+            ? {
+                mode: "stale-while-revalidate" as const,
+                executionContext: getExecutionContext(event.platform),
+                fallbackToRawOnReadError: false,
+              }
+            : undefined;
 
         const [vendasSummary, metasResult, orcamentos, widgetPrefsData] =
           await Promise.all([
@@ -557,11 +561,7 @@ export async function GET(event) {
               companyIds,
               vendedorIds: salesVendedorIds,
               accessibleClientIds,
-            }, useNonBlockingReadModel ? {
-              mode: "stale-while-revalidate",
-              executionContext: getExecutionContext(event.platform),
-              fallbackToRawOnReadError: false,
-            } : undefined),
+            }, readModelOptions),
             fetchMetasParallel(),
             fetchOrcamentosParallel(),
             fetchWidgetPrefsParallel(),

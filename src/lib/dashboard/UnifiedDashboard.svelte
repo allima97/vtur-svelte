@@ -30,7 +30,7 @@
     Clock
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import {
     buildDashboardPrefsPayload,
     createVisibilityMap,
@@ -642,13 +642,19 @@
     errorMessage = null;
 
     try {
-      const data = await apiGet<DashboardSummaryResponse>('/api/v1/dashboard/summary', {
-        inicio: periodoInicio,
-        fim: periodoFim,
-        include_orcamentos: shouldRequestOrcamentos() ? 1 : 0,
-        company_id: empresaSelecionada || undefined,
-        vendedor_ids: vendedorSelecionado || undefined
-      }, controller.signal, 60_000);
+      const data = await apiFetch<DashboardSummaryResponse>('/api/v1/dashboard/summary', {
+        method: 'GET',
+        signal: controller.signal,
+        timeoutMs: 90_000,
+        cacheTtlMs: 30_000,
+        query: {
+          inicio: periodoInicio,
+          fim: periodoFim,
+          include_orcamentos: shouldRequestOrcamentos() ? 1 : 0,
+          company_id: empresaSelecionada || undefined,
+          vendedor_ids: vendedorSelecionado || undefined
+        }
+      });
       if (requestSeq !== dashboardRequestSeq) return;
 
       vendasAgg = data.vendasAgg || vendasAgg;
