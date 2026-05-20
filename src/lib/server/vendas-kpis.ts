@@ -538,9 +538,13 @@ async function fetchResolvedRowsUncached(
     companyIds: string[];
     vendedorIds: string[];
     accessibleClientIds?: string[];
+    deferVendedorScopeFilter?: boolean;
   },
 ) {
   const normalizedCompanyIds = normalizeCompanyScopeIds(params.companyIds);
+  const initialVendedorIds = params.deferVendedorScopeFilter
+    ? []
+    : params.vendedorIds;
 
   // --- Fase 1: buscar dados independentes em paralelo ---
   // baixaRac e conciliacaoCompanyIds são independentes entre si e das vendas.
@@ -549,7 +553,7 @@ async function fetchResolvedRowsUncached(
     fetchConciliacaoCompanyIds(client, normalizedCompanyIds).catch(() => [] as string[]),
     fetchSalesReportRows(client, {
       companyIds: normalizedCompanyIds,
-      vendedorIds: params.vendedorIds,
+      vendedorIds: initialVendedorIds,
       includeCancelled: false,
       dataInicio: params.dataInicio,
       dataFim: params.dataFim,
@@ -849,11 +853,13 @@ async function fetchResolvedRows(
     companyIds: string[];
     vendedorIds: string[];
     accessibleClientIds?: string[];
+    deferVendedorScopeFilter?: boolean;
   },
 ) {
   const companyIds = normalizeIdScope(params.companyIds);
   const vendedorIds = normalizeIdScope(params.vendedorIds);
   const accessibleClientIds = normalizeIdScope(params.accessibleClientIds);
+  const deferVendedorScopeFilter = Boolean(params.deferVendedorScopeFilter);
 
   const key = buildReadModelCacheKey("vendas-resolved-rows", {
     dataInicio: params.dataInicio,
@@ -861,6 +867,7 @@ async function fetchResolvedRows(
     companyIds,
     vendedorIds,
     accessibleClientIds,
+    deferVendedorScopeFilter,
   });
 
   return getCachedReadModel({
@@ -880,6 +887,7 @@ async function fetchResolvedRows(
         companyIds,
         vendedorIds,
         accessibleClientIds,
+        deferVendedorScopeFilter,
       }),
   });
 }
@@ -1135,8 +1143,15 @@ export async function fetchVendasKpiReciboContributionsRaw(
   agg: VendasKpiAgg;
   contributions: VendasKpiReciboContribution[];
 }> {
+  const shouldDeferVendedorScopeFilter =
+    params.vendedorIds.length > 0 &&
+    normalizeCompanyScopeIds(params.companyIds).length === 1;
+
   const [{ rows, rateioMap }, termosNaoComissionaveis] = await Promise.all([
-    fetchResolvedRows(client, params),
+    fetchResolvedRows(client, {
+      ...params,
+      deferVendedorScopeFilter: shouldDeferVendedorScopeFilter,
+    }),
     carregarTermosNaoComissionaveis(client),
   ]);
 
