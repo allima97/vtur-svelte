@@ -1303,9 +1303,25 @@
             .preview-footer-card { padding: 12px 14px; margin: 0 0 12px 0; font-size: 10px; color: #64748b; }
             .preview-complement-img { margin: 12px 0 0 0; text-align: center; }
             .preview-complement-img img { max-height: 170px; max-width: 100%; }
-            .hotel-preview-table.preview-table { font-size: 13px; }
+            .hotel-preview-table.preview-table {
+              font-size: 13px;
+              table-layout: fixed;
+              width: 100%;
+            }
             .hotel-preview-table.preview-table thead th { font-size: 12px; }
             .hotel-preview-table.preview-table tbody td { font-size: 13px; }
+            .hotel-preview-table.preview-table th:nth-child(1),
+            .hotel-preview-table.preview-table td:nth-child(1) { width: 24%; }
+            .hotel-preview-table.preview-table th:nth-child(2),
+            .hotel-preview-table.preview-table td:nth-child(2) { width: 13%; white-space: nowrap; }
+            .hotel-preview-table.preview-table th:nth-child(3),
+            .hotel-preview-table.preview-table td:nth-child(3) { width: 13%; white-space: nowrap; }
+            .hotel-preview-table.preview-table th:nth-child(4),
+            .hotel-preview-table.preview-table td:nth-child(4) { width: 8%; white-space: nowrap; text-align: center; }
+            .hotel-preview-table.preview-table th:nth-child(5),
+            .hotel-preview-table.preview-table td:nth-child(5) { width: 18%; }
+            .hotel-preview-table.preview-table th:nth-child(6),
+            .hotel-preview-table.preview-table td:nth-child(6) { width: 24%; }
             .flight-preview-table.preview-table { font-size: 13px; }
             .flight-preview-table.preview-table thead th { font-size: 12px; }
             .flight-preview-table.preview-table tbody td { font-size: 13px; }
