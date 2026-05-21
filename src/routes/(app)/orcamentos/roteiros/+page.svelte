@@ -24,6 +24,15 @@
     updated_at: string | null;
   };
 
+  function mergeCidadesVisitadas(inicio?: string | null, fim?: string | null): string {
+    const origem = String(inicio || '').trim();
+    const destino = String(fim || '').trim();
+    if (origem && destino && origem.toLowerCase() !== destino.toLowerCase()) {
+      return `${origem} • ${destino}`;
+    }
+    return origem || destino;
+  }
+
   let roteiros: Roteiro[] = [];
   let loading = true;
   let modalOpen = false;
@@ -33,7 +42,7 @@
   let loadController: AbortController | null = null;
   let loadSeq = 0;
 
-  let form = { nome: '', duracao: '', inicio_cidade: '', fim_cidade: '' };
+  let form = { nome: '', duracao: '', cidades_visitadas: '' };
 
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
@@ -45,16 +54,10 @@
       formatter: (v: number | null) => v ? `${v} dias` : '-'
     },
     {
-      key: 'inicio_cidade',
-      label: 'Origem',
-      sortable: true,
-      formatter: (v: string | null) => v || '-'
-    },
-    {
-      key: 'fim_cidade',
-      label: 'Destino',
-      sortable: true,
-      formatter: (v: string | null) => v || '-'
+      key: 'cidades_visitadas',
+      label: 'Cidades Visitadas',
+      sortable: false,
+      formatter: (_v: unknown, row: Roteiro) => mergeCidadesVisitadas(row.inicio_cidade, row.fim_cidade) || '-'
     },
     {
       key: 'updated_at',
@@ -86,7 +89,7 @@
 
   function openNew() {
     editingId = null;
-    form = { nome: '', duracao: '', inicio_cidade: '', fim_cidade: '' };
+    form = { nome: '', duracao: '', cidades_visitadas: '' };
     modalOpen = true;
   }
 
@@ -95,8 +98,7 @@
     form = {
       nome: r.nome,
       duracao: r.duracao != null ? String(r.duracao) : '',
-      inicio_cidade: r.inicio_cidade || '',
-      fim_cidade: r.fim_cidade || ''
+      cidades_visitadas: mergeCidadesVisitadas(r.inicio_cidade, r.fim_cidade)
     };
     modalOpen = true;
   }
@@ -109,8 +111,8 @@
         id: editingId || undefined,
         nome: form.nome,
         duracao: form.duracao ? Number(form.duracao) : null,
-        inicio_cidade: form.inicio_cidade || null,
-        fim_cidade: form.fim_cidade || null
+        inicio_cidade: form.cidades_visitadas || null,
+        fim_cidade: null
       });
       toast.success(editingId ? 'Roteiro atualizado.' : 'Roteiro criado.');
       modalOpen = false;
@@ -212,7 +214,7 @@
       placeholder="Ex: Europa Clássica 10 dias"
       required={true}
     />
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <FieldInput
         id="rot-duracao"
         label="Duração (dias)"
@@ -223,18 +225,11 @@
         placeholder="10"
       />
       <FieldInput
-        id="rot-origem"
-        label="Cidade de origem"
-        bind:value={form.inicio_cidade}
+        id="rot-cidades-visitadas"
+        label="Cidades Visitadas"
+        bind:value={form.cidades_visitadas}
         class_name="w-full"
-        placeholder="Lisboa"
-      />
-      <FieldInput
-        id="rot-destino"
-        label="Cidade de destino"
-        bind:value={form.fim_cidade}
-        class_name="w-full"
-        placeholder="Paris"
+        placeholder="Ex: Lisboa • Paris • Roma"
       />
     </div>
   </div>

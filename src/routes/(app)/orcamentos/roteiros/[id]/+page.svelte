@@ -14,7 +14,7 @@
   import { FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { fetchImageAsDataUrl } from '$lib/utils/browser-images';
-  import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw } from 'lucide-svelte';
+  import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw, Copy } from 'lucide-svelte';
   import { ApiError, apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { diffDaysISODate } from '$lib/date';
@@ -193,6 +193,7 @@
   let loading = $state(true);
   let loadError = $state('');
   let saving = $state(false);
+  let duplicating = $state(false);
   let previewingPdf = $state(false);
   let abaAtiva: AbaId = $state('itinerario');
 
@@ -204,6 +205,15 @@
   let incluiTexto = $state('');
   let naoIncluiTexto = $state('');
   let informacoesImportantes = $state('');
+
+  function mergeCidadesVisitadas(inicio?: string | null, fim?: string | null): string {
+    const origem = String(inicio || '').trim();
+    const destino = String(fim || '').trim();
+    if (origem && destino && origem.toLowerCase() !== destino.toLowerCase()) {
+      return `${origem} • ${destino}`;
+    }
+    return origem || destino;
+  }
 
   // Lists
   let dias: RotDia[] = $state([]);
@@ -572,8 +582,8 @@
 
       nome = r.nome || '';
       duracao = r.duracao != null ? String(r.duracao) : '';
-      inicioCidade = r.inicio_cidade || '';
-      fimCidade = r.fim_cidade || '';
+      inicioCidade = mergeCidadesVisitadas(r.inicio_cidade, r.fim_cidade);
+      fimCidade = '';
       incluiTexto = r.inclui_texto || '';
       naoIncluiTexto = r.nao_inclui_texto || '';
       informacoesImportantes = r.informacoes_importantes || '';
@@ -636,7 +646,7 @@
         nome: nome.trim(),
         duracao: duracao ? Number(duracao) : null,
         inicio_cidade: inicioCidade.trim() || null,
-        fim_cidade: fimCidade.trim() || null,
+        fim_cidade: null,
         inclui_texto: incluiTexto || null,
         nao_inclui_texto: naoIncluiTexto || null,
         informacoes_importantes: informacoesImportantes || null,
@@ -652,6 +662,53 @@
       toast.error(toUserMessage(err, 'Erro ao salvar.'));
     } finally {
       saving = false;
+    }
+  }
+
+  function buildDuplicateName(baseName: string): string {
+    const normalized = baseName.trim() || 'Roteiro';
+    return /\(copia\)$/i.test(normalized) ? normalized : `${normalized} (Cópia)`;
+  }
+
+  async function duplicateRoteiro() {
+    if (duplicating || saving) return;
+    if (!nome.trim()) {
+      toast.error('Preencha o nome do roteiro antes de duplicar.');
+      return;
+    }
+
+    if (browser && !window.confirm('Deseja duplicar este roteiro? Será criada uma nova cópia para edição.')) {
+      return;
+    }
+
+    duplicating = true;
+    try {
+      const payload = await apiPost<{ id?: string }>('/api/v1/roteiros/save', {
+        nome: buildDuplicateName(nome),
+        duracao: duracao ? Number(duracao) : null,
+        inicio_cidade: inicioCidade.trim() || null,
+        fim_cidade: null,
+        inclui_texto: incluiTexto || null,
+        nao_inclui_texto: naoIncluiTexto || null,
+        informacoes_importantes: informacoesImportantes || null,
+        dias: dias.map((d, i) => ({ ...d, ordem: i })),
+        hoteis: hoteis.map((h, i) => ({ ...h, ordem: i })),
+        passeios: passeios.map((p, i) => ({ ...p, ordem: i })),
+        transportes: transportes.map((t, i) => ({ ...t, ordem: i })),
+        investimentos: investimentos.map((inv, i) => ({ ...inv, ordem: i })),
+        pagamentos: pagamentos.map((p, i) => ({ ...p, ordem: i }))
+      });
+
+      if (!payload?.id) {
+        throw new Error('Não foi possível obter o ID do roteiro duplicado.');
+      }
+
+      toast.success('Roteiro duplicado com sucesso!');
+      await goto(`/orcamentos/roteiros/${payload.id}`);
+    } catch (err) {
+      toast.error(toUserMessage(err, 'Erro ao duplicar roteiro.'));
+    } finally {
+      duplicating = false;
     }
   }
 
@@ -1442,7 +1499,8 @@
       { label: nome || 'Roteiro' }
     ]}
     actions={[
-      { label: 'Voltar', href: '/orcamentos/roteiros', variant: 'secondary', icon: ArrowLeft }
+      { label: 'Voltar', href: '/orcamentos/roteiros', variant: 'secondary', icon: ArrowLeft },
+      { label: 'Duplicar', onClick: duplicateRoteiro, variant: 'secondary', icon: Copy }
     ]}
   />
 
@@ -1455,29 +1513,12 @@
       <div>
         <FieldInput label="Duração (dias)" type="number" min="1" bind:value={duracao} placeholder="Ex: 7" id="rot-dur" />
       </div>
-      <div>
-        <FieldDatalistInput
-          id="rot-orig"
-          label="Cidade / Início"
+      <div class="lg:col-span-2">
+        <FieldInput
+          id="rot-cidades-visitadas"
+          label="Cidades Visitadas"
           bind:value={inicioCidade}
-          placeholder="Ex: São Paulo"
-          options={sugestoes['cidade'] || []}
-          class_name="w-full"
-          listId="sugestoes-cidade"
-        />
-        <datalist id="sugestoes-cidade">
-          {#each (sugestoes['cidade'] || []) as s}<option value={s}></option>{/each}
-        </datalist>
-      </div>
-      <div>
-        <FieldDatalistInput
-          id="rot-dest"
-          label="Cidade / Fim"
-          bind:value={fimCidade}
-          placeholder="Ex: Lisboa"
-          options={sugestoes['cidade'] || []}
-          class_name="w-full"
-          listId="sugestoes-cidade"
+          placeholder="Ex: São Luís • Barreirinhas • Parnaíba • Teresina"
         />
       </div>
     </div>
@@ -1487,6 +1528,10 @@
       <Button type="button" variant="secondary" size="sm" loading={previewingPdf} on:click={handlePreviewPdf}>
         <FileText size={14} class="mr-1" />
         Visualizar PDF
+      </Button>
+      <Button type="button" variant="secondary" size="sm" loading={duplicating} on:click={duplicateRoteiro}>
+        <Copy size={14} class="mr-1" />
+        Duplicar roteiro
       </Button>
       <Button type="button" variant="primary" color="clientes" size="sm" loading={saving} on:click={save}>
         <Save size={14} class="mr-1" />
@@ -2488,6 +2533,10 @@
     <Button type="button" variant="secondary" loading={previewingPdf} on:click={handlePreviewPdf}>
       <FileText size={16} class="mr-2" />
       Visualizar PDF
+    </Button>
+    <Button type="button" variant="secondary" loading={duplicating} on:click={duplicateRoteiro}>
+      <Copy size={16} class="mr-2" />
+      Duplicar roteiro
     </Button>
     <Button type="button" variant="primary" color="clientes" loading={saving} on:click={save}>
       <Save size={16} class="mr-2" />
