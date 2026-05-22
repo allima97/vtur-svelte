@@ -180,7 +180,7 @@
       id="nc-termo"
       label="Termo *"
       bind:value={form.termo}
-      placeholder="Ex: SEGURO, DU, RAV"
+      placeholder="Ex: SEGURO, DU, RAV/RAC"
       class_name="w-full"
     />
     <p class="text-xs text-slate-500">Texto que será buscado nos recibos (case-insensitive).</p>

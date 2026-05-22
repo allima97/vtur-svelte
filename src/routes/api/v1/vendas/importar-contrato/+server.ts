@@ -144,6 +144,16 @@ function parseMoney(value?: number | null) {
   return Number(value);
 }
 
+function getContratoValorDu(contrato: ContratoDraft, isFacialRextur: boolean) {
+  if (isFacialRextur) return 0;
+  return parseMoney(contrato.taxa_du);
+}
+
+function getContratoValorRavRac(contrato: ContratoDraft, isFacialRextur: boolean) {
+  if (!isFacialRextur) return 0;
+  return parseMoney(contrato.taxa_du) + parseMoney(contrato.rc);
+}
+
 function normalizeRexturLocalizador(value?: string | null) {
   return String(value || '')
     .trim()
@@ -843,7 +853,8 @@ export async function POST(event) {
           tipo_pacote: contrato.tipo_pacote || null,
           valor_total: parseMoney(contrato.total_pago ?? contrato.total_bruto),
           valor_taxas: parseMoney(contrato.taxas_embarque),
-          valor_du: parseMoney(contrato.taxa_du),
+          valor_du: getContratoValorDu(contrato, isFacialRextur),
+          valor_rav: getContratoValorRavRac(contrato, isFacialRextur),
           data_venda: dataVenda,
           data_inicio: contrato.data_saida || null,
           data_fim: contrato.data_retorno || null,

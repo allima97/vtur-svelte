@@ -34,7 +34,7 @@ describe('extractRexturFromText', () => {
     expect(result.contratos[0].taxas_embarque).toBe(120);
   });
 
-  it('soma RC em Tax. Emb. quando a reserva Rextur tem coluna RC', () => {
+  it('mantém RC/RAC junto do RAV, fora das taxas, quando a reserva Rextur tem coluna RC', () => {
     const result = extractRexturFromText(`
       Reserva Aérea - GW / NAMD / IB / BYARDM
       passageiros
@@ -49,9 +49,26 @@ describe('extractRexturFromText', () => {
     `);
 
     expect(result.contratos[0].reserva_numero).toBe('BYARDM');
-    expect(result.contratos[0].taxas_embarque).toBeCloseTo(677.82, 2);
+    expect(result.contratos[0].taxas_embarque).toBeCloseTo(283.88, 2);
     expect(result.contratos[0].taxa_du).toBe(80);
     expect(result.contratos[0].rc).toBe(393.94);
     expect(result.contratos[0].total_pago).toBe(1633.48);
+  });
+
+  it('também reconhece coluna RAC como equivalente ao RC/RAV', () => {
+    const result = extractRexturFromText(`
+      Reserva Aérea - GW / NAMD / IB / BYARDM
+      passageiros
+      ADT FURLANETO FRIAS MOURA ANDRE Masculino Emitida
+      tarifas
+      sobrenome/nome moeda câmbio tarifa original tarifa tax. emb. rav rac total
+      FURLANETO FRIAS MOURA/ANDRE USD 4,9584 US$ 88,30 R$ 437,83 R$ 141,94 R$ 40,00 R$ 196,97 R$ 816,74
+      US$ 88,30 R$ 437,83 R$ 141,94 R$ 40,00 R$ 196,97 R$ 816,74
+      tarifar
+    `);
+
+    expect(result.contratos[0].taxas_embarque).toBeCloseTo(141.94, 2);
+    expect(result.contratos[0].taxa_du).toBe(40);
+    expect(result.contratos[0].rc).toBe(196.97);
   });
 });

@@ -964,7 +964,7 @@
                   <FieldInput id={`venda-nova-recibo-du-${index}`} label="DU" bind:value={recibo.valor_du} class_name="w-full" />
                 </div>
                 <div>
-                  <FieldInput id={`venda-nova-recibo-rav-${index}`} label="RAV" bind:value={recibo.valor_rav} class_name="w-full" />
+                  <FieldInput id={`venda-nova-recibo-rav-${index}`} label="RAV/RAC" bind:value={recibo.valor_rav} class_name="w-full" />
                 </div>
                 <div>
                   <FieldInput id={`venda-nova-recibo-contrato-url-${index}`} label="Contrato (URL)" bind:value={recibo.contrato_url} class_name="w-full" />

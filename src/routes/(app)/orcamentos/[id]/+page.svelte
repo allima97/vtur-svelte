@@ -105,7 +105,8 @@
 
   // ── Desconto para exportação PDF (somente aplicado no PDF, não salvo no BD)
   let exportDesconto = '';
-  let exportContentMode: "detalhes" | "itens" = "detalhes";
+  let exportShowBudgetItems: "sim" | "nao" = "nao";
+  let exportShowBudgetDetails: "sim" | "nao" = "sim";
   let exportShowItemValues: "sim" | "nao" = "nao";
   $: exportDescontoNum = (() => {
     const v = String(exportDesconto).replace(',', '.').trim();
@@ -299,7 +300,8 @@
       await openQuotePreview({
         quoteId: orcamentoId,
         supabase: supabaseBrowser,
-        contentMode: exportContentMode,
+        showBudgetItems: exportShowBudgetItems === "sim",
+        showBudgetDetails: exportShowBudgetDetails === "sim",
         showItemValues: exportShowItemValues === "sim",
         discount: exportDescontoNum,
       });
@@ -1057,7 +1059,7 @@
             <div>
               <p class="text-sm font-semibold text-slate-900">Opções do PDF</p>
               <p class="text-xs text-slate-500">
-                Escolha se a saída mostra os produtos detalhados ou somente a tabela de itens.
+                Escolha quais seções aparecem na saída do orçamento.
               </p>
             </div>
 
@@ -1072,34 +1074,31 @@
             />
 
             <div>
-              <p class="mb-2 block text-sm font-medium text-slate-700">Conteúdo do PDF</p>
-              <div class="grid grid-cols-1 gap-2">
-                <button
-                  type="button"
-                  class={`rounded-lg border px-3 py-2 text-left text-sm transition ${
-                    exportContentMode === "detalhes"
-                      ? "border-orcamentos-400 bg-white text-orcamentos-700 ring-2 ring-orcamentos-100"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                  }`}
-                  on:click={() => (exportContentMode = "detalhes")}
-                >
-                  <span class="block font-semibold">Produtos detalhados</span>
-                  <span class="block text-xs text-slate-500">Mostra item por item e oculta “Itens do orçamento”.</span>
-                </button>
+              <label for="export-show-budget-items" class="block text-sm font-medium text-slate-700 mb-1">
+                Mostrar Itens do orçamento?
+              </label>
+              <select
+                id="export-show-budget-items"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-none focus:ring-2 focus:ring-clientes-100"
+                bind:value={exportShowBudgetItems}
+              >
+                <option value="sim">Sim</option>
+                <option value="nao">Não</option>
+              </select>
+            </div>
 
-                <button
-                  type="button"
-                  class={`rounded-lg border px-3 py-2 text-left text-sm transition ${
-                    exportContentMode === "itens"
-                      ? "border-orcamentos-400 bg-white text-orcamentos-700 ring-2 ring-orcamentos-100"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                  }`}
-                  on:click={() => (exportContentMode = "itens")}
-                >
-                  <span class="block font-semibold">Itens do orçamento</span>
-                  <span class="block text-xs text-slate-500">Mostra somente a tabela resumida e oculta os detalhes.</span>
-                </button>
-              </div>
+            <div>
+              <label for="export-show-budget-details" class="block text-sm font-medium text-slate-700 mb-1">
+                Mostrar Detalhes do orçamento?
+              </label>
+              <select
+                id="export-show-budget-details"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-none focus:ring-2 focus:ring-clientes-100"
+                bind:value={exportShowBudgetDetails}
+              >
+                <option value="sim">Sim</option>
+                <option value="nao">Não</option>
+              </select>
             </div>
 
             <div>

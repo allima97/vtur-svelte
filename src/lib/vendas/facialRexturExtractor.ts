@@ -4,7 +4,7 @@
  * Campos extraídos:
  *  - LOC (número de reserva)
  *  - Passageiros: sobrenome, nome, gênero
- *  - Tarifas totais: tarifa, tax. emb. (taxas), rav, rc, total
+ *  - Tarifas totais: tarifa, tax. emb. (taxas), rav, rc/rac, total
  *  - Segmentos de voo: origem, destino, datas
  *
  * Regras fixas:
@@ -93,16 +93,16 @@ function extractTarifaTotals(text: string) {
   if (rows.length === 0) return null;
 
   const values = rows[rows.length - 1];
-  const hasRcColumn = /\brc\b/i.test(section);
+  const hasRacColumn = /\b(?:rc|rac)\b/i.test(section);
 
-  if (hasRcColumn && values.length >= 5) {
-    const [tarifa, taxaEmb, rav, rc, total] = values;
+  if (hasRacColumn && values.length >= 5) {
+    const [tarifa, taxaEmb, rav, rac, total] = values;
     return {
       tarifa,
-      taxaEmbarque: (taxaEmb || 0) + (rc || 0),
+      taxaEmbarque: taxaEmb,
       taxaEmbarqueOriginal: taxaEmb,
       rav,
-      rc,
+      rc: rac,
       total
     };
   }
@@ -233,7 +233,7 @@ export function extractRexturFromText(text: string): { contratos: ContratoDraft[
     throw new Error('Tarifas não encontradas. Verifique se o texto é uma Reserva Fácil Rextur.');
   }
 
-  const valorTotal = total ?? (tarifa ?? 0) + (taxaEmbarque ?? 0) + (rav ?? 0);
+  const valorTotal = total ?? (tarifa ?? 0) + (taxaEmbarque ?? 0) + (rav ?? 0) + (rc ?? 0);
 
   // ── MONTA ContratoDraft ──────────────────────────────────────────────────────
   const pagamento: PagamentoDraft = {
@@ -262,7 +262,7 @@ export function extractRexturFromText(text: string): { contratos: ContratoDraft[
     total_bruto: valorTotal,
     total_pago: valorTotal,
     taxas_embarque: taxaEmbarque,
-    taxa_du: rav,   // RAV mapeado como taxa_du
+    taxa_du: rav,   // RAV/RAC é persistido em valor_rav no importador
     rc,
     tipo_pacote: 'Passagem Facial',
     raw_text: text,

@@ -642,7 +642,7 @@
           ...c,
           produto_principal: isFacial ? 'Passagem Facial' : c.produto_principal,
           tipo_pacote: tipoPacoteFinal,
-          aplica_du: c.taxa_du != null && c.taxa_du > 0 ? true : null,
+          aplica_du: tipoImportacao !== 'facial_rextur' && c.taxa_du != null && c.taxa_du > 0 ? true : null,
           usar_cidade_padrao: true,
           destino_cidade_id: cidadeContratoId || null,
           produto_resolvido_id: produtoFinal
@@ -701,6 +701,16 @@
           }
         : c
     );
+  }
+
+  function getContratoRavRac(contrato: ContratoDraftUI) {
+    return Number(contrato.taxa_du || 0) + Number(contrato.rc || 0);
+  }
+
+  function getContratoTaxasPreview(contrato: ContratoDraftUI) {
+    const taxas = Number(contrato.taxas_embarque || 0);
+    if (tipoImportacao === 'facial_rextur') return taxas;
+    return taxas + Number(contrato.taxa_du || 0);
   }
 
   function formatCurrency(value?: number | null) {
@@ -776,7 +786,7 @@
       const payload = {
         contratos: contratos.map((c) => ({
           ...c,
-          taxa_du: c.aplica_du ? c.taxa_du : 0,
+          taxa_du: tipoImportacao === 'facial_rextur' ? c.taxa_du : c.aplica_du ? c.taxa_du : 0,
           destino_cidade_id: getCidadeContratoId(c),
           produto_resolvido_id: c.produto_resolvido_id || null
         })),
@@ -1018,9 +1028,17 @@
               <FieldInput
                 id={`contrato-taxas-${index}`}
                 label="Taxas"
-                value={formatCurrency((contrato.taxas_embarque || 0) + (contrato.taxa_du || 0))}
+                value={formatCurrency(getContratoTaxasPreview(contrato))}
                 disabled={true}
               />
+              {#if tipoImportacao === 'facial_rextur' && getContratoRavRac(contrato) > 0}
+                <FieldInput
+                  id={`contrato-rav-rac-${index}`}
+                  label="RAV/RAC"
+                  value={formatCurrency(getContratoRavRac(contrato))}
+                  disabled={true}
+                />
+              {/if}
             </div>
 
             <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -1052,7 +1070,7 @@
               {/if}
             </div>
 
-            {#if (tipoImportacao === 'cvc' || tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc') && (!isContratoLocacao(contrato) && contrato.taxa_du != null && contrato.taxa_du > 0)}
+            {#if (tipoImportacao === 'cvc' || tipoImportacao === 'facial_cvc') && (!isContratoLocacao(contrato) && contrato.taxa_du != null && contrato.taxa_du > 0)}
               <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p class="mb-2 text-sm font-medium text-slate-700">Taxa de DU comissionada</p>
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_140px] md:items-end">

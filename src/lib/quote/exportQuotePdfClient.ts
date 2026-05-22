@@ -56,8 +56,6 @@ export type QuoteItemForPdf = {
   }>;
 };
 
-export type QuotePdfContentMode = 'detalhes' | 'itens';
-
 export type QuoteForPdf = {
   id: string;
   created_at?: string | null;
@@ -552,7 +550,8 @@ function buildQuotePreviewHtmlSync(params: {
   logoUrl: string | null;
   qrUrl: string | null;
   complementUrl: string | null;
-  contentMode: QuotePdfContentMode;
+  showBudgetItems: boolean;
+  showBudgetDetails: boolean;
   showItemValues: boolean;
   discount?: number;
 }): string {
@@ -563,7 +562,8 @@ function buildQuotePreviewHtmlSync(params: {
     logoUrl,
     qrUrl,
     complementUrl,
-    contentMode,
+    showBudgetItems,
+    showBudgetDetails,
     showItemValues,
     discount = 0
   } = params;
@@ -665,15 +665,21 @@ function buildQuotePreviewHtmlSync(params: {
   let itensHtml = '';
   if (items.length === 0) {
     itensHtml = '<div class="orc-empty">Sem itens neste orçamento.</div>';
-  } else if (contentMode === 'itens') {
-    itensHtml += renderAllItemsTableHtml(items, showItemValues);
   } else {
-    for (const item of items) {
-      itensHtml += isFlightQuoteItem(item)
-        ? renderFlightItemHtml(item, showItemValues)
-        : isCircuitQuoteItem(item)
-          ? renderCircuitItemHtml(item, showItemValues)
-          : renderGenericItemHtml(item, showItemValues);
+    if (showBudgetItems) {
+      itensHtml += renderAllItemsTableHtml(items, showItemValues);
+    }
+    if (showBudgetDetails) {
+      for (const item of items) {
+        itensHtml += isFlightQuoteItem(item)
+          ? renderFlightItemHtml(item, showItemValues)
+          : isCircuitQuoteItem(item)
+            ? renderCircuitItemHtml(item, showItemValues)
+            : renderGenericItemHtml(item, showItemValues);
+      }
+    }
+    if (!showBudgetItems && !showBudgetDetails) {
+      itensHtml = '';
     }
   }
 
@@ -803,11 +809,19 @@ function buildQuotePreviewHtmlSync(params: {
 export async function openQuotePreview(params: {
   quoteId: string;
   supabase: SupabasePreviewClient;
-  contentMode?: QuotePdfContentMode;
+  showBudgetItems?: boolean;
+  showBudgetDetails?: boolean;
   showItemValues?: boolean;
   discount?: number;
 }): Promise<void> {
-  const { quoteId, supabase, contentMode = 'detalhes', showItemValues = true, discount = 0 } = params;
+  const {
+    quoteId,
+    supabase,
+    showBudgetItems = false,
+    showBudgetDetails = true,
+    showItemValues = true,
+    discount = 0
+  } = params;
 
   // 1. Autenticação
   const { data: authData } = await supabase.auth.getUser();
@@ -911,7 +925,8 @@ export async function openQuotePreview(params: {
     logoUrl,
     qrUrl,
     complementUrl,
-    contentMode,
+    showBudgetItems,
+    showBudgetDetails,
     showItemValues,
     discount,
   });
