@@ -56,6 +56,8 @@ export type QuoteItemForPdf = {
   }>;
 };
 
+export type QuotePdfContentMode = 'detalhes' | 'itens';
+
 export type QuoteForPdf = {
   id: string;
   created_at?: string | null;
@@ -550,10 +552,21 @@ function buildQuotePreviewHtmlSync(params: {
   logoUrl: string | null;
   qrUrl: string | null;
   complementUrl: string | null;
+  contentMode: QuotePdfContentMode;
   showItemValues: boolean;
   discount?: number;
 }): string {
-  const { quote, items, settings, logoUrl, qrUrl, complementUrl, showItemValues, discount = 0 } = params;
+  const {
+    quote,
+    items,
+    settings,
+    logoUrl,
+    qrUrl,
+    complementUrl,
+    contentMode,
+    showItemValues,
+    discount = 0
+  } = params;
 
   // Totais
   const valorSemTaxas = items.reduce((s, i) => s + Number(i.total_amount ?? 0), 0);
@@ -652,8 +665,9 @@ function buildQuotePreviewHtmlSync(params: {
   let itensHtml = '';
   if (items.length === 0) {
     itensHtml = '<div class="orc-empty">Sem itens neste orçamento.</div>';
-  } else {
+  } else if (contentMode === 'itens') {
     itensHtml += renderAllItemsTableHtml(items, showItemValues);
+  } else {
     for (const item of items) {
       itensHtml += isFlightQuoteItem(item)
         ? renderFlightItemHtml(item, showItemValues)
@@ -789,10 +803,11 @@ function buildQuotePreviewHtmlSync(params: {
 export async function openQuotePreview(params: {
   quoteId: string;
   supabase: SupabasePreviewClient;
+  contentMode?: QuotePdfContentMode;
   showItemValues?: boolean;
   discount?: number;
 }): Promise<void> {
-  const { quoteId, supabase, showItemValues = true, discount = 0 } = params;
+  const { quoteId, supabase, contentMode = 'detalhes', showItemValues = true, discount = 0 } = params;
 
   // 1. Autenticação
   const { data: authData } = await supabase.auth.getUser();
@@ -896,6 +911,7 @@ export async function openQuotePreview(params: {
     logoUrl,
     qrUrl,
     complementUrl,
+    contentMode,
     showItemValues,
     discount,
   });

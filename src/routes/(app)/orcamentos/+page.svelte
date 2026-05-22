@@ -27,6 +27,7 @@
     vendedor_id: string;
     origem: 'manual' | 'site' | 'indicacao';
     quantidade_itens: number;
+    created_at?: string | null;
     last_interaction_at?: string | null;
     last_interaction_notes?: string | null;
   }
@@ -76,27 +77,11 @@
     return item.status === 'aprovado';
   }
 
-  function getPrioridadeFollowUp(item: Orcamento) {
-    if (item.status === 'fechado') return 99;
-    if (!item.last_interaction_at) return 0;
-    const dias = getDiasSemInteracao(item.last_interaction_at);
-    if (dias >= 7) return 1;
-    if (dias >= 3) return 2;
-    return 3;
-  }
-
-  function sortOrcamentosPorPrioridade(items: Orcamento[]) {
+  function sortOrcamentosPorCriacao(items: Orcamento[]) {
     return [...items].sort((left, right) => {
-      const prioridade = getPrioridadeFollowUp(left) - getPrioridadeFollowUp(right);
-      if (prioridade !== 0) return prioridade;
-
-      const expiraDiff = getDiasParaValidade(left.data_validade) - getDiasParaValidade(right.data_validade);
-      if (Number.isFinite(expiraDiff) && expiraDiff !== 0) return expiraDiff;
-
-      const diasDiff = getDiasSemInteracao(right.last_interaction_at) - getDiasSemInteracao(left.last_interaction_at);
-      if (diasDiff !== 0) return diasDiff;
-
-      return String(right.data_criacao || '').localeCompare(String(left.data_criacao || ''));
+      return String(right.created_at || right.data_criacao || '').localeCompare(
+        String(left.created_at || left.data_criacao || '')
+      );
     });
   }
 
@@ -187,7 +172,7 @@
         abortController.signal
       );
       const items = Array.isArray(payload) ? payload : [];
-      orcamentosFiltrados = sortOrcamentosPorPrioridade(items);
+      orcamentosFiltrados = sortOrcamentosPorCriacao(items);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       const msg = toUserMessage(err, 'Erro ao carregar orçamentos.');
@@ -485,7 +470,7 @@
 </div>
 
 <div class="mb-6 rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
-  A lista prioriza automaticamente orçamentos <strong>sem interação</strong>, depois follow-ups mais antigos, aproxima vencimentos no topo da fila e deixa os <strong>convertidos</strong> no fim da operação.
+  A lista exibe os orçamentos <strong>mais recentes primeiro</strong>. Use os filtros rápidos para ver apenas críticos ou prontos para venda.
 </div>
 
 <DataTable

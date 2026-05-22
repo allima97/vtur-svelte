@@ -105,6 +105,7 @@
 
   // ── Desconto para exportação PDF (somente aplicado no PDF, não salvo no BD)
   let exportDesconto = '';
+  let exportContentMode: "detalhes" | "itens" = "detalhes";
   let exportShowItemValues: "sim" | "nao" = "nao";
   $: exportDescontoNum = (() => {
     const v = String(exportDesconto).replace(',', '.').trim();
@@ -298,6 +299,7 @@
       await openQuotePreview({
         quoteId: orcamentoId,
         supabase: supabaseBrowser,
+        contentMode: exportContentMode,
         showItemValues: exportShowItemValues === "sim",
         discount: exportDescontoNum,
       });
@@ -1062,6 +1064,20 @@
               bind:value={exportDesconto}
               helper="Aplicado apenas no PDF exportado, não altera o orçamento."
             />
+            <div>
+              <label for="export-content-mode" class="block text-sm font-medium text-slate-700 mb-1">
+                Mostrar no PDF
+              </label>
+              <select
+                id="export-content-mode"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-none focus:ring-2 focus:ring-clientes-100"
+                bind:value={exportContentMode}
+              >
+                <option value="detalhes">Produtos detalhados</option>
+                <option value="itens">Itens do orçamento</option>
+              </select>
+            </div>
+
             <div>
               <label for="export-show-item-values" class="block text-sm font-medium text-slate-700 mb-1">
                 Mostrar preços por produto?

@@ -338,6 +338,7 @@ export async function GET(event) {
         destino: String(
           firstItem?.city_name || firstItem?.product_name || firstItem?.title || 'Orçamento sem itens'
         ),
+        created_at: row.created_at || null,
         data_criacao: row.created_at?.slice(0, 10) || null,
         data_validade: addDays(row.created_at, 30),
         valor_total: Number(row.total || 0),
