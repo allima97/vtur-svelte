@@ -105,7 +105,7 @@
 
   // ── Desconto para exportação PDF (somente aplicado no PDF, não salvo no BD)
   let exportDesconto = '';
-  let exportShowItemValues: "sim" | "nao" = "sim";
+  let exportShowItemValues: "sim" | "nao" = "nao";
   $: exportDescontoNum = (() => {
     const v = String(exportDesconto).replace(',', '.').trim();
     const n = parseFloat(v);
