@@ -1053,8 +1053,14 @@
             Registrar Interação
           </Button>
 
-          <!-- Desconto para PDF -->
-          <div class="pt-3 border-t border-slate-200 space-y-3">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+            <div>
+              <p class="text-sm font-semibold text-slate-900">Opções do PDF</p>
+              <p class="text-xs text-slate-500">
+                Escolha se a saída mostra os produtos detalhados ou somente a tabela de itens.
+              </p>
+            </div>
+
             <FieldInput
               label="Desconto no PDF (R$)"
               type="number"
@@ -1064,18 +1070,36 @@
               bind:value={exportDesconto}
               helper="Aplicado apenas no PDF exportado, não altera o orçamento."
             />
+
             <div>
-              <label for="export-content-mode" class="block text-sm font-medium text-slate-700 mb-1">
-                Mostrar no PDF
-              </label>
-              <select
-                id="export-content-mode"
-                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-none focus:ring-2 focus:ring-clientes-100"
-                bind:value={exportContentMode}
-              >
-                <option value="detalhes">Produtos detalhados</option>
-                <option value="itens">Itens do orçamento</option>
-              </select>
+              <p class="mb-2 block text-sm font-medium text-slate-700">Conteúdo do PDF</p>
+              <div class="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  class={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    exportContentMode === "detalhes"
+                      ? "border-orcamentos-400 bg-white text-orcamentos-700 ring-2 ring-orcamentos-100"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                  }`}
+                  on:click={() => (exportContentMode = "detalhes")}
+                >
+                  <span class="block font-semibold">Produtos detalhados</span>
+                  <span class="block text-xs text-slate-500">Mostra item por item e oculta “Itens do orçamento”.</span>
+                </button>
+
+                <button
+                  type="button"
+                  class={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    exportContentMode === "itens"
+                      ? "border-orcamentos-400 bg-white text-orcamentos-700 ring-2 ring-orcamentos-100"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                  }`}
+                  on:click={() => (exportContentMode = "itens")}
+                >
+                  <span class="block font-semibold">Itens do orçamento</span>
+                  <span class="block text-xs text-slate-500">Mostra somente a tabela resumida e oculta os detalhes.</span>
+                </button>
+              </div>
             </div>
 
             <div>
