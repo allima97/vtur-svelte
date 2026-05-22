@@ -283,6 +283,18 @@ function isFlightQuoteItem(item: QuoteItemForPdf) {
   return normalized.includes('passagem') || normalized.includes('aereo') || normalized.includes('voo');
 }
 
+function getCircuitDaySegments(item: QuoteItemForPdf) {
+  return (item.segments || [])
+    .filter((segment) => segment.segment_type === 'circuit_day')
+    .sort((a, b) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0));
+}
+
+function isCircuitQuoteItem(item: QuoteItemForPdf) {
+  if (getCircuitDaySegments(item).length > 0) return true;
+  const normalized = normalizeText(`${item.item_type || ''} ${item.title || ''} ${item.product_name || ''}`);
+  return normalized.includes('circuito');
+}
+
 function extractStoragePath(url?: string | null): string | null {
   if (!url) return null;
   const marker = '/quotes/';
@@ -457,6 +469,76 @@ function renderFlightItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
   </div>`;
 }
 
+function renderCircuitItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
+  const label = textVal(item.title || item.product_name || item.item_type || 'Circuito');
+  const city = textVal(item.city_name);
+  const amount = Number(item.total_amount ?? 0);
+  const currency = item.currency || 'BRL';
+  const days = getCircuitDaySegments(item);
+
+  let daysHtml = '';
+  for (const [index, seg] of days.entries()) {
+    const data = asRecord(seg.data);
+    const diaValue = Number(data.dia ?? index + 1);
+    const diaNumero = Number.isFinite(diaValue) && diaValue > 0 ? diaValue : index + 1;
+    const titulo = textVal(String(data.titulo || ''));
+    const descricao = textVal(String(data.descricao || ''));
+    const dayTitle = titulo ? `Dia ${diaNumero} - ${titulo}` : `Dia ${diaNumero}`;
+    daysHtml += `<div class="orc-circuit-day">
+      <div class="orc-circuit-day-title">${escHtml(dayTitle)}</div>
+      ${descricao ? `<div class="orc-circuit-day-desc">${escHtml(descricao).replace(/\n/g, '<br/>')}</div>` : ''}
+    </div>`;
+  }
+
+  return `<div class="orc-section-card">
+    <div class="orc-section-title orc-section-title--blue">${escHtml(label)}</div>
+    <div class="orc-section-divider"></div>
+    ${city ? `<div class="orc-item-meta">${escHtml(city)}</div>` : ''}
+    ${daysHtml}
+    ${showItemValues ? `<div class="orc-item-value">${escHtml(formatCurrency(amount, currency))}</div>` : ''}
+  </div>`;
+}
+
+function renderAllItemsTableHtml(items: QuoteItemForPdf[]) {
+  if (items.length === 0) return '';
+
+  let rowsHtml = '';
+  for (const item of items) {
+    const label = textVal(item.title || item.product_name || item.item_type || 'Item');
+    const type = textVal(item.item_type || 'servico');
+    const qty = Number(item.quantity ?? 1);
+    const unit = Number(item.unit_price ?? 0);
+    const total = Number(item.total_amount ?? 0);
+    const currency = item.currency || 'BRL';
+    rowsHtml += `<tr>
+      <td>${escHtml(label)}</td>
+      <td>${escHtml(type)}</td>
+      <td class="text-right">${escHtml(String(Number.isFinite(qty) ? qty : 1))}</td>
+      <td class="text-right">${escHtml(formatCurrency(unit, currency))}</td>
+      <td class="text-right">${escHtml(formatCurrency(total, currency))}</td>
+    </tr>`;
+  }
+
+  return `<div class="orc-section-card">
+    <div class="orc-section-title orc-section-title--blue">Itens do orçamento</div>
+    <div class="orc-section-divider"></div>
+    <div class="orc-items-table-wrap">
+      <table class="orc-items-table">
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Tipo</th>
+            <th class="text-right">Qtd</th>
+            <th class="text-right">Valor Unit.</th>
+            <th class="text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 // ---------------------------------------------------------------------------
 // BUILDER DO HTML
 // ---------------------------------------------------------------------------
@@ -571,10 +653,13 @@ function buildQuotePreviewHtmlSync(params: {
   if (items.length === 0) {
     itensHtml = '<div class="orc-empty">Sem itens neste orçamento.</div>';
   } else {
+    itensHtml += renderAllItemsTableHtml(items);
     for (const item of items) {
       itensHtml += isFlightQuoteItem(item)
         ? renderFlightItemHtml(item, showItemValues)
-        : renderGenericItemHtml(item, showItemValues);
+        : isCircuitQuoteItem(item)
+          ? renderCircuitItemHtml(item, showItemValues)
+          : renderGenericItemHtml(item, showItemValues);
     }
   }
 
@@ -638,6 +723,15 @@ function buildQuotePreviewHtmlSync(params: {
     .orc-item-meta { font-size: 11px; color: #64748b; margin: 2px 0 0 0; }
     .orc-item-value { font-size: 11px; color: #0f172a; margin: 2px 0 0 0; text-align: right; }
     .orc-item-divider { height: 1px; background: #f1f5f9; margin: 2px 0; }
+    .orc-circuit-day { border: 1px solid #d9e2ec; border-radius: 8px; background: #f8fafc; padding: 8px 10px; margin: 8px 0 0 0; }
+    .orc-circuit-day-title { font-size: 12px; font-weight: 700; color: #1e293b; margin: 0 0 4px 0; }
+    .orc-circuit-day-desc { font-size: 11px; line-height: 1.5; color: #334155; }
+    .orc-items-table-wrap { border: 1px solid #d9e2ec; border-radius: 8px; overflow: hidden; }
+    .orc-items-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .orc-items-table th { background: #f1f5f9; color: #334155; text-align: left; padding: 7px 8px; border-bottom: 1px solid #d9e2ec; }
+    .orc-items-table td { padding: 7px 8px; border-bottom: 1px solid #eef2f7; color: #0f172a; }
+    .orc-items-table tbody tr:last-child td { border-bottom: 0; }
+    .orc-items-table .text-right { text-align: right; }
     .orc-empty { font-size: 12px; color: #94a3b8; padding: 8px 0; }
 
     /* Passagem aérea */
