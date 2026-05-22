@@ -499,7 +499,7 @@ function renderCircuitItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
   </div>`;
 }
 
-function renderAllItemsTableHtml(items: QuoteItemForPdf[]) {
+function renderAllItemsTableHtml(items: QuoteItemForPdf[], showItemValues: boolean) {
   if (items.length === 0) return '';
 
   let rowsHtml = '';
@@ -514,8 +514,8 @@ function renderAllItemsTableHtml(items: QuoteItemForPdf[]) {
       <td>${escHtml(label)}</td>
       <td>${escHtml(type)}</td>
       <td class="text-right">${escHtml(String(Number.isFinite(qty) ? qty : 1))}</td>
-      <td class="text-right">${escHtml(formatCurrency(unit, currency))}</td>
-      <td class="text-right">${escHtml(formatCurrency(total, currency))}</td>
+      ${showItemValues ? `<td class="text-right">${escHtml(formatCurrency(unit, currency))}</td>` : ''}
+      ${showItemValues ? `<td class="text-right">${escHtml(formatCurrency(total, currency))}</td>` : ''}
     </tr>`;
   }
 
@@ -529,8 +529,8 @@ function renderAllItemsTableHtml(items: QuoteItemForPdf[]) {
             <th>Descrição</th>
             <th>Tipo</th>
             <th class="text-right">Qtd</th>
-            <th class="text-right">Valor Unit.</th>
-            <th class="text-right">Total</th>
+            ${showItemValues ? '<th class="text-right">Valor Unit.</th>' : ''}
+            ${showItemValues ? '<th class="text-right">Total</th>' : ''}
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
@@ -653,7 +653,7 @@ function buildQuotePreviewHtmlSync(params: {
   if (items.length === 0) {
     itensHtml = '<div class="orc-empty">Sem itens neste orçamento.</div>';
   } else {
-    itensHtml += renderAllItemsTableHtml(items);
+    itensHtml += renderAllItemsTableHtml(items, showItemValues);
     for (const item of items) {
       itensHtml += isFlightQuoteItem(item)
         ? renderFlightItemHtml(item, showItemValues)

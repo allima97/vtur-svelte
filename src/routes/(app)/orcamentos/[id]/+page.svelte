@@ -105,6 +105,7 @@
 
   // ── Desconto para exportação PDF (somente aplicado no PDF, não salvo no BD)
   let exportDesconto = '';
+  let exportShowItemValues: "sim" | "nao" = "sim";
   $: exportDescontoNum = (() => {
     const v = String(exportDesconto).replace(',', '.').trim();
     const n = parseFloat(v);
@@ -297,7 +298,7 @@
       await openQuotePreview({
         quoteId: orcamentoId,
         supabase: supabaseBrowser,
-        showItemValues: true,
+        showItemValues: exportShowItemValues === "sim",
         discount: exportDescontoNum,
       });
     } catch (err) {
@@ -1061,6 +1062,19 @@
               bind:value={exportDesconto}
               helper="Aplicado apenas no PDF exportado, não altera o orçamento."
             />
+            <div>
+              <label for="export-show-item-values" class="block text-sm font-medium text-slate-700 mb-1">
+                Mostrar preços por produto?
+              </label>
+              <select
+                id="export-show-item-values"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-none focus:ring-2 focus:ring-clientes-100"
+                bind:value={exportShowItemValues}
+              >
+                <option value="sim">Sim</option>
+                <option value="nao">Não</option>
+              </select>
+            </div>
 
             <div class="grid grid-cols-2 gap-3">
               <Button
