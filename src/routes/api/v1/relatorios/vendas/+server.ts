@@ -311,6 +311,137 @@ async function hydrateMissingVendedores<T extends ReportSalesRowLike>(
   });
 }
 
+function enrichSyntheticRowsFromBaseRows(
+  baseRows: ReportSalesViewRow[],
+  syntheticRows: ReportSalesViewRow[],
+) {
+  if (!Array.isArray(syntheticRows) || syntheticRows.length === 0) return syntheticRows;
+
+  const baseByVendaId = new Map<string, ReportSalesViewRow>();
+  const baseByReciboId = new Map<string, ReportSalesViewRow>();
+
+  for (const row of baseRows) {
+    const rowId = toStr(row?.id);
+    if (rowId) baseByVendaId.set(rowId, row);
+
+    const recibos = Array.isArray(row?.vendas_recibos)
+      ? row.vendas_recibos
+      : Array.isArray(row?.recibos)
+        ? row.recibos
+        : [];
+
+    for (const recibo of recibos) {
+      const reciboId = toStr(recibo?.id);
+      if (reciboId && !baseByReciboId.has(reciboId)) {
+        baseByReciboId.set(reciboId, row);
+      }
+    }
+  }
+
+  return syntheticRows.map((row) => {
+    const linkedVendaId = toStr(row?.linked_venda_id);
+    const linkedReciboId = toStr(row?.linked_recibo_id);
+    const source =
+      (linkedVendaId ? baseByVendaId.get(linkedVendaId) : null) ||
+      (linkedReciboId ? baseByReciboId.get(linkedReciboId) : null) ||
+      null;
+
+    if (!source) return row;
+
+    return {
+      ...row,
+      cliente_id: row?.cliente_id || source?.cliente_id || null,
+      clientes: row?.clientes || source?.clientes || null,
+      destino_cidade: row?.destino_cidade || source?.destino_cidade || null,
+      destinos: row?.destinos || source?.destinos || null,
+    } as ReportSalesViewRow;
+  });
+}
+
+async function hydrateSyntheticRowsFromLinkedVendas(
+  client: AdminClient,
+  rows: ReportSalesViewRow[],
+) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const pending = rows.filter((row) => {
+    const linkedVendaId = toStr(row?.linked_venda_id);
+    if (!linkedVendaId) return false;
+    const hasCliente = Boolean(toStr(row?.clientes?.nome));
+    const hasDestino = Boolean(toStr(row?.destino_cidade?.nome) || toStr(row?.destinos?.nome));
+    return !hasCliente || !hasDestino;
+  });
+  if (pending.length === 0) return rows;
+
+  const linkedVendaIds = uniqueCleanStrings(pending.map((row) => row?.linked_venda_id));
+  if (linkedVendaIds.length === 0) return rows;
+
+  const vendaMap = new Map<
+    string,
+    {
+      cliente_id: string | null;
+      clientes: { nome?: string | null } | null;
+      destino_cidade: { id?: string | null; nome?: string | null } | null;
+      destinos: { id?: string | null; nome?: string | null; tipo_produto?: string | null } | null;
+    }
+  >();
+
+  for (const batch of chunkArray(linkedVendaIds, 200)) {
+    const { data, error } = await client
+      .from("vendas")
+      .select(
+        `
+          id,
+          cliente_id,
+          clientes (nome),
+          destino_cidade:cidades!destino_cidade_id (id, nome),
+          destinos:produtos!destino_id (id, nome, tipo_produto)
+        `,
+      )
+      .in("id", batch);
+
+    if (error) {
+      logServerError(
+        "[relatorios/vendas] falha ao hidratar linhas sinteticas por venda vinculada",
+        error,
+      );
+      return rows;
+    }
+
+    for (const row of data || []) {
+      const id = toStr((row as { id?: string | null })?.id);
+      if (!id) continue;
+      const item = row as {
+        cliente_id?: string | null;
+        clientes?: { nome?: string | null } | null;
+        destino_cidade?: { id?: string | null; nome?: string | null } | null;
+        destinos?: { id?: string | null; nome?: string | null; tipo_produto?: string | null } | null;
+      };
+      vendaMap.set(id, {
+        cliente_id: toStr(item?.cliente_id) || null,
+        clientes: item?.clientes || null,
+        destino_cidade: item?.destino_cidade || null,
+        destinos: item?.destinos || null,
+      });
+    }
+  }
+
+  return rows.map((row) => {
+    const linkedVendaId = toStr(row?.linked_venda_id);
+    if (!linkedVendaId) return row;
+    const source = vendaMap.get(linkedVendaId);
+    if (!source) return row;
+
+    return {
+      ...row,
+      cliente_id: row?.cliente_id || source.cliente_id || null,
+      clientes: row?.clientes || source.clientes || null,
+      destino_cidade: row?.destino_cidade || source.destino_cidade || null,
+      destinos: row?.destinos || source.destinos || null,
+    } as ReportSalesViewRow;
+  });
+}
+
 function calcularNaoComissionavelResumo(
   pagamentos: PagamentoNaoComissionavelInput[],
   termos?: string[] | null,
@@ -976,15 +1107,22 @@ export async function GET(event) {
             Array.isArray(row?.vendas_recibos) && row.vendas_recibos.length > 0,
         );
 
-      const mergedRows: ReportSalesViewRow[] =
+      const mergedRowsBase: ReportSalesViewRow[] =
         concReceipts.length > 0
           ? [
               ...baseRows,
-              ...(buildConciliacaoSyntheticVendas(
-                concReceipts,
-              ) as unknown as ReportSalesViewRow[]),
+              ...enrichSyntheticRowsFromBaseRows(
+                baseRows,
+                buildConciliacaoSyntheticVendas(
+                  concReceipts,
+                ) as unknown as ReportSalesViewRow[],
+              ),
             ]
           : baseRows;
+      const mergedRows = await hydrateSyntheticRowsFromLinkedVendas(
+        client,
+        mergedRowsBase,
+      );
 
       if (mergedRows.length === 0) {
         return [] as ReportSalesViewRow[];
