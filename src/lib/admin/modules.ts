@@ -196,6 +196,7 @@ export const MODULO_HERANCA: Record<string, string[]> = {
   CRM: ['Parametros'],
   ParametrosAvisos: ['Parametros'],
   Avisos: ['Parametros'],
+  'Ranking de vendas': ['Relatorios'],
   'Importar Contratos': ['Vendas']
 };
 
