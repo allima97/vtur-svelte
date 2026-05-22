@@ -67,7 +67,7 @@ export async function GET(event) {
     if (!scope.isAdmin) {
       ensureModuloAccess(
         scope,
-        ["relatorios", "vendas"],
+        ["relatorios_destinos", "relatorios", "vendas"],
         1,
         "Sem acesso ao relatorio de destinos.",
       );

@@ -24,7 +24,12 @@ export async function GET(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['relatorios', 'vendas'], 1, 'Sem acesso a Relatorios.');
+      ensureModuloAccess(
+        scope,
+        ['relatorios_vendas', 'relatorios_destinos', 'relatorios_produtos', 'relatorios', 'vendas'],
+        1,
+        'Sem acesso a Relatorios.'
+      );
     }
 
     const query = String(event.url.searchParams.get('q') || '').trim();

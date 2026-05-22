@@ -54,7 +54,21 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['relatorios', 'dashboard', 'vendas'], 1, 'Sem acesso aos filtros analíticos.');
+      ensureModuloAccess(
+        scope,
+        [
+          'relatorios',
+          'relatorios_vendas',
+          'relatorios_destinos',
+          'relatorios_produtos',
+          'relatorios_clientes',
+          'relatorios_ranking_vendas',
+          'dashboard',
+          'vendas'
+        ],
+        1,
+        'Sem acesso aos filtros analíticos.'
+      );
     }
 
     const { searchParams } = event.url;
