@@ -149,16 +149,12 @@
 
   const ROW_CLASS_META_ATINGIDA = '!bg-emerald-200/70 hover:!bg-emerald-300/70';
 
-  function atingiuAlgumaMeta(row: VendedorRanking) {
-    return Number(row.alcance_meta || 0) >= 100 || Number(row.alcance_meta_seguro || 0) >= 100;
-  }
-
   function getRowClassMetaVendas(row: VendedorRanking) {
-    return atingiuAlgumaMeta(row) ? ROW_CLASS_META_ATINGIDA : '';
+    return Number(row.alcance_meta || 0) >= 100 ? ROW_CLASS_META_ATINGIDA : '';
   }
 
   function getRowClassMetaSeguro(row: VendedorRanking) {
-    return atingiuAlgumaMeta(row) ? ROW_CLASS_META_ATINGIDA : '';
+    return Number(row.alcance_meta_seguro || 0) >= 100 ? ROW_CLASS_META_ATINGIDA : '';
   }
 
   const columnsVendas = [
