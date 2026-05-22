@@ -72,7 +72,12 @@ export async function POST(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem permissao para importar orcamentos.');
+      ensureModuloAccess(
+        scope,
+        ['Orcamentos', 'vendas_consulta', 'vendas'],
+        2,
+        'Sem permissao para importar orcamentos.'
+      );
     }
 
     const body =

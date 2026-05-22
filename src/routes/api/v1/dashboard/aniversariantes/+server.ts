@@ -93,6 +93,7 @@ export async function GET(event) {
     const hasExplicitLimit = searchParams.has('limit');
     const outputLimit = clampIntParam(searchParams.get('limit'), 500, 1, 500);
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
+    const vendedorClienteIds = new Set<string>();
 
     if (!scope.isAdmin && companyIds.length === 0) {
       return json(
@@ -105,58 +106,126 @@ export async function GET(event) {
       );
     }
 
-    const [clientes, acompanhantes] = await Promise.all([
-      getCachedReadModel<ClienteAniversarianteRow[]>({
-        key: buildReadModelCacheKey('dashboard:aniversariantes-clientes', { companyIds }),
+    if (scope.isVendedor) {
+      const clienteRows = await getCachedReadModel<Array<{ cliente_id?: string | null }>>({
+        key: buildReadModelCacheKey('dashboard:aniversariantes-vendedor-clientes', {
+          userId: user.id,
+          companyIds
+        }),
         tags: [
-          READ_MODEL_TAGS.clients,
+          READ_MODEL_TAGS.sales,
           READ_MODEL_TAGS.dashboard,
-          ...scopeCacheTags({ companyIds, userId: user.id })
+          ...scopeCacheTags({ companyIds, userId: user.id, vendedorIds: [user.id] })
         ],
         ttlMs: 300_000,
         staleTtlMs: 1_800_000,
         loader: async () => {
           const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-          const batchRows = await Promise.all(
+          const rows = await Promise.all(
             companyBatches.map(async (companyBatch) => {
-              let q = client
-                .from('clientes')
-                .select('id, nome, nascimento, telefone, whatsapp, email')
-                .not('nascimento', 'is', null)
-                .limit(2000);
-              if (companyBatch) q = q.in('company_id', companyBatch);
-              const { data, error } = await q;
+              let query = client
+                .from('vendas')
+                .select('cliente_id')
+                .eq('vendedor_id', user.id)
+                .not('cliente_id', 'is', null)
+                .limit(5000);
+              if (companyBatch) query = query.in('company_id', companyBatch);
+              const { data, error } = await query;
               if (error) throw error;
-              return (data || []) as ClienteAniversarianteRow[];
+              return (data || []) as Array<{ cliente_id?: string | null }>;
             })
+          );
+          return rows.flat();
+        }
+      });
+
+      for (const row of clienteRows || []) {
+        const id = String(row?.cliente_id || '').trim();
+        if (id) vendedorClienteIds.add(id);
+      }
+
+      if (vendedorClienteIds.size === 0) {
+        return json(
+          {
+            items: [],
+            hoje: 0,
+            proximos: 0
+          },
+          { headers: DYNAMIC_READ_HEADERS }
+        );
+      }
+    }
+
+    const vendedorClienteIdList = Array.from(vendedorClienteIds);
+
+    const [clientes, acompanhantes] = await Promise.all([
+      getCachedReadModel<ClienteAniversarianteRow[]>({
+        key: buildReadModelCacheKey('dashboard:aniversariantes-clientes', {
+          companyIds,
+          vendedorClienteIds: scope.isVendedor ? vendedorClienteIdList : null
+        }),
+        tags: [
+          READ_MODEL_TAGS.clients,
+          READ_MODEL_TAGS.dashboard,
+          ...scopeCacheTags({ companyIds, userId: user.id, vendedorIds: scope.isVendedor ? [user.id] : [] })
+        ],
+        ttlMs: 300_000,
+        staleTtlMs: 1_800_000,
+        loader: async () => {
+          const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+          const clienteBatches =
+            scope.isVendedor && vendedorClienteIdList.length > 0 ? chunkArray(vendedorClienteIdList) : [null];
+          const batchRows = await Promise.all(
+            companyBatches.flatMap((companyBatch) =>
+              clienteBatches.map(async (clienteBatch) => {
+                let q = client
+                  .from('clientes')
+                  .select('id, nome, nascimento, telefone, whatsapp, email')
+                  .not('nascimento', 'is', null)
+                  .limit(2000);
+                if (companyBatch) q = q.in('company_id', companyBatch);
+                if (clienteBatch) q = q.in('id', clienteBatch);
+                const { data, error } = await q;
+                if (error) throw error;
+                return (data || []) as ClienteAniversarianteRow[];
+              })
+            )
           );
           return batchRows.flat();
         }
       }),
       getCachedReadModel<AcompanhanteAniversarianteRow[]>({
-        key: buildReadModelCacheKey('dashboard:aniversariantes-acompanhantes', { companyIds }),
+        key: buildReadModelCacheKey('dashboard:aniversariantes-acompanhantes', {
+          companyIds,
+          vendedorClienteIds: scope.isVendedor ? vendedorClienteIdList : null
+        }),
         tags: [
           READ_MODEL_TAGS.clients,
           READ_MODEL_TAGS.dashboard,
-          ...scopeCacheTags({ companyIds, userId: user.id })
+          ...scopeCacheTags({ companyIds, userId: user.id, vendedorIds: scope.isVendedor ? [user.id] : [] })
         ],
         ttlMs: 300_000,
         staleTtlMs: 1_800_000,
         loader: async () => {
           const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+          const clienteBatches =
+            scope.isVendedor && vendedorClienteIdList.length > 0 ? chunkArray(vendedorClienteIdList) : [null];
           const batchRows = await Promise.all(
-            companyBatches.map(async (companyBatch) => {
-              let q = client
-                .from('cliente_acompanhantes')
-                .select('id, cliente_id, nome_completo, data_nascimento, telefone')
-                .eq('ativo', true)
-                .not('data_nascimento', 'is', null)
-                .limit(4000);
-              if (companyBatch) q = q.in('company_id', companyBatch);
-              const { data, error } = await q;
-              if (error) throw error;
-              return (data || []) as AcompanhanteAniversarianteRow[];
-            })
+            companyBatches.flatMap((companyBatch) =>
+              clienteBatches.map(async (clienteBatch) => {
+                let q = client
+                  .from('cliente_acompanhantes')
+                  .select('id, cliente_id, nome_completo, data_nascimento, telefone')
+                  .eq('ativo', true)
+                  .not('data_nascimento', 'is', null)
+                  .limit(4000);
+                if (companyBatch) q = q.in('company_id', companyBatch);
+                if (clienteBatch) q = q.in('cliente_id', clienteBatch);
+                const { data, error } = await q;
+                if (error) throw error;
+                return (data || []) as AcompanhanteAniversarianteRow[];
+              })
+            )
           );
           return batchRows.flat();
         }

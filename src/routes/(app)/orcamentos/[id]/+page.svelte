@@ -56,6 +56,7 @@
   }
 
   interface OrcamentoItemResumo {
+    id?: string | null;
     title?: string | null;
     descricao?: string | null;
     city_name?: string | null;
@@ -67,6 +68,15 @@
     valor_unitario?: number | null;
     total_amount?: number | null;
     valor_total?: number | null;
+    segments?: OrcamentoItemSegmento[] | null;
+    raw?: Record<string, unknown> | null;
+  }
+
+  interface OrcamentoItemSegmento {
+    id?: string | null;
+    segment_type?: string | null;
+    data?: Record<string, unknown> | null;
+    order_index?: number | null;
   }
 
   interface OrcamentoClienteResumo {
@@ -346,6 +356,24 @@
     if (!dateString) return null;
     const data = new Date(dateString);
     return Math.ceil((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  function normalizeLookupText(value: string) {
+    return (value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function isCircuitItem(item: OrcamentoItemResumo) {
+    return normalizeLookupText(String(item.item_type || "")).replace(/[^a-z]/g, "") === "circuito";
+  }
+
+  function getCircuitDays(item: OrcamentoItemResumo) {
+    return (item.segments || [])
+      .filter((seg) => String(seg.segment_type || "").toLowerCase() === "circuit_day")
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
   }
 
   function getStatusColor(status: string): string {
@@ -871,6 +899,26 @@
                         <p class="text-sm text-slate-500">
                           {item.city_name || item.cidade}
                         </p>
+                      {/if}
+                      {#if isCircuitItem(item) && getCircuitDays(item).length > 0}
+                        <div class="mt-3 space-y-2">
+                          {#each getCircuitDays(item) as seg, segIndex}
+                            {@const segData = seg.data || {}}
+                            <div class="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                              <p class="text-xs font-semibold text-slate-700">
+                                Dia {Number(segData.dia || segIndex + 1)}
+                                {#if segData.titulo}
+                                  - {String(segData.titulo)}
+                                {/if}
+                              </p>
+                              {#if segData.descricao}
+                                <p class="mt-1 text-xs text-slate-600 whitespace-pre-wrap">
+                                  {String(segData.descricao)}
+                                </p>
+                              {/if}
+                            </div>
+                          {/each}
+                        </div>
                       {/if}
                     </td>
                     <td class="py-3 px-3 text-center">

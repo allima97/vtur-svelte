@@ -17,6 +17,7 @@ const QUOTE_SELECT_FIELDS =
 
 const QUOTE_ITEM_SELECT_FIELDS =
   'id, quote_id, item_type, title, product_name, city_name, cidade_id, quantity, unit_price, total_amount, taxes_amount, start_date, end_date, currency, confidence, raw, order_index, created_at, updated_at';
+const QUOTE_ITEM_SEGMENT_SELECT_FIELDS = 'id, quote_item_id, segment_type, data, order_index';
 
 const MAX_ORCAMENTO_UPDATE_BODY_BYTES = 256 * 1024;
 const errorResponse = (message: string, status: number) =>
@@ -112,6 +113,30 @@ export async function GET(event) {
         ? client.from('users').select('nome_completo').eq('id', quote.created_by).maybeSingle()
         : Promise.resolve({ data: null })
     ]);
+    const itemIds = (items || []).map((item) => item.id).filter(Boolean);
+    const { data: itemSegments, error: itemSegmentsError } =
+      itemIds.length > 0
+        ? await client
+            .from('quote_item_segment')
+            .select(QUOTE_ITEM_SEGMENT_SELECT_FIELDS)
+            .in('quote_item_id', itemIds)
+            .order('order_index', { ascending: true })
+        : { data: [], error: null };
+    if (itemSegmentsError) throw itemSegmentsError;
+
+    const segmentMap = new Map<string, Array<Record<string, unknown>>>();
+    for (const segment of itemSegments || []) {
+      const itemId = String(segment.quote_item_id || '');
+      if (!itemId) continue;
+      const list = segmentMap.get(itemId) || [];
+      list.push(segment);
+      segmentMap.set(itemId, list);
+    }
+
+    const itemsWithSegments = (items || []).map((item) => ({
+      ...item,
+      segments: segmentMap.get(String(item.id || '')) || []
+    }));
 
     const cliente = clienteResult.data ?? null;
     const vendedor = vendedorResult.data?.nome_completo || 'Equipe VTUR';
@@ -137,7 +162,7 @@ export async function GET(event) {
       last_interaction_at: quote.last_interaction_at || null,
       last_interaction_notes: quote.last_interaction_notes || null,
       vendedor,
-      itens: items || []
+      itens: itemsWithSegments
     }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar orcamento.');
