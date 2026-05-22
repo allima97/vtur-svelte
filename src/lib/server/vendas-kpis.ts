@@ -5,8 +5,14 @@ import {
   filterRecibosCanceladosMesmoMes,
 } from "$lib/conciliacao/source";
 import { mergeEffectiveRecibos } from "$lib/conciliacao/mergeEffectiveRecibos";
-import type { ReportReceiptRow, ReportVendaRow } from "$lib/server/relatorios";
-import { fetchSalesReportRows } from "$lib/server/relatorios";
+import {
+  fetchSalesReportRows,
+  getReceiptCidadeNome,
+  getVendaDestino,
+  type DestinationCityNameMap,
+  type ReportReceiptRow,
+  type ReportVendaRow,
+} from "$lib/server/relatorios";
 import { calcularRankingComissionavel } from "$lib/server/rankingComissionavel";
 import {
   buildReadModelCacheKey,
@@ -64,8 +70,8 @@ type VendaAggregateRowExtra = VendaAggregateRow & {
   status?: string | null;
   company_id?: string | null;
   cliente_id?: string | null;
-  destino_cidade?: { nome?: string | null } | null;
-  destinos?: { nome?: string | null } | null;
+  destino_cidade?: { id?: string | null; nome?: string | null } | null;
+  destinos?: { nome?: string | null; cidade_id?: string | null } | null;
 };
 
 type NonNullReceiptRow = Exclude<ReportReceiptRow, null>;
@@ -109,6 +115,69 @@ type EffectiveConciliacaoReceipt = Awaited<
 type SplitConciliacaoRow = {
   conciliacao_recibo_id?: string | null;
 };
+
+function collectDestinationCityIds(rows: VendaAggregateRow[]) {
+  const ids = new Set<string>();
+  const add = (value?: string | null) => {
+    const id = toStr(value);
+    if (id) ids.add(id);
+  };
+
+  for (const row of rows) {
+    const rowExtra = row as VendaAggregateRowExtra;
+    add(rowExtra.destino_cidade?.id);
+    add(rowExtra.destinos?.cidade_id);
+
+    const recibos = Array.isArray(row?.vendas_recibos)
+      ? row.vendas_recibos
+      : Array.isArray(row?.recibos)
+        ? row.recibos
+        : [];
+
+    for (const recibo of recibos) {
+      add(recibo?.destino_cidade?.id);
+      add(recibo?.produto_resolvido?.cidade_id);
+    }
+  }
+
+  return Array.from(ids).sort();
+}
+
+async function fetchDestinationCityNames(
+  client: SupabaseClient,
+  rows: VendaAggregateRow[],
+): Promise<DestinationCityNameMap> {
+  const ids = uniqueCleanStrings(collectDestinationCityIds(rows)).sort();
+  if (ids.length === 0) return new Map();
+
+  return getCachedReadModel<Map<string, string>>({
+    key: buildReadModelCacheKey("vendas-kpis:cidades-destino", { ids }),
+    tags: [READ_MODEL_TAGS.catalog],
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
+    loader: async () => {
+      const map = new Map<string, string>();
+      const batches = await Promise.all(
+        chunkArray(ids, 200).map(async (batch) => {
+          const { data, error } = await client
+            .from("cidades")
+            .select("id, nome")
+            .in("id", batch);
+          if (error) throw error;
+          return data || [];
+        }),
+      );
+
+      for (const row of batches.flat() as Array<{ id?: string | null; nome?: string | null }>) {
+        const id = toStr(row?.id);
+        const nome = toStr(row?.nome);
+        if (id && nome) map.set(id, nome);
+      }
+
+      return map;
+    },
+  });
+}
 
 export type VendasKpiAgg = {
   totalVendas: number;
@@ -1156,11 +1225,14 @@ export async function fetchVendasKpiReciboContributionsRaw(
   ]);
 
   const vendaIds = buildVendaIdsFromRows(rows);
-  const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
-    client,
-    vendaIds,
-    termosNaoComissionaveis,
-  );
+  const [naoComissionadoPorVenda, destinationCityNames] = await Promise.all([
+    fetchNaoComissionadoPorVenda(
+      client,
+      vendaIds,
+      termosNaoComissionaveis,
+    ),
+    fetchDestinationCityNames(client, rows),
+  ]);
 
   const scopeVendedorIds = buildScopeIdSet(params.vendedorIds);
   const hasScopeVendedores = scopeVendedorIds.size > 0;
@@ -1365,12 +1437,9 @@ export async function fetchVendasKpiReciboContributionsRaw(
             recibo?.produto_resolvido?.nome ||
             "Produto",
         );
-        const destinoNome = toStr(
-          recibo?.destino_cidade?.nome ||
-            vendaPrincipalExtra.destino_cidade?.nome ||
-            vendaPrincipalExtra.destinos?.nome ||
-            "Destino nao informado",
-        );
+        const destinoNome =
+          getReceiptCidadeNome(recibo, vendaPrincipalExtra, destinationCityNames) ||
+          getVendaDestino(vendaPrincipalExtra, destinationCityNames);
 
         contributions.push({
           companyId: toStr(vendaPrincipalExtra.company_id),

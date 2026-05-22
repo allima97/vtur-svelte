@@ -14,6 +14,7 @@ import {
 import {
   fetchLatestPaymentForms,
   fetchSalesReportRows,
+  type DestinationCityNameMap,
   type ReportReceiptRow,
   type ReportVendaRow,
   getCurrentYearRange,
@@ -148,7 +149,7 @@ type ConsultaReceiptRow = {
   data_inicio?: string | null;
   data_fim?: string | null;
   tipo_produtos?: { id?: string | null; nome?: string | null; tipo?: string | null } | null;
-  produto_resolvido?: { id?: string | null; nome?: string | null } | null;
+  produto_resolvido?: { id?: string | null; nome?: string | null; cidade_id?: string | null } | null;
   vendedor_id?: string | null;
   rateio_scope_vendor_id?: string | null;
 };
@@ -296,6 +297,68 @@ async function fetchVendedoresByIds(client: AdminClient, vendedorIds: string[]) 
   });
 }
 
+function collectDestinationCityIds(rows: ReportSalesViewRow[]) {
+  const ids = new Set<string>();
+  const add = (value?: string | null) => {
+    const id = toStr(value);
+    if (id) ids.add(id);
+  };
+
+  for (const row of rows) {
+    add(row?.destino_cidade?.id);
+    add(row?.destinos?.cidade_id);
+
+    const recibos = Array.isArray(row?.recibos)
+      ? row.recibos
+      : Array.isArray(row?.vendas_recibos)
+        ? row.vendas_recibos
+        : [];
+
+    for (const recibo of recibos) {
+      add(recibo?.destino_cidade?.id);
+      add(recibo?.produto_resolvido?.cidade_id);
+    }
+  }
+
+  return Array.from(ids).sort();
+}
+
+async function fetchDestinationCityNames(
+  client: AdminClient,
+  cityIds: string[],
+): Promise<DestinationCityNameMap> {
+  const ids = uniqueCleanStrings(cityIds).sort();
+  if (ids.length === 0) return new Map();
+
+  return getCachedReadModel<Map<string, string>>({
+    key: buildReadModelCacheKey("relatorios:vendas:cidades-destino", { ids }),
+    tags: [READ_MODEL_TAGS.catalog],
+    ttlMs: 300_000,
+    staleTtlMs: 1_800_000,
+    loader: async () => {
+      const map = new Map<string, string>();
+      const batches = await Promise.all(
+        chunkArray(ids, 200).map(async (batch) => {
+          const { data, error } = await client
+            .from("cidades")
+            .select("id, nome")
+            .in("id", batch);
+          if (error) throw error;
+          return data || [];
+        }),
+      );
+
+      for (const row of batches.flat() as Array<{ id?: string | null; nome?: string | null }>) {
+        const id = toStr(row?.id);
+        const nome = toStr(row?.nome);
+        if (id && nome) map.set(id, nome);
+      }
+
+      return map;
+    },
+  });
+}
+
 async function hydrateMissingVendedores<T extends ReportSalesRowLike>(
   client: AdminClient,
   rows: T[],
@@ -368,7 +431,11 @@ async function hydrateSyntheticRowsFromLinkedVendas(
     const linkedVendaId = toStr(row?.linked_venda_id);
     if (!linkedVendaId) return false;
     const hasCliente = Boolean(toStr(row?.clientes?.nome));
-    const hasDestino = Boolean(toStr(row?.destino_cidade?.nome) || toStr(row?.destinos?.nome));
+    const hasDestino = Boolean(
+      toStr(row?.destino_cidade?.nome) ||
+      toStr(row?.destino_cidade?.id) ||
+      toStr(row?.destinos?.cidade_id),
+    );
     return !hasCliente || !hasDestino;
   });
   if (pending.length === 0) return rows;
@@ -382,7 +449,7 @@ async function hydrateSyntheticRowsFromLinkedVendas(
       cliente_id: string | null;
       clientes: { nome?: string | null } | null;
       destino_cidade: { id?: string | null; nome?: string | null } | null;
-      destinos: { id?: string | null; nome?: string | null; tipo_produto?: string | null } | null;
+      destinos: { id?: string | null; nome?: string | null; cidade_id?: string | null; tipo_produto?: string | null } | null;
     }
   >();
 
@@ -395,7 +462,7 @@ async function hydrateSyntheticRowsFromLinkedVendas(
           cliente_id,
           clientes (nome),
           destino_cidade:cidades!destino_cidade_id (id, nome),
-          destinos:produtos!destino_id (id, nome, tipo_produto)
+          destinos:produtos!destino_id (id, nome, cidade_id, tipo_produto)
         `,
       )
       .in("id", batch);
@@ -415,7 +482,7 @@ async function hydrateSyntheticRowsFromLinkedVendas(
         cliente_id?: string | null;
         clientes?: { nome?: string | null } | null;
         destino_cidade?: { id?: string | null; nome?: string | null } | null;
-        destinos?: { id?: string | null; nome?: string | null; tipo_produto?: string | null } | null;
+        destinos?: { id?: string | null; nome?: string | null; cidade_id?: string | null; tipo_produto?: string | null } | null;
       };
       vendaMap.set(id, {
         cliente_id: toStr(item?.cliente_id) || null,
@@ -1155,13 +1222,16 @@ export async function GET(event) {
       }));
     };
 
-    const filterRowsForReport = (rowsInput: ReportSalesViewRow[]) =>
+    const filterRowsForReport = (
+      rowsInput: ReportSalesViewRow[],
+      cityNames?: DestinationCityNameMap,
+    ) =>
       rowsInput.filter((row) => {
         if (clienteId && String(row.cliente_id || "").trim() !== clienteId) {
           return false;
         }
 
-        const destino = getVendaDestino(row).toLowerCase();
+        const destino = getVendaDestino(row, cityNames).toLowerCase();
         if (destinoFilter && !destino.includes(destinoFilter)) {
           return false;
         }
@@ -1241,7 +1311,7 @@ export async function GET(event) {
             data_inicio,
             data_fim,
             tipo_produtos (id, nome, tipo),
-            produto_resolvido:produtos!produto_resolvido_id (id, nome)
+            produto_resolvido:produtos!produto_resolvido_id (id, nome, cidade_id)
           )
         `,
                 )
@@ -1399,13 +1469,17 @@ export async function GET(event) {
           })
           .filter((row): row is ReportSalesViewRow => Boolean(row))
       : hydratedRowsView;
+    const destinationCityNames = await fetchDestinationCityNames(
+      client,
+      collectDestinationCityIds(rowsView),
+    );
     const rowIds: string[] = [];
     for (const row of rowsView) {
       const id = toStr(row?.id);
       if (id) rowIds.push(id);
     }
 
-    const filteredRows = filterRowsForReport(rowsView);
+    const filteredRows = filterRowsForReport(rowsView, destinationCityNames);
     const statusFilteredRows = statusFilter
       ? filteredRows.filter((row) => getVendaStatus(row) === statusFilter)
       : filteredRows;
@@ -1523,7 +1597,7 @@ export async function GET(event) {
           produto_id: recibo?.produto_id || null,
           tipo_produto: descriptor.tipo,
           produto_nome: descriptor.produto,
-          cidade_nome: getReceiptCidadeNome(recibo, row),
+          cidade_nome: getReceiptCidadeNome(recibo, row, destinationCityNames),
           valor_total: brutoBase,
           valor_taxas: getReciboTaxasExibicao(recibo),
           valor_taxas_ranking: valorTaxasRanking,
@@ -1579,7 +1653,7 @@ export async function GET(event) {
         vendedor_id: row.vendedor_id,
         vendedor_nome: vendaVendedorNome,
         destino_id: row.destinos?.id || null,
-        destino_nome: getVendaDestino(row),
+        destino_nome: getVendaDestino(row, destinationCityNames),
         destino_cidade_id: row.destino_cidade?.id || null,
         destino_cidade_nome: row.destino_cidade?.nome || null,
         valor_total: Number(

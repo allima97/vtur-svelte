@@ -55,6 +55,7 @@ export type ReportReceiptRow = {
   produto_resolvido?: {
     id?: string | null;
     nome?: string | null;
+    cidade_id?: string | null;
     tipo_produto?: string | null;
     valor_neto?: number | null;
     valor_em_reais?: number | null;
@@ -96,10 +97,13 @@ export type ReportVendaRow = {
   destinos?: {
     id?: string | null;
     nome?: string | null;
+    cidade_id?: string | null;
     tipo_produto?: string | null;
   } | null;
   recibos?: ReportReceiptRow[] | null;
 };
+
+export type DestinationCityNameMap = ReadonlyMap<string, string>;
 
 function isMissingColumnError(error: unknown) {
   const code = String((error as { code?: string })?.code || '').trim();
@@ -160,11 +164,11 @@ function buildSalesSelect(
   const reciboProdutoCols = includeAdvancedFields
     ? [
         `tipo_produtos (${tipoProdutoCols})`,
-        'produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)'
+        'produto_resolvido:produtos!produto_resolvido_id (id, nome, cidade_id, tipo_produto, valor_neto, valor_em_reais)'
       ]
     : [
         'tipo_produtos (id, nome, tipo)',
-        'produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)'
+        'produto_resolvido:produtos!produto_resolvido_id (id, nome, cidade_id, tipo_produto, valor_neto, valor_em_reais)'
       ];
 
   const reciboCols = [
@@ -193,7 +197,7 @@ function buildSalesSelect(
         clientes (nome, email, cpf),
         vendedor:users!vendedor_id (nome_completo, email),
         destino_cidade:cidades!destino_cidade_id (id, nome),
-        destinos:produtos!destino_id (id, nome, tipo_produto),
+        destinos:produtos!destino_id (id, nome, cidade_id, tipo_produto),
         ${receiptRelation} (${reciboCols})
       `
     : `
@@ -212,7 +216,7 @@ function buildSalesSelect(
         clientes (nome, email, cpf),
         vendedor:users!vendedor_id (nome_completo, email),
         destino_cidade:cidades!destino_cidade_id (id, nome),
-        destinos:produtos!destino_id (id, nome, tipo_produto),
+        destinos:produtos!destino_id (id, nome, cidade_id, tipo_produto),
         ${receiptRelation} (${reciboCols})
       `;
 
@@ -445,12 +449,24 @@ export function getVendaVendedorNome(row: Pick<ReportVendaRow, 'vendedor'>) {
   return String(row.vendedor?.email || 'Vendedor nao informado');
 }
 
-export function getVendaDestino(row: Pick<ReportVendaRow, 'destinos' | 'destino_cidade' | 'recibos'>) {
+function getMappedCityName(
+  cityNames?: DestinationCityNameMap | null,
+  cityId?: string | null
+) {
+  const id = String(cityId || '').trim();
+  if (!id || !cityNames) return '';
+  return String(cityNames.get(id) || '').trim();
+}
+
+export function getVendaDestino(
+  row: Pick<ReportVendaRow, 'destinos' | 'destino_cidade' | 'recibos'>,
+  cityNames?: DestinationCityNameMap | null
+) {
   const recibos = Array.isArray(row.recibos) ? row.recibos : [];
   const cidades = Array.from(
     new Set(
       recibos
-        .map((recibo) => String(recibo?.destino_cidade?.nome || '').trim())
+        .map((recibo) => getReceiptCidadeNome(recibo, row, cityNames))
         .filter(Boolean)
     )
   );
@@ -459,14 +475,28 @@ export function getVendaDestino(row: Pick<ReportVendaRow, 'destinos' | 'destino_
     return cidades.join(', ');
   }
 
-  return String(row.destino_cidade?.nome || row.destinos?.nome || 'Destino nao informado');
+  return (
+    String(row.destino_cidade?.nome || '').trim() ||
+    getMappedCityName(cityNames, row.destino_cidade?.id) ||
+    getMappedCityName(cityNames, row.destinos?.cidade_id) ||
+    'Destino nao informado'
+  );
 }
 
 export function getReceiptCidadeNome(
   receipt: ReportReceiptRow,
-  fallback?: Pick<ReportVendaRow, 'destino_cidade'>
+  fallback?: Pick<ReportVendaRow, 'destino_cidade' | 'destinos'>,
+  cityNames?: DestinationCityNameMap | null
 ) {
-  return String(receipt?.destino_cidade?.nome || fallback?.destino_cidade?.nome || '').trim() || null;
+  return (
+    String(receipt?.destino_cidade?.nome || '').trim() ||
+    getMappedCityName(cityNames, receipt?.destino_cidade?.id) ||
+    getMappedCityName(cityNames, receipt?.produto_resolvido?.cidade_id) ||
+    String(fallback?.destino_cidade?.nome || '').trim() ||
+    getMappedCityName(cityNames, fallback?.destino_cidade?.id) ||
+    getMappedCityName(cityNames, fallback?.destinos?.cidade_id) ||
+    null
+  );
 }
 
 export function getVendaCommission(row: Pick<ReportVendaRow, 'recibos'>) {

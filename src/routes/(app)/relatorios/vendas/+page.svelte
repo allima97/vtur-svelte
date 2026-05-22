@@ -716,8 +716,12 @@
         cliente_nome: venda.cliente_nome,
         cliente_cpf: venda.cliente_cpf,
         vendedor_nome: recibo.vendedor_nome || venda.vendedor_nome,
-        destino_nome: venda.destino_nome,
         cidade_nome: recibo.cidade_nome || venda.destino_cidade_nome,
+        destino_nome:
+          recibo.cidade_nome ||
+          venda.destino_cidade_nome ||
+          venda.destino_nome ||
+          'Destino nao informado',
         produto_nome: recibo.produto_nome,
         tipo_produto: recibo.tipo_produto,
         valor_total: getReciboBrutoExibicao(recibo),
