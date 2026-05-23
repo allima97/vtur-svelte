@@ -9,7 +9,7 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { monthRangeFromKey, parseISODateParts, todayISODateLocal } from '$lib/date';
+  import { addDaysISODate, monthRangeFromKey, parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
   import {
@@ -23,6 +23,8 @@
 
     MapPin,
     Gift,
+    Eye,
+    MessageCircle,
     Send,
     BarChart2,
     Plane,
@@ -31,6 +33,7 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { construirLinkWhatsAppComTexto, montarMensagemFollowUp } from '$lib/whatsapp';
   import {
     buildDashboardPrefsPayload,
     createVisibilityMap,
@@ -106,12 +109,16 @@
   type FollowUp = {
     id: string;
     venda_id: string | null;
+    cliente_id: string | null;
     cliente_nome: string;
+    cliente_whatsapp: string | null;
+    cliente_telefone: string | null;
     destino_nome: string | null;
     data_inicio: string | null;
     data_fim: string | null;
     follow_up_fechado?: boolean | null;
     data_embarque: string | null;
+    data_final: string | null;
     updated_at?: string | null;
   };
 
@@ -147,11 +154,15 @@
   type FollowUpRow = {
     id?: string | null;
     venda_id?: string | null;
+    cliente_id?: string | null;
     cliente_nome?: string | null;
+    cliente_whatsapp?: string | null;
+    cliente_telefone?: string | null;
     destino_nome?: string | null;
     data_inicio?: string | null;
     data_fim?: string | null;
     data_embarque?: string | null;
+    data_final?: string | null;
     follow_up_fechado?: boolean | null;
     updated_at?: string | null;
   };
@@ -222,6 +233,7 @@
   let userCtx: { nome: string | null; papel: string; vendedorIds: string[]; vendedorCount?: number } | null = null;
   let podeVerOperacao = false;
   let podeVerConsultoria = false;
+  let assinaturaUsuario = 'André Lima';
 
   let aniversariantes: Aniversariante[] = [];
   let viagens: Viagem[] = [];
@@ -350,6 +362,33 @@
     if (diffDays <= 7) return `Ha ${diffDays} dia${diffDays === 1 ? '' : 's'}`;
 
     return formatDate(value);
+  }
+
+  function getFollowUpNotificationRange(inicio: string, fim: string) {
+    const ontem = addDaysISODate(todayISODateLocal(), -1);
+    const followUpFim = fim && fim < ontem ? fim : ontem;
+    if (!followUpFim || followUpFim < inicio) return null;
+    return { inicio, fim: followUpFim };
+  }
+
+  function getFollowUpCliente(item: FollowUp) {
+    return item.cliente_nome || 'Cliente';
+  }
+
+  function getFollowUpDestino(item: FollowUp) {
+    return item.destino_nome || '';
+  }
+
+  function getFollowUpRetorno(item: FollowUp) {
+    return item.data_fim || item.data_final || item.data_embarque || null;
+  }
+
+  function getFollowUpWhatsAppLink(item: FollowUp) {
+    return construirLinkWhatsAppComTexto(
+      item.cliente_whatsapp || item.cliente_telefone,
+      montarMensagemFollowUp(getFollowUpCliente(item), assinaturaUsuario),
+      '55'
+    );
   }
 
   function clamp(value: number, min: number, max: number) {
@@ -597,6 +636,21 @@
     }
   }
 
+  async function loadAssinaturaUsuario() {
+    try {
+      const payload = await apiGet<{
+        signature?: string | null;
+        fallbackName?: string | null;
+        nome_completo?: string | null;
+      }>('/api/v1/profile/signature', undefined, undefined, 30_000);
+      const nome = String(payload?.signature || payload?.fallbackName || payload?.nome_completo || '').trim();
+      if (nome) assinaturaUsuario = nome;
+    } catch {
+      const fallback = String(userCtx?.nome || '').trim();
+      if (fallback) assinaturaUsuario = fallback;
+    }
+  }
+
   function applyPrefs(rows: WidgetPrefRow[]) {
     if (rows.length > 0) {
       const parsed = parseDashboardPrefs(rows);
@@ -743,19 +797,29 @@
     if (shouldLoadWidget('followups')) {
       tasks.push((async () => {
         try {
+          const followUpRange = getFollowUpNotificationRange(periodoInicio, periodoFim);
+          if (!followUpRange) {
+            followUps = [];
+            return;
+          }
           const d = await apiGet<{ items: FollowUpRow[] }>('/api/v1/dashboard/follow-ups', {
             ...params,
+            ...followUpRange,
             limit: 8
           }, controller.signal, 60_000);
           if (requestSeq !== operacionalRequestSeq) return;
           followUps = (d.items || []).map((item) => ({
             id: String(item.id || ''),
             venda_id: item.venda_id ? String(item.venda_id) : null,
+            cliente_id: item.cliente_id ? String(item.cliente_id) : null,
             cliente_nome: String(item.cliente_nome || 'Cliente'),
+            cliente_whatsapp: item.cliente_whatsapp ? String(item.cliente_whatsapp) : null,
+            cliente_telefone: item.cliente_telefone ? String(item.cliente_telefone) : null,
             destino_nome: item.destino_nome ? String(item.destino_nome) : null,
             data_inicio: item.data_inicio ? String(item.data_inicio) : null,
             data_fim: item.data_fim ? String(item.data_fim) : null,
             data_embarque: item.data_embarque ? String(item.data_embarque) : null,
+            data_final: item.data_final ? String(item.data_final) : null,
             follow_up_fechado: Boolean(item.follow_up_fechado),
             updated_at: item.updated_at ? String(item.updated_at) : null
           }));
@@ -873,7 +937,8 @@
     await Promise.all([
       loadBase(),
       loadDashboard(),
-      loadOperacional()
+      loadOperacional(),
+      loadAssinaturaUsuario()
     ]);
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
@@ -1282,11 +1347,11 @@
               <FileText size={18} />
             </div>
             <div>
-              <h3 class="text-base font-bold text-slate-900">Tarefas Pendentes</h3>
-              <p class="text-xs text-slate-500">Ações prioritárias</p>
+              <h3 class="text-base font-bold text-slate-900">Follow-Up ({followUps.length})</h3>
+              <p class="text-xs text-slate-500">Clientes que já retornaram e precisam de contato</p>
             </div>
           </div>
-          <a href="/vendas" class="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+          <a href="/operacao/acompanhamento" class="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
             Ver todas <span class="text-base">→</span>
           </a>
         </div>
@@ -1298,18 +1363,57 @@
           {:else}
             <div class="space-y-3">
               {#each followUps.slice(0, 5) as fu, i}
-                {@const prioridade = i === 0 ? { label: 'Alta', class: 'bg-red-100 text-red-600' } : i === 1 ? { label: 'Media', class: 'bg-amber-100 text-amber-600' } : { label: 'Baixa', class: 'bg-blue-100 text-blue-600' }}
+                {@const whatsappLink = getFollowUpWhatsAppLink(fu)}
                 <div class="rounded-xl border border-slate-100 p-3 hover:bg-slate-50 transition-colors {i === 1 ? 'border-indigo-100 bg-indigo-50/40' : ''}">
-                  <div class="flex items-start justify-between gap-2">
-                    <p class="text-sm font-semibold text-slate-900">
-                      {#if fu.destino_nome}Follow-up {fu.destino_nome}
-                      {:else}Follow-up pendente{/if}
-                    </p>
-                    <span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold {prioridade.class}">{prioridade.label}</span>
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-semibold text-slate-900">{getFollowUpCliente(fu)}</p>
+                      <p class="mt-1 text-xs text-slate-500">
+                        {#if getFollowUpDestino(fu)}{getFollowUpDestino(fu)} · {/if}
+                        Retorno: {formatDate(getFollowUpRetorno(fu))}
+                      </p>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-1">
+                      {#if whatsappLink}
+                        <Button
+                          href={whatsappLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          variant="ghost"
+                          size="xs"
+                          ariaLabel="Enviar follow-up no WhatsApp"
+                          title="Enviar follow-up no WhatsApp"
+                          class_name="!h-8 !w-8 !rounded-lg !p-0 text-green-600 hover:bg-green-50"
+                        >
+                          <MessageCircle size={15} />
+                        </Button>
+                      {/if}
+                      {#if fu.cliente_id}
+                        <Button
+                          href={`/clientes/${fu.cliente_id}`}
+                          variant="ghost"
+                          size="xs"
+                          ariaLabel="Ver cliente"
+                          title="Ver cliente"
+                          class_name="!h-8 !w-8 !rounded-lg !p-0 text-slate-600"
+                        >
+                          <UserPlus size={15} />
+                        </Button>
+                      {/if}
+                      <Button
+                        href={`/operacao/viagens/${fu.id}`}
+                        variant="ghost"
+                        size="xs"
+                        ariaLabel="Ver viagem"
+                        title="Ver viagem"
+                        class_name="!h-8 !w-8 !rounded-lg !p-0 text-slate-600"
+                      >
+                        <Eye size={15} />
+                      </Button>
+                    </div>
                   </div>
-                  <p class="mt-1 text-xs text-slate-500 flex items-center gap-3">
-                    <span class="flex items-center gap-1">Cliente: {fu.cliente_nome || '-'}</span>
-                    <span class="flex items-center gap-1"><Clock size={12} /> {formatDate(fu.data_fim || fu.data_embarque)}</span>
+                  <p class="mt-2 flex items-center gap-1 text-xs text-slate-400">
+                    <Clock size={12} /> Embarque: {formatDate(fu.data_inicio || fu.data_embarque)}
                   </p>
                 </div>
               {/each}

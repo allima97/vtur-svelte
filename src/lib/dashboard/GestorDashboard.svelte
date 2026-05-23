@@ -4,16 +4,18 @@
   import type { ChartData, TooltipItem } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Award, BarChart2, Building2, Calendar, Clock, Gift, MapPin, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
+  import { Award, BarChart2, Building2, Calendar, Clock, Eye, Gift, MapPin, MessageCircle, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, UserPlus, Users, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { goto } from '$app/navigation';
-  import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { addDaysISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
+  import { construirLinkWhatsAppComTexto, montarMensagemFollowUp } from '$lib/whatsapp';
 
   export let title = 'Dashboard do gestor';
   export let subtitle = 'Visão consolidada da equipe e desempenho comercial.';
@@ -82,7 +84,10 @@
 
   type FollowUp = {
     id: string;
+    cliente_id?: string | null;
     cliente_nome?: string | null;
+    cliente_whatsapp?: string | null;
+    cliente_telefone?: string | null;
     destino_nome?: string | null;
     data_inicio?: string | null;
     data_fim?: string | null;
@@ -91,7 +96,7 @@
     follow_up_fechado?: boolean | null;
     venda?: {
       data_embarque: string | null;
-      clientes?: { nome: string | null } | null;
+      clientes?: { nome: string | null; whatsapp?: string | null; telefone?: string | null } | null;
       destino_cidade?: { nome: string | null } | null;
     } | null;
   };
@@ -196,6 +201,7 @@
   };
   let metas: Meta[] = [];
   let followUps: FollowUp[] = [];
+  let assinaturaUsuario = 'André Lima';
   let topVendedores: NonNullable<DashboardCompraPayload['topVendedores']> = [];
   let topClientes: NonNullable<DashboardCompraPayload['topClientes']> = [];
   let ultimasCompras: DashboardCompra[] = [];
@@ -311,6 +317,25 @@
 
   function getFollowUpRetorno(item: FollowUp) {
     return item.data_fim || item.data_final || item.venda?.data_embarque || null;
+  }
+
+  function getFollowUpTelefone(item: FollowUp) {
+    return item.cliente_whatsapp || item.cliente_telefone || item.venda?.clientes?.whatsapp || item.venda?.clientes?.telefone || null;
+  }
+
+  function getFollowUpNotificationRange(inicio: string, fim: string) {
+    const ontem = addDaysISODate(todayISODateLocal(), -1);
+    const followUpFim = fim && fim < ontem ? fim : ontem;
+    if (!followUpFim || followUpFim < inicio) return null;
+    return { inicio, fim: followUpFim };
+  }
+
+  function getFollowUpWhatsAppLink(item: FollowUp) {
+    return construirLinkWhatsAppComTexto(
+      getFollowUpTelefone(item),
+      montarMensagemFollowUp(getFollowUpCliente(item), assinaturaUsuario),
+      '55'
+    );
   }
 
   function goToRanking() {
@@ -534,6 +559,21 @@
     }
   }
 
+  async function loadAssinaturaUsuario(signal?: AbortSignal) {
+    try {
+      const payload = await apiGet<{
+        signature?: string | null;
+        fallbackName?: string | null;
+        nome_completo?: string | null;
+      }>('/api/v1/profile/signature', undefined, signal, 30_000);
+      const nome = String(payload?.signature || payload?.fallbackName || payload?.nome_completo || '').trim();
+      if (nome) assinaturaUsuario = nome;
+    } catch {
+      const fallback = String(userCtx?.nome || '').trim();
+      if (fallback) assinaturaUsuario = fallback;
+    }
+  }
+
   function isCurrentAuxiliaryRequest(requestSeq: number) {
     return requestSeq === auxiliaryRequestSeq;
   }
@@ -551,10 +591,14 @@
     }
 
     try {
+      const followUpRange = getFollowUpNotificationRange('1900-01-01', todayISODateLocal());
+      if (!followUpRange) {
+        followUps = [];
+        return;
+      }
       const data = await apiGet<{ items: FollowUp[] }>('/api/v1/dashboard/follow-ups', {
         ...params,
-        inicio: '1900-01-01',
-        fim: todayISODateLocal(),
+        ...followUpRange,
         status: 'abertos',
         limit: 8
       }, signal, 60_000);
@@ -653,6 +697,7 @@
     auxiliaryAbortController = controller;
 
     await Promise.all([
+      loadAssinaturaUsuario(controller.signal),
       loadOperational(controller.signal, requestSeq),
       loadComprasResumo(controller.signal, requestSeq),
       loadAniversariantes(controller.signal, requestSeq),
@@ -1021,6 +1066,97 @@
   </div>
   {/if}
 
+</div>
+{/if}
+
+{#if widgetVisible.followups !== false}
+<div class="vtur-card mb-6 p-6">
+  <div class="mb-4 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+        <Clock size={18} />
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">{followUpHeader} ({followUps.length})</h3>
+        <p class="text-xs text-slate-500">Clientes que já retornaram e precisam de contato</p>
+      </div>
+    </div>
+    <a href="/operacao/acompanhamento" class="shrink-0 text-sm font-medium text-orange-600 transition-colors hover:text-orange-700">
+      Ver todos →
+    </a>
+  </div>
+  <div class="border-t border-slate-100 pt-4">
+    {#if loading}
+      <LoadingState compact={true} />
+    {:else if followUps.length === 0}
+      <p class="py-8 text-center text-sm text-slate-400">{followUpEmptyLabel}</p>
+    {:else}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-3 py-2 font-semibold">Cliente</th>
+              <th class="px-3 py-2 font-semibold">Destino</th>
+              <th class="px-3 py-2 font-semibold">Embarque</th>
+              <th class="px-3 py-2 font-semibold">Retorno</th>
+              <th class="px-3 py-2 text-right font-semibold">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {#each followUps as item}
+              {@const whatsappLink = getFollowUpWhatsAppLink(item)}
+              <tr class="transition-colors hover:bg-slate-50">
+                <td class="px-3 py-3 font-medium text-slate-900">{getFollowUpCliente(item)}</td>
+                <td class="px-3 py-3 text-slate-600">{getFollowUpDestino(item) || '-'}</td>
+                <td class="px-3 py-3 text-slate-600">{formatDate(item.data_inicio || item.data_embarque || item.venda?.data_embarque)}</td>
+                <td class="px-3 py-3 text-slate-600">{formatDate(getFollowUpRetorno(item))}</td>
+                <td class="px-3 py-3">
+                  <div class="flex justify-end gap-1">
+                    {#if whatsappLink}
+                      <Button
+                        href={whatsappLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="ghost"
+                        size="xs"
+                        ariaLabel="Enviar follow-up no WhatsApp"
+                        title="Enviar follow-up no WhatsApp"
+                        class_name="!h-8 !w-8 !rounded-lg !p-0 text-green-600 hover:bg-green-50"
+                      >
+                        <MessageCircle size={15} />
+                      </Button>
+                    {/if}
+                    {#if item.cliente_id}
+                      <Button
+                        href={`/clientes/${item.cliente_id}`}
+                        variant="ghost"
+                        size="xs"
+                        ariaLabel="Ver cliente"
+                        title="Ver cliente"
+                        class_name="!h-8 !w-8 !rounded-lg !p-0 text-slate-600"
+                      >
+                        <UserPlus size={15} />
+                      </Button>
+                    {/if}
+                    <Button
+                      href={`/operacao/viagens/${item.id}`}
+                      variant="ghost"
+                      size="xs"
+                      ariaLabel="Ver viagem"
+                      title="Ver viagem"
+                      class_name="!h-8 !w-8 !rounded-lg !p-0 text-slate-600"
+                    >
+                      <Eye size={15} />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  </div>
 </div>
 {/if}
 
