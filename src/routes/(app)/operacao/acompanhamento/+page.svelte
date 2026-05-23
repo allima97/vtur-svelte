@@ -11,7 +11,7 @@
   import { toast } from '$lib/stores/ui';
   import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search, SlidersHorizontal } from 'lucide-svelte';
   import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
-  import { addDaysISODate, todayISODateLocal } from '$lib/date';
+  import { addDaysISODate, currentMonthRangeISODate, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
   import { createDebouncedReloader } from '$lib/utils/autoReload';
@@ -100,17 +100,31 @@
 
   const todayIso = todayISODateLocal();
 
-  function thirtyDaysAgo() {
-    return addDaysISODate(todayIso, -30);
+  function getDefaultFollowUpRange() {
+    const monthRange = currentMonthRangeISODate();
+    return {
+      inicio: monthRange.inicio,
+      fim: addDaysISODate(todayISODateLocal(), -1)
+    };
   }
+
+  function resetFilters() {
+    const defaultRange = getDefaultFollowUpRange();
+    searchQuery = '';
+    statusFilter = 'abertos';
+    inicio = defaultRange.inicio;
+    fim = defaultRange.fim;
+  }
+
+  const defaultFollowUpRange = getDefaultFollowUpRange();
 
   let loading = true;
   let saving = false;
   let errorMessage: string | null = null;
   let searchQuery = '';
   let statusFilter = 'abertos';
-  let inicio = thirtyDaysAgo();
-  let fim = todayIso;
+  let inicio = defaultFollowUpRange.inicio;
+  let fim = defaultFollowUpRange.fim;
   let items: FollowUpItem[] = [];
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
@@ -328,12 +342,7 @@
     <Button
       variant="ghost"
       size="sm"
-      on:click={() => {
-        searchQuery = '';
-        statusFilter = 'abertos';
-        inicio = thirtyDaysAgo();
-        fim = todayIso;
-      }}
+      on:click={resetFilters}
     >
       Limpar filtros
     </Button>

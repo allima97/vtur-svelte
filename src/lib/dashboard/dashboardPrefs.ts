@@ -5,6 +5,7 @@ export type DashboardWidgetId =
   | 'por_produto'
   | 'orcamentos'
   | 'aniversariantes'
+  | 'atividades_recentes'
   | 'viagens'
   | 'followups'
   | 'consultorias';
@@ -40,6 +41,7 @@ export const DASHBOARD_WIDGETS: Array<{ id: DashboardWidgetId; titulo: string }>
   { id: 'por_produto', titulo: 'Vendas por produto' },
   { id: 'orcamentos', titulo: 'Orçamentos recentes' },
   { id: 'aniversariantes', titulo: 'Aniversariantes do mês' },
+  { id: 'atividades_recentes', titulo: 'Atividades recentes' },
   { id: 'viagens', titulo: 'Próximas viagens' },
   { id: 'followups', titulo: 'Follow-up operacional' },
   { id: 'consultorias', titulo: 'Consultorias online' }

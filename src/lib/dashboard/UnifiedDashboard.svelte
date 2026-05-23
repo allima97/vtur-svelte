@@ -678,6 +678,7 @@
 
   function shouldRequestOrcamentos() {
     return (
+      shouldLoadWidget('atividades_recentes') ||
       (widgetOrder.includes('orcamentos') && widgetVisible.orcamentos !== false) ||
       (kpiOrder.includes('orcamentos') && kpiVisible.orcamentos !== false)
     );
@@ -685,6 +686,10 @@
 
   function shouldLoadWidget(id: DashboardWidgetId) {
     return widgetOrder.includes(id) && widgetVisible[id] !== false;
+  }
+
+  function shouldLoadActivityFeed() {
+    return shouldLoadWidget('atividades_recentes');
   }
 
   async function loadDashboard() {
@@ -744,7 +749,7 @@
 
     const tasks: Array<Promise<void>> = [];
 
-    if (shouldLoadWidget('aniversariantes')) {
+    if (shouldLoadWidget('aniversariantes') || shouldLoadActivityFeed()) {
       tasks.push((async () => {
         try {
           const d = await apiGet<{ items: Aniversariante[] }>('/api/v1/dashboard/aniversariantes', {
@@ -762,7 +767,7 @@
       aniversariantes = [];
     }
 
-    if (shouldLoadWidget('viagens') && (!userCtx || podeVerOperacao)) {
+    if ((shouldLoadWidget('viagens') || shouldLoadActivityFeed()) && (!userCtx || podeVerOperacao)) {
       tasks.push((async () => {
         try {
           const d = await apiGet<{ items?: Viagem[]; proximas?: ViagemProximaRow[] }>('/api/v1/dashboard/viagens', {
@@ -794,7 +799,7 @@
       viagens = [];
     }
 
-    if (shouldLoadWidget('followups')) {
+    if (shouldLoadWidget('followups') || shouldLoadActivityFeed()) {
       tasks.push((async () => {
         try {
           const followUpRange = getFollowUpNotificationRange(periodoInicio, periodoFim);
@@ -1192,7 +1197,7 @@
 {/if}
 
 <!-- Linha 3: Próximas viagens + Atividades recentes + Aniversariantes -->
-{#if (activeWidgetOrder.includes('viagens') && podeVerOperacao) || activeWidgetOrder.includes('aniversariantes') || true}
+{#if (activeWidgetOrder.includes('viagens') && podeVerOperacao) || activeWidgetOrder.includes('atividades_recentes') || activeWidgetOrder.includes('aniversariantes')}
   <div class="mb-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
     {#if activeWidgetOrder.includes('viagens') && podeVerOperacao}
       <div class="vtur-card p-6">
@@ -1244,48 +1249,50 @@
       </div>
     {/if}
 
-    <div class="vtur-card p-6">
-      <div class="mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-            <Clock size={18} />
-          </div>
-          <div>
-            <h3 class="text-base font-bold text-slate-900">Atividades Recentes</h3>
-            <p class="text-xs text-slate-500">Últimas movimentações no sistema</p>
+    {#if activeWidgetOrder.includes('atividades_recentes')}
+      <div class="vtur-card p-6">
+        <div class="mb-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <Clock size={18} />
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Atividades Recentes</h3>
+              <p class="text-xs text-slate-500">Últimas movimentações no sistema</p>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="border-t border-slate-100 pt-4">
-        {#if loading}
-          <LoadingState />
-        {:else if activityFeed.length === 0}
-          <p class="py-6 text-center text-sm text-slate-400">Nenhuma atividade recente.</p>
-        {:else}
-          <div class="space-y-0">
-            {#each activityFeed as item, idx}
-              <div class="relative flex items-start gap-4 py-3">
-                {#if idx < activityFeed.length - 1}
-                  <span class="absolute left-[19px] top-12 h-[calc(100%-12px)] w-px bg-slate-200"></span>
-                {/if}
-                <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-sm">
-                  {#if item.icon === 'orcamento'}<FileText size={18} class="text-amber-500" />
-                  {:else if item.icon === 'aniversario'}<Gift size={18} class="text-green-500" />
-                  {:else if item.icon === 'viagem'}<Plane size={18} class="text-indigo-500" />
-                  {:else if item.icon === 'followup'}<Clock size={18} class="text-violet-500" />
-                  {:else}<Clock size={18} class="text-slate-400" />{/if}
+        <div class="border-t border-slate-100 pt-4">
+          {#if loading}
+            <LoadingState />
+          {:else if activityFeed.length === 0}
+            <p class="py-6 text-center text-sm text-slate-400">Nenhuma atividade recente.</p>
+          {:else}
+            <div class="space-y-0">
+              {#each activityFeed as item, idx}
+                <div class="relative flex items-start gap-4 py-3">
+                  {#if idx < activityFeed.length - 1}
+                    <span class="absolute left-[19px] top-12 h-[calc(100%-12px)] w-px bg-slate-200"></span>
+                  {/if}
+                  <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-sm">
+                    {#if item.icon === 'orcamento'}<FileText size={18} class="text-amber-500" />
+                    {:else if item.icon === 'aniversario'}<Gift size={18} class="text-green-500" />
+                    {:else if item.icon === 'viagem'}<Plane size={18} class="text-indigo-500" />
+                    {:else if item.icon === 'followup'}<Clock size={18} class="text-violet-500" />
+                    {:else}<Clock size={18} class="text-slate-400" />{/if}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-slate-900">{item.titulo}</p>
+                    <p class="text-xs text-slate-500">{item.subtitulo}</p>
+                  </div>
+                  <span class="shrink-0 pt-1 text-xs text-slate-400">{item.tempo}</span>
                 </div>
-                <div class="min-w-0 flex-1">
-                  <p class="text-sm font-semibold text-slate-900">{item.titulo}</p>
-                  <p class="text-xs text-slate-500">{item.subtitulo}</p>
-                </div>
-                <span class="shrink-0 pt-1 text-xs text-slate-400">{item.tempo}</span>
-              </div>
-            {/each}
-          </div>
-        {/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
       </div>
-    </div>
+    {/if}
 
     {#if activeWidgetOrder.includes('aniversariantes')}
       <div class="vtur-card p-6">
