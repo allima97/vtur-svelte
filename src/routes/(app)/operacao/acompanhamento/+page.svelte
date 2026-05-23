@@ -70,6 +70,7 @@
   }
 
   type FollowUpItem = {
+    row_key?: string;
     id: string;
     venda_id: string | null;
     cliente_id: string | null;
@@ -381,6 +382,7 @@
       searchable={false}
       filterable={false}
       exportable={false}
+      keyExtractor={(row) => row.row_key || `${row.id}:${row.cliente_id || row.cliente_nome}`}
       onRowClick={(row) => openItem(row)}
       emptyMessage="Nenhum follow-up encontrado para o periodo"
     />
