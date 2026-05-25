@@ -276,15 +276,15 @@
 </script>
 
 <svelte:head>
-  <title>Acompanhamento | VTUR</title>
+  <title>Follow-up | VTUR</title>
 </svelte:head>
 
 <PageHeader
-  title="Acompanhamento"
+  title="Follow-up"
   subtitle="Follow-up operacional derivado de viagens e vendas, respeitando escopo por perfil."
   color="operacao"
   breadcrumbs={[
-    { label: 'Acompanhamento' }
+    { label: 'Follow-up' }
   ]}
   actions={[
     { label: 'Atualizar', onClick: loadFollowUps, variant: 'secondary', icon: RefreshCw }
