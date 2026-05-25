@@ -39,11 +39,11 @@ export const DASHBOARD_WIDGETS: Array<{ id: DashboardWidgetId; titulo: string }>
   { id: 'timeline', titulo: 'Evolução das vendas' },
   { id: 'top_destinos', titulo: 'Top destinos' },
   { id: 'por_produto', titulo: 'Vendas por produto' },
-  { id: 'orcamentos', titulo: 'Orçamentos recentes' },
-  { id: 'aniversariantes', titulo: 'Aniversariantes do mês' },
-  { id: 'atividades_recentes', titulo: 'Atividades recentes' },
   { id: 'viagens', titulo: 'Próximas viagens' },
   { id: 'followups', titulo: 'Follow-up operacional' },
+  { id: 'aniversariantes', titulo: 'Aniversariantes do mês' },
+  { id: 'orcamentos', titulo: 'Orçamentos recentes' },
+  { id: 'atividades_recentes', titulo: 'Atividades recentes' },
   { id: 'consultorias', titulo: 'Consultorias online' }
 ];
 
@@ -84,9 +84,15 @@ export function createVisibilityMap<T extends string>(ids: T[], visible = true):
   }, {} as Record<T, boolean>);
 }
 
+export const DEFAULT_WIDGET_VISIBILITY: Record<DashboardWidgetId, boolean> = {
+  ...createVisibilityMap(DEFAULT_WIDGET_ORDER, true),
+  atividades_recentes: false
+};
+
 export function readDashboardPrefsFromStorage<T extends string>(
   key: string,
-  allowed: T[]
+  allowed: T[],
+  defaultVisible?: Record<T, boolean>
 ): { order: T[]; visible: Record<T, boolean> } | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -94,7 +100,7 @@ export function readDashboardPrefsFromStorage<T extends string>(
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const order = normalizeOrder(Array.isArray(parsed?.order) ? parsed.order : [], allowed);
-    const visible = createVisibilityMap(allowed, true);
+    const visible = { ...(defaultVisible ?? createVisibilityMap(allowed, true)) };
     if (parsed?.visible && typeof parsed.visible === 'object') {
       for (const id of allowed) {
         if (typeof parsed.visible[id] === 'boolean') visible[id] = parsed.visible[id];
@@ -119,7 +125,7 @@ export function parseDashboardPrefs(rows: WidgetPrefRow[]) {
   const widgetAllowed = DEFAULT_WIDGET_ORDER;
   const kpiAllowed = DEFAULT_KPI_ORDER;
 
-  const widgetVisible = createVisibilityMap(widgetAllowed, true);
+  const widgetVisible = { ...DEFAULT_WIDGET_VISIBILITY };
   const kpiVisible = createVisibilityMap(kpiAllowed, true);
   const widgetOrder = normalizeOrder(
     rows
