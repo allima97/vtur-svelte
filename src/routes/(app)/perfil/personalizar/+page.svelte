@@ -26,7 +26,7 @@
         { key: 'dashboard',       label: 'Dashboard',        href: '/dashboard' },
         { key: 'tarefas',         label: 'Tarefas',           href: '/operacao/tarefas' },
         { key: 'agenda',          label: 'Agenda',            href: '/operacao/agenda' },
-        { key: 'acompanhamento',  label: 'Acompanhamento',    href: '/operacao/acompanhamento' },
+        { key: 'acompanhamento',  label: 'Follow-up',    href: '/operacao/acompanhamento' },
         { key: 'recados',         label: 'Recados',           href: '/operacao/recados' },
         { key: 'aniversariantes', label: 'Aniversariantes',   href: '/aniversariantes' }
       ]

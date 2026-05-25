@@ -114,7 +114,7 @@
         { key: 'dashboard', name: 'Dashboard', href: dashboardHref, icon: LayoutDashboard },
         { key: 'tarefas', name: 'Tarefas', href: '/operacao/tarefas', icon: SquareCheckBig },
         { key: 'agenda', name: 'Agenda', href: '/operacao/agenda', icon: Calendar },
-        { key: 'acompanhamento', name: 'Acompanhamento', href: '/operacao/acompanhamento', icon: FileText },
+        { key: 'acompanhamento', name: 'Follow-up', href: '/operacao/acompanhamento', icon: FileText },
         { key: 'recados', name: 'Recados', href: '/operacao/recados', icon: MessageSquare },
         { key: 'aniversariantes', name: 'Aniversariantes', href: '/aniversariantes', icon: Gift }
       ]
@@ -451,7 +451,7 @@
         { key: 'vouchers',        name: 'Vouchers',       href: '/operacao/vouchers',             icon: Ticket },
         { key: 'tarefas',         name: 'Tarefas',        href: '/operacao/tarefas',              icon: SquareCheckBig },
         { key: 'agenda',          name: 'Agenda',         href: '/operacao/agenda',               icon: Calendar },
-        { key: 'acompanhamento',  name: 'Acompanhamento', href: '/operacao/acompanhamento',       icon: FileText },
+        { key: 'acompanhamento',  name: 'Follow-up', href: '/operacao/acompanhamento',       icon: FileText },
         { key: 'controle_sac',    name: 'SAC',            href: '/operacao/controle-sac',         icon: AlertCircle },
         { key: 'campanhas',       name: 'Campanhas',      href: '/operacao/campanhas',            icon: Megaphone },
         { key: 'documentos',      name: 'Documentos',     href: '/operacao/documentos-viagens',   icon: FileText },
