@@ -776,6 +776,7 @@ function buildSpecialToursPreviewDocument(
   const providerLogo = pickAssetUrl(assets, providerAsset, "logo");
   const providerImages = pickAssetUrls(assets, providerAsset, "image");
   const routeTitle = buildRouteTitle(voucher);
+  const extraData = normalizeVoucherExtraData(voucher.extra_data, voucher.provider);
   const passengerLines = splitPassengerLines(voucher.passageiros);
   const dias = normalizePreviewDays((voucher.voucher_dias || []) as VoucherDia[], voucher.data_inicio);
   const hoteis = (voucher.voucher_hoteis || [])
@@ -848,6 +849,13 @@ function buildSpecialToursPreviewDocument(
       </section>`
     : "";
 
+  const emergencyOffice = textValue(extraData.emergencia?.escritorio) || "onboard@specialtours.com";
+  const emergency24h = textValue(extraData.emergencia?.emergencia_24h) || "+34 652 99 00 47";
+  const emergencyWhatsapp = textValue(extraData.emergencia?.whatsapp);
+  const emergencyOfficeHtml = emergencyOffice.includes("@")
+    ? `<a href="mailto:${escapeHtml(emergencyOffice)}">${escapeHtml(emergencyOffice)}</a>`
+    : escapeHtml(emergencyOffice);
+
   const emergencySection = `
     <section class="sheet">
       ${buildSpecialHeader(cvcLogo, providerLogo, "Special Tours")}
@@ -855,8 +863,9 @@ function buildSpecialToursPreviewDocument(
       <div class="sheet-card emergency-card">
         <p>Nos adicione no seu WhatsApp e em caso de emergência durante a sua viagem,<br/>ou qualquer outra dúvida, entre em contato conosco.</p>
         <p>Apenas para passageiros em viagem:</p>
-        <p class="emergency-strong">+34 652 99 00 47</p>
-        <p><a href="mailto:onboard@specialtours.com">onboard@specialtours.com</a></p>
+        <p class="emergency-strong">${escapeHtml(emergency24h)}</p>
+        <p>${emergencyOfficeHtml}</p>
+        ${emergencyWhatsapp ? `<p>WhatsApp emergências: ${escapeHtml(emergencyWhatsapp)}</p>` : ""}
         ${voucher.reserva_online ? `<p class="emergency-id">IDENTIFICADOR: ${escapeHtml(voucher.reserva_online)}</p>` : ""}
       </div>
     </section>`;
