@@ -56,13 +56,33 @@
   }
 
   function handlePrint() {
-    if (iframe?.contentWindow) {
-      iframe.contentWindow.print();
-    }
+    printVoucherDocument();
   }
 
   function handleSavePdf() {
+    printVoucherDocument();
+  }
+
+  function printVoucherDocument() {
+    if (!docHtml) return;
+
+    // Fluxo principal: nova janela dedicada para impressão/salvar PDF.
+    // Isso evita bloqueios comuns de print em iframe com sandbox.
+    const popup = window.open('', '_blank', 'noopener,noreferrer');
+    if (popup) {
+      popup.document.open();
+      popup.document.write(docHtml);
+      popup.document.close();
+      popup.focus();
+      setTimeout(() => {
+        popup.print();
+      }, 150);
+      return;
+    }
+
+    // Fallback: tenta imprimir o iframe atual se popup estiver bloqueado.
     if (iframe?.contentWindow) {
+      iframe.contentWindow.focus();
       iframe.contentWindow.print();
     }
   }
@@ -125,7 +145,7 @@
             srcdoc={docHtml}
             class="w-full flex-1 bg-white shadow-lg rounded-lg border border-slate-200"
             title="Voucher Preview"
-            sandbox="allow-modals"
+            sandbox="allow-modals allow-same-origin"
             referrerpolicy="no-referrer"
             style="min-height: 0;"
           ></iframe>
