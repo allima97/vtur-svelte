@@ -197,6 +197,33 @@
     return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
+  function normalizeText(value: string | null | undefined) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(DIACRITICS_RE, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  function isValeViagemTipo(tipoId: string) {
+    if (!tipoId) return false;
+    const tipoSelecionado = tipos.find((item) => String(item.id) === String(tipoId));
+    const nomeBase = normalizeText(String(tipoSelecionado?.nome || tipoSelecionado?.tipo || ''));
+    return nomeBase.includes('vale viagem');
+  }
+
+  function produtoMatchesTipo(item: Option, tipoId: string) {
+    if (!tipoId) return true;
+    const selectedType = tipos.find((tipo) => String(tipo.id) === String(tipoId));
+    const tipoSelecionadoNome = normalizeText(String(selectedType?.nome || selectedType?.tipo || ''));
+    const tipoProduto = normalizeText(String(item.tipo_produto || item.tipo || ''));
+    return (
+      String(item.tipo) === String(tipoId) ||
+      String(item.tipo_produto) === String(tipoId) ||
+      (tipoSelecionadoNome && tipoProduto === tipoSelecionadoNome)
+    );
+  }
+
   function ensurePrincipalRecibo() {
     if (recibos.length === 0) return;
     if (recibos.some((item) => item.principal)) return;
@@ -307,7 +334,7 @@
 
   function getProdutosByTipo(tipoId: string) {
     return produtos.filter((item) => {
-      const matchesTipo = !tipoId || item.tipo === tipoId || item.tipo_produto === tipoId;
+      const matchesTipo = produtoMatchesTipo(item, tipoId);
       return matchesTipo && isProdutoCompativelCidade(item);
     });
   }
@@ -328,7 +355,8 @@
 
   function getProdutosByTipoCidade(tipoId: string, cidadeId: string) {
     return produtos.filter((item) => {
-      const matchesTipo = !tipoId || item.tipo === tipoId || item.tipo_produto === tipoId;
+      const matchesTipo = produtoMatchesTipo(item, tipoId);
+      if (matchesTipo && isValeViagemTipo(tipoId)) return true;
       return matchesTipo && isProdutoCompativelCidade(item, cidadeId);
     });
   }
@@ -464,11 +492,7 @@
   const DIACRITICS_RE = /[\u0300-\u036f]/g;
 
   function normalizeLookup(value: string | null | undefined) {
-    return String(value || '')
-      .normalize('NFD')
-      .replace(DIACRITICS_RE, '')
-      .toLowerCase()
-      .trim();
+    return normalizeText(value);
   }
 
   function getCidadeImportanceRank(cidade: Option) {
