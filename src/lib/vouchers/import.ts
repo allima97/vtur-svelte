@@ -346,16 +346,37 @@ export function parseSpecialToursCircuitPasteText(text: string): VoucherImportRe
     if (line) lines.push(line);
   }
 
-  let inItinerary = false;
-  let inHotels = false;
+  const itineraryRange = findSpecialToursItineraryRange(lines);
   const dayLines: string[] = [];
   const hotelLines: string[] = [];
+  const startEndDates = extractSpecialToursStartEndDates(lines);
 
-  for (const line of lines) {
+  if (startEndDates.start) result.data_inicio = startEndDates.start;
+  if (startEndDates.end) result.data_fim = startEndDates.end;
+
+  let inItinerary = false;
+  let inHotels = false;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     const lower = normalizeText(line);
 
-    if (lower.includes("itinerario") || lower.includes("dia a dia")) {
+    if (itineraryRange && index >= itineraryRange.start && index <= itineraryRange.end) {
+      dayLines.push(line);
+      continue;
+    }
+
+    if (!itineraryRange && (lower.includes("itinerario") || lower.includes("dia a dia"))) {
       inItinerary = true;
+      inHotels = false;
+      continue;
+    }
+    if (
+      lower.startsWith("data e cidade de inicio") ||
+      lower.startsWith("data e cidade de início") ||
+      lower.startsWith("conversa com")
+    ) {
+      inItinerary = false;
       inHotels = false;
       continue;
     }
@@ -369,13 +390,53 @@ export function parseSpecialToursCircuitPasteText(text: string): VoucherImportRe
     if (inHotels) hotelLines.push(line);
   }
 
-  result.dias = parseSpecialToursDays(dayLines);
+  result.dias = parseSpecialToursDays(dayLines, result.data_inicio || null);
   result.hoteis = parseSpecialToursHotels(hotelLines);
 
   return result;
 }
 
-function parseSpecialToursDays(lines: string[]): VoucherDia[] {
+function findSpecialToursItineraryRange(lines: string[]): { start: number; end: number } | null {
+  let start = -1;
+  let end = lines.length - 1;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const n = normalizeText(lines[i]);
+    if (start === -1 && (n.startsWith("itinerario do circuito") || n === "itinerario")) {
+      start = i + 1;
+      continue;
+    }
+    if (
+      start !== -1 &&
+      (n.startsWith("data e cidade de inicio") || n.startsWith("data e cidade de início") || n.startsWith("conversa com"))
+    ) {
+      end = i - 1;
+      break;
+    }
+  }
+
+  if (start === -1 || end < start) return null;
+  return { start, end };
+}
+
+function extractSpecialToursStartEndDates(lines: string[]): { start: string; end: string } {
+  const matches: string[] = [];
+  for (const line of lines) {
+    const n = normalizeText(line);
+    if (!(n.startsWith("data e cidade de inicio") || n.startsWith("data e cidade de início"))) continue;
+
+    const afterLabel = line.split(":").slice(1).join(":").trim();
+    const dateText = afterLabel.split("-")[0]?.trim() || afterLabel;
+    const iso = parseIsoDateLoose(dateText);
+    if (iso) matches.push(iso);
+  }
+
+  if (!matches.length) return { start: "", end: "" };
+  if (matches.length === 1) return { start: matches[0], end: matches[0] };
+  return { start: matches[0], end: matches[matches.length - 1] };
+}
+
+function parseSpecialToursDays(lines: string[], startDate?: string | null): VoucherDia[] {
   const dias: VoucherDia[] = [];
   let current: Partial<VoucherDia> | null = null;
 
@@ -383,7 +444,7 @@ function parseSpecialToursDays(lines: string[]): VoucherDia[] {
     const line = cleanLine(raw);
     if (!line) continue;
 
-    const dayMatch = line.match(/^(\d+)[\s:.-]+(.+)$/);
+    const dayMatch = line.match(/^dia\s*(\d+)[ºoª]?\s*[:\-.–—]?\s*(.*)$/i) || line.match(/^(\d+)[\s:.-]+(.+)$/);
     if (dayMatch) {
       if (current) dias.push({ ...current, descricao: String(current.descricao || "").trim() } as VoucherDia);
       current = { dia_numero: Number(dayMatch[1]), titulo: dayMatch[2], descricao: "", ordem: dias.length };
@@ -393,7 +454,16 @@ function parseSpecialToursDays(lines: string[]): VoucherDia[] {
   }
 
   if (current) dias.push({ ...current, descricao: String(current.descricao || "").trim() } as VoucherDia);
-  return dias;
+
+  const baseDate = startDate ? parseIsoDateLoose(startDate) : "";
+  if (!baseDate) return dias;
+
+  return dias.map((dia, index) => ({
+    ...dia,
+    data_referencia: parseIsoDateLoose(baseDate)
+      ? toIsoDate(new Date(new Date(`${baseDate}T12:00:00`).getTime() + index * 86400000))
+      : dia.data_referencia || null,
+  }));
 }
 
 function parseSpecialToursHotels(lines: string[]): VoucherHotel[] {

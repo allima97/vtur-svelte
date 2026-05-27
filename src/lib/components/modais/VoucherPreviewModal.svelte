@@ -66,17 +66,25 @@
   function printVoucherDocument() {
     if (!docHtml) return;
 
-    // Fluxo principal: nova janela dedicada para impressão/salvar PDF.
-    // Isso evita bloqueios comuns de print em iframe com sandbox.
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
+    const htmlWithBase = ensureBaseHref(docHtml);
+    const blob = new Blob([htmlWithBase], { type: 'text/html;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    // Fluxo principal: nova aba com Blob URL (mais robusto que document.write).
+    const popup = window.open(blobUrl, '_blank');
     if (popup) {
-      popup.document.open();
-      popup.document.write(docHtml);
-      popup.document.close();
-      popup.focus();
-      setTimeout(() => {
+      const cleanup = () => {
+        try {
+          URL.revokeObjectURL(blobUrl);
+        } catch {
+          // noop
+        }
+      };
+      popup.addEventListener('load', () => {
+        popup.focus();
         popup.print();
-      }, 150);
+        setTimeout(cleanup, 4000);
+      }, { once: true });
       return;
     }
 
@@ -84,7 +92,21 @@
     if (iframe?.contentWindow) {
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(blobUrl);
+        } catch {
+          // noop
+        }
+      }, 1000);
     }
+  }
+
+  function ensureBaseHref(html: string) {
+    const baseTag = `<base href="${window.location.origin}/">`;
+    if (/<base\s+href=/i.test(html)) return html;
+    if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (head) => `${head}\n${baseTag}`);
+    return `<!doctype html><html><head>${baseTag}</head><body>${html}</body></html>`;
   }
 </script>
 
