@@ -634,6 +634,18 @@
     });
   }
 
+  function syncReciboTipoProduto(index: number) {
+    const recibo = recibos[index];
+    if (!recibo) return;
+    if (!isValeViagemTipo(recibo.tipo_produto_id)) return;
+    const produtosDisponiveis = getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo));
+    const valeViagem = produtosDisponiveis.find((item) => isValeViagemProduto(item)) || null;
+    if (!valeViagem?.id) return;
+    recibo.produto_id = String(valeViagem.id);
+    recibo.produto_resolvido_id = String(valeViagem.id);
+    recibos = recibos;
+  }
+
   function getProdutosOptionsRecibo(recibo: (typeof recibos)[number]) {
     const selectedId = getProdutoRealId(recibo);
     const filtered = getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo));
@@ -1245,6 +1257,7 @@
                     class_name="w-full"
                     error={errors[`recibo_tipo_${index}`]}
                     required
+                    on:change={() => syncReciboTipoProduto(index)}
                   />
                 </div>
                 <div>
