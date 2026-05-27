@@ -217,6 +217,19 @@
     return nome.includes('vale viagem');
   }
 
+  function getValeViagemProdutoVirtual(tipoId: string): Option | null {
+    if (!isValeViagemTipo(tipoId)) return null;
+    const tipoSelecionado = tipos.find((item) => String(item.id) === String(tipoId));
+    return {
+      id: tipoId,
+      nome: String(tipoSelecionado?.nome || 'Vale Viagem'),
+      tipo: tipoId,
+      tipo_produto: tipoId,
+      todas_as_cidades: true,
+      ativo: true
+    };
+  }
+
   function produtoMatchesTipo(item: Option, tipoId: string) {
     if (!tipoId) return true;
     const selectedType = tipos.find((tipo) => String(tipo.id) === String(tipoId));
@@ -359,22 +372,36 @@
   }
 
   function getProdutosByTipoCidade(tipoId: string, cidadeId: string) {
-    return produtos.filter((item) => {
+    const filtered = produtos.filter((item) => {
       const matchesTipo = produtoMatchesTipo(item, tipoId);
       if (isValeViagemTipo(tipoId)) return matchesTipo || isValeViagemProduto(item);
       return matchesTipo && isProdutoCompativelCidade(item, cidadeId);
     });
+    const valeViagemVirtual = getValeViagemProdutoVirtual(tipoId);
+    if (!valeViagemVirtual) return filtered;
+    if (filtered.some((item) => String(item.id) === String(valeViagemVirtual.id) || isValeViagemProduto(item))) {
+      return filtered;
+    }
+    return [valeViagemVirtual, ...filtered];
   }
 
   function syncReciboTipoProduto(index: number) {
     const recibo = recibos[index];
     if (!recibo) return;
-    if (!isValeViagemTipo(recibo.tipo_produto_id)) return;
+    if (!isValeViagemTipo(recibo.tipo_produto_id)) {
+      const produtoAtual = produtos.find((item) => String(item.id) === String(recibo.produto_id));
+      if (recibo.produto_id && (!produtoAtual || !produtoMatchesTipo(produtoAtual, recibo.tipo_produto_id))) {
+        recibo.produto_id = '';
+        recibo.produto_resolvido_id = '';
+        recibos = recibos;
+      }
+      return;
+    }
     const produtosDisponiveis = getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo));
     const valeViagem = produtosDisponiveis.find((item) => isValeViagemProduto(item)) || null;
     if (!valeViagem?.id) return;
     recibo.produto_id = String(valeViagem.id);
-    recibo.produto_resolvido_id = String(valeViagem.id);
+    recibo.produto_resolvido_id = produtos.some((item) => String(item.id) === String(valeViagem.id)) ? String(valeViagem.id) : '';
     recibos = recibos;
   }
 
@@ -402,6 +429,11 @@
 
   function updateReciboProduto(index: number) {
     const recibo = recibos[index];
+    if (isValeViagemTipo(recibo.tipo_produto_id) && String(recibo.produto_id) === String(recibo.tipo_produto_id)) {
+      recibo.produto_resolvido_id = '';
+      recibos = recibos;
+      return;
+    }
     recibo.produto_resolvido_id = recibo.produto_id;
     recibos = recibos;
   }
