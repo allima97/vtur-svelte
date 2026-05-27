@@ -387,9 +387,14 @@
     }
     try {
       importingCircuit = true;
+      const supportsCircuitPaste =
+        form.provider === 'special_tours' || form.provider === 'sato_tours' || form.provider === 'europamundo';
+      const parsedCircuit = supportsCircuitPaste
+        ? parseSpecialToursCircuitPasteText(circuitPasteText, form.provider)
+        : null;
       const imported =
-        form.provider === 'special_tours' || form.provider === 'sato_tours'
-          ? parseSpecialToursCircuitPasteText(circuitPasteText)
+        parsedCircuit && (parsedCircuit.dias.length > 0 || parsedCircuit.hoteis.length > 0)
+          ? parsedCircuit
           : parseVoucherImportText(circuitPasteText, form.provider);
       applyImportedResult(imported, { replaceDays: true, replaceHotels: false });
       toast.success('Itinerário importado com sucesso');

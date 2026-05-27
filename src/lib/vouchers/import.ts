@@ -335,8 +335,11 @@ function parseHotelLines(lines: string[]): VoucherHotel[] {
   }));
 }
 
-export function parseSpecialToursCircuitPasteText(text: string): VoucherImportResult {
-  const result = createEmptyVoucherImport("special_tours");
+export function parseSpecialToursCircuitPasteText(
+  text: string,
+  provider: VoucherProvider = "special_tours",
+): VoucherImportResult {
+  const result = createEmptyVoucherImport(provider);
   const normalized = cleanMultilineText(text);
   if (!normalized) return result;
 
@@ -505,9 +508,15 @@ export async function extractVoucherImportFromFile(file: File, provider: Voucher
   
   if (ext === "txt") {
     const text = await file.text();
-    return provider === "special_tours" || provider === "sato_tours"
-      ? parseSpecialToursCircuitPasteText(text)
-      : parseVoucherImportText(text, provider);
+    const supportsCircuitPaste =
+      provider === "special_tours" || provider === "sato_tours" || provider === "europamundo";
+
+    if (!supportsCircuitPaste) return parseVoucherImportText(text, provider);
+
+    const parsedCircuit = parseSpecialToursCircuitPasteText(text, provider);
+    const hasItinerary = parsedCircuit.dias.length > 0 || parsedCircuit.hoteis.length > 0;
+
+    return hasItinerary ? parsedCircuit : parseVoucherImportText(text, provider);
   }
   
   throw new Error("Formato não suportado. Use arquivo .txt ou copie e cole o texto.");
