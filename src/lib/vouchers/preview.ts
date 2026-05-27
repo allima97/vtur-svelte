@@ -1164,6 +1164,8 @@ function buildSpecialToursPreviewDocument(
           padding: 0;
         }
         .sheet {
+          break-after: auto !important;
+          page-break-after: auto !important;
           margin-bottom: 0 !important;
         }
         .voucher-header {
@@ -1229,16 +1231,20 @@ function buildSpecialToursPreviewDocument(
         .emergency-card {
           padding: 28px 24px !important;
         }
-        .program-card,
-        .voucher-hotel-card,
-        .provider-image-card,
         .voucher-header,
         .voucher-band,
-        .sheet-keep-together,
-        .sheet-keep-together-block,
+        .provider-image-card,
         .emergency-card {
           break-inside: avoid-page !important;
           page-break-inside: avoid !important;
+        }
+        .sheet-card,
+        .program-card,
+        .voucher-hotel-card,
+        .sheet-keep-together,
+        .sheet-keep-together-block {
+          break-inside: auto !important;
+          page-break-inside: auto !important;
         }
         .voucher-header,
         .voucher-band,
@@ -1699,6 +1705,8 @@ function buildEuropamundoPreviewDocument(voucher: VoucherRecord, assets: Voucher
           padding: 0;
         }
         .sheet {
+          break-after: auto !important;
+          page-break-after: auto !important;
           margin-bottom: 0 !important;
         }
         .voucher-header {
@@ -1769,12 +1777,21 @@ function buildEuropamundoPreviewDocument(voucher: VoucherRecord, assets: Voucher
         .emergency-card {
           padding: 28px 24px !important;
         }
-        .program-card,
-        .sheet-card,
         .voucher-header,
         .voucher-band {
           break-inside: avoid-page !important;
           page-break-inside: avoid !important;
+          box-shadow: none;
+        }
+        .program-card,
+        .sheet-card,
+        .voucher-hotel-card,
+        .europa-transfer-card,
+        .europa-info-card,
+        .europa-passenger-card,
+        .europa-app-card {
+          break-inside: auto !important;
+          page-break-inside: auto !important;
           box-shadow: none;
         }
       }
