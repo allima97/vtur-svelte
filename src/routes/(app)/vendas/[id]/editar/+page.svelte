@@ -276,6 +276,11 @@
     return nomeBase.includes('vale viagem');
   }
 
+  function isValeViagemProduto(item: Option) {
+    const nome = normalizeText(String(item.nome || ''));
+    return nome.includes('vale viagem');
+  }
+
   function produtoMatchesTipo(item: Option, tipoId: string) {
     if (!tipoId) return true;
     const selectedType = tipos.find((tipo) => String(tipo.id) === String(tipoId));
@@ -624,7 +629,7 @@
   function getProdutosByTipoCidade(tipoId: string, cidadeId: string) {
     return produtos.filter((item) => {
       const matchesTipo = produtoMatchesTipo(item, tipoId);
-      if (matchesTipo && isValeViagemTipo(tipoId)) return true;
+      if (isValeViagemTipo(tipoId)) return matchesTipo || isValeViagemProduto(item);
       return matchesTipo && isProdutoCompativelCidade(item, cidadeId);
     });
   }
