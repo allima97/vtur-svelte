@@ -910,6 +910,7 @@
   bind:open={showDeleteDialog}
   title="Confirmar Exclusão"
   color="operacao"
+  showConfirm={true}
   confirmVariant="danger"
   confirmText="Excluir"
   cancelText="Cancelar"

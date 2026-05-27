@@ -322,6 +322,7 @@
   bind:open={showDeleteDialog}
   title="Confirmar Exclusão"
   color="financeiro"
+  showConfirm={true}
   confirmText="Excluir"
   cancelText="Cancelar"
   confirmVariant="danger"
