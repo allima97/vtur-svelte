@@ -1166,7 +1166,13 @@ function buildSpecialToursPreviewDocument(
         .sheet {
           break-after: auto !important;
           page-break-after: auto !important;
+          break-inside: auto !important;
+          page-break-inside: auto !important;
           margin-bottom: 0 !important;
+        }
+        .sheet + .sheet {
+          break-before: page !important;
+          page-break-before: always !important;
         }
         .voucher-header {
           grid-template-columns: 150px 1fr 150px !important;
@@ -1707,7 +1713,13 @@ function buildEuropamundoPreviewDocument(voucher: VoucherRecord, assets: Voucher
         .sheet {
           break-after: auto !important;
           page-break-after: auto !important;
+          break-inside: auto !important;
+          page-break-inside: auto !important;
           margin-bottom: 0 !important;
+        }
+        .sheet + .sheet {
+          break-before: page !important;
+          page-break-before: always !important;
         }
         .voucher-header {
           grid-template-columns: 150px 1fr 150px !important;
