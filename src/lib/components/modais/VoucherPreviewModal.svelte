@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
-  import { X, Edit, FileDown, Printer } from 'lucide-svelte';
+  import { X, Edit, FileDown, Printer, Trash2 } from 'lucide-svelte';
   import Button from '../ui/Button.svelte';
   import LoadingState from '../ui/LoadingState.svelte';
   import { buildVoucherPreviewDocument } from '../../vouchers/preview';
@@ -53,6 +53,10 @@
   function handleEdit() {
     dispatch('edit', voucher);
     close();
+  }
+
+  function handleDelete() {
+    dispatch('delete', voucher);
   }
 
   function handlePrint() {
@@ -145,6 +149,10 @@
         <Button variant="primary" on:click={handleSavePdf} class_name="!px-2 md:!px-4">
           <FileDown size={18} />
           <span class="hidden md:inline ml-2">Salvar PDF</span>
+        </Button>
+        <Button variant="danger" on:click={handleDelete} class_name="!px-2 md:!px-4">
+          <Trash2 size={18} />
+          <span class="hidden md:inline ml-2">Excluir voucher</span>
         </Button>
         <Button 
           variant="ghost"

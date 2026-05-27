@@ -6,7 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { Plus, Ticket, FileText, ExternalLink, Trash2 } from 'lucide-svelte';
+  import { Plus, Ticket, FileText, ExternalLink } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
@@ -190,12 +190,22 @@
     }
   }
 
+  function handleDeleteFromPreview(event: CustomEvent) {
+    const row = event.detail as VoucherRecord | null;
+    if (!row) return;
+    deleteConfirmVoucher = row;
+  }
+
   async function handleDelete() {
     if (!deleteConfirmVoucher) return;
     
     try {
       await apiDelete(`/api/v1/vouchers/${deleteConfirmVoucher.id}`);
       toast.success('Voucher excluído!');
+      if (previewVoucher?.id === deleteConfirmVoucher.id) {
+        showPreview = false;
+        previewVoucher = null;
+      }
       deleteConfirmVoucher = null;
       await loadData();
     } catch (err) {
@@ -293,24 +303,7 @@
   extraSearchKeys={['codigo_systur']}
   onRowClick={handleRowClick}
   emptyMessage="Nenhum voucher encontrado"
->
-  <svelte:fragment slot="row-actions" let:row>
-    <div class="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        color="red"
-        on:click={(event) => {
-          event.stopPropagation();
-          deleteConfirmVoucher = row;
-        }}
-        class_name="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
-      >
-        <Trash2 size={16} />
-      </Button>
-    </div>
-  </svelte:fragment>
-</DataTable>
+/>
 
 <!-- Preview Modal -->
 {#if VoucherPreviewModal && showPreview}
@@ -320,6 +313,7 @@
     voucher={previewVoucher}
     {assets}
     on:edit={handleEditFromPreview}
+    on:delete={handleDeleteFromPreview}
   />
 {/if}
 
