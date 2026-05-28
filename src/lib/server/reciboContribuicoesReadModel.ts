@@ -193,7 +193,7 @@ type PersistentContributionRow = {
   source_taxas: number | string;
 };
 
-const MODEL_NAME = "recibo_contribuicoes_v2";
+const MODEL_NAME = "recibo_contribuicoes_v3";
 const TABLE_CONTRIBUICOES = "ranking_recibo_contribuicoes";
 const TABLE_STATUS = "ranking_read_model_status";
 const INSERT_CHUNK_SIZE = 500;

@@ -28,6 +28,7 @@ import { getPlatformExecutionContext } from "$lib/server/readModelRebuild";
 import { chunkArray } from "$lib/utils/array";
 
 const NO_MATCH_USER_ID = "00000000-0000-0000-0000-000000000000";
+const RANKING_CONTRIBUTIONS_CACHE_VERSION = "seguro-produto-v3";
 const UNFILTERED_VENDEDOR_VALUES = new Set([
   "*",
   "all",
@@ -44,6 +45,8 @@ type RankingContributionRow = {
   reciboId: string | null;
   reciboNumero: string | null;
   vendedorId: string | null;
+  produtoId: string | null;
+  produtoNome: string | null;
   bruto: number;
   taxas: number;
   isSeguro: boolean;
@@ -110,6 +113,20 @@ function normalizeTendencia(currentValue: number, previousValue: number) {
   return "stable";
 }
 
+function normalizeProdutoSeguro(value?: string | null) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isSeguroRankingContribution(contribution: RankingContributionRow) {
+  const produtoNome = normalizeProdutoSeguro(contribution.produtoNome);
+  return produtoNome.includes("seguro");
+}
+
 /**
  * Fonte canônica do ranking: a mesma lista de contribuições usada por KPIs e relatórios.
  * Mantém conciliação, vendas manuais, REXTUR, rateio e regras não-comissionáveis em um só lugar.
@@ -136,6 +153,8 @@ async function buildRankingSimple(
     reciboId: item.reciboId,
     reciboNumero: item.reciboNumero,
     vendedorId: item.vendedorId,
+    produtoId: item.produtoId || null,
+    produtoNome: item.produtoNome || null,
     bruto: item.bruto,
     taxas: item.taxas,
     isSeguro: item.isSeguro,
@@ -446,6 +465,7 @@ export async function GET(event) {
     ] = await Promise.allSettled([
       getCachedReadModel<RankingContributionRow[]>({
           key: buildReadModelCacheKey("ranking:contributions", {
+            version: RANKING_CONTRIBUTIONS_CACHE_VERSION,
             dataInicio,
             dataFim,
             companyIds,
@@ -640,7 +660,7 @@ export async function GET(event) {
       current.total_comissao += Number(contribution.taxas || 0);
       current.total_liquido +=
         Number(contribution.bruto || 0) - Number(contribution.taxas || 0);
-      if (contribution.isSeguro) {
+      if (isSeguroRankingContribution(contribution)) {
         current.total_seguro += Number(contribution.bruto || 0);
       }
       rankingMap.set(vendedorId, current);
