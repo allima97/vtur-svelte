@@ -319,7 +319,7 @@
     <!-- Logo -->
     <div class="vtur-auth-brand">
       <div class="vtur-auth-brand-lockup flex flex-col items-center">
-        <img src="/brand/vtur-app-symbol.png" alt="vtur-app" class="vtur-auth-brand-logo object-contain mb-2" style="mix-blend-mode:lighten;" />
+        <img src="/brand/vtur-app-symbol.png?v=9" alt="vtur-app" class="vtur-auth-brand-logo object-contain mb-2" />
         <div class="flex flex-col items-center gap-0.5">
           <div class="flex items-baseline gap-0" style="font-size:2rem;font-weight:800;letter-spacing:-0.01em;line-height:1;">
             <span style="color:#ffffff;font-family:'Segoe UI',system-ui,sans-serif;">vtur-</span><span style="color:#22d3ee;font-family:'Segoe UI',system-ui,sans-serif;">app</span>
