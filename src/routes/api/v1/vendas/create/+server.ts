@@ -145,12 +145,18 @@ export async function POST(event) {
     } catch (err) {
       const code = toUserMessage(err, "");
       if (
+        code === "RECIBO_INVALIDO" ||
         code === "DESTINO_INVALIDO" ||
         code === "VALE_VIAGEM_TIPO_NAO_ENCONTRADO" ||
         code === "VALE_VIAGEM_PRODUTO_INVALIDO"
       ) {
         return json(
-          { error: "Produto/destino invalido para a venda." },
+          code === "RECIBO_INVALIDO"
+            ? {
+                code,
+                error: "Recibo invalido: selecione um tipo/produto valido.",
+              }
+            : { error: "Produto/destino invalido para a venda." },
           { status: 400, headers: NO_STORE_HEADERS },
         );
       }

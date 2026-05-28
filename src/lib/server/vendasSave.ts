@@ -326,6 +326,58 @@ function resolveValeViagemRecibos(
   });
 }
 
+async function normalizeVendaRecibosProdutos(
+  client: LookupClient,
+  recibos: Array<ReciboInput & Record<string, unknown>>,
+) {
+  const produtoIdCandidates = uniqueCleanStrings([
+    ...recibos.map((recibo) => String(recibo?.produto_id || "")),
+    ...recibos.map((recibo) => String(recibo?.tipo_produto_id || "")),
+  ]).filter(isUuid);
+  const produtoResolvidoIds = recibos
+    .map((recibo) => toUuidOrNull(recibo?.produto_resolvido_id))
+    .filter(Boolean) as string[];
+
+  const [tiposById, produtosById] = await Promise.all([
+    fetchTipoProdutosByIds(client, produtoIdCandidates),
+    fetchProdutosDestinoByIds(client, [
+      ...produtoIdCandidates,
+      ...produtoResolvidoIds,
+    ]),
+  ]);
+
+  return recibos.map((recibo) => {
+    const produtoId =
+      toUuidOrNull(recibo?.produto_id) || toUuidOrNull(recibo?.tipo_produto_id);
+    const produtoResolvidoId = toUuidOrNull(recibo?.produto_resolvido_id);
+
+    if (produtoId && tiposById.has(produtoId)) {
+      return {
+        ...recibo,
+        produto_id: produtoId,
+        produto_resolvido_id: produtoResolvidoId || null,
+      };
+    }
+
+    const produtoReal =
+      (produtoId ? produtosById.get(produtoId) : null) ||
+      (produtoResolvidoId ? produtosById.get(produtoResolvidoId) : null) ||
+      null;
+    const produtoRealId = toUuidOrNull(produtoReal?.id);
+    const tipoProdutoId = toUuidOrNull(produtoReal?.tipo_produto);
+
+    if (produtoRealId && tipoProdutoId) {
+      return {
+        ...recibo,
+        produto_id: tipoProdutoId,
+        produto_resolvido_id: produtoRealId,
+      };
+    }
+
+    throw new Error("RECIBO_INVALIDO");
+  });
+}
+
 export async function resolveVendaDestinoProduto(params: {
   client: LookupClient;
   venda: VendaInput & { destino_id?: unknown };
@@ -352,9 +404,12 @@ export async function resolveVendaDestinoProduto(params: {
       params.recibos.some((recibo) => reciboIndicaValeViagem(recibo, tipoDestinoId));
     return {
       destinoId: destinoSolicitadoId,
-      recibos: destinoValeViagem
+      recibos: await normalizeVendaRecibosProdutos(
+        params.client,
+        destinoValeViagem
         ? resolveValeViagemRecibos(params.recibos, destinoSolicitadoId, tipoDestinoId)
         : params.recibos,
+      ),
     };
   }
 
@@ -368,9 +423,12 @@ export async function resolveVendaDestinoProduto(params: {
       params.recibos.some((recibo) => reciboIndicaValeViagem(recibo, tipoDestinoId));
     return {
       destinoId: primeiroProdutoRealId,
-      recibos: destinoValeViagem
+      recibos: await normalizeVendaRecibosProdutos(
+        params.client,
+        destinoValeViagem
         ? resolveValeViagemRecibos(params.recibos, primeiroProdutoRealId, tipoDestinoId)
         : params.recibos,
+      ),
     };
   }
 
@@ -404,7 +462,10 @@ export async function resolveVendaDestinoProduto(params: {
 
     return {
       destinoId: valeProdutoId,
-      recibos: resolveValeViagemRecibos(params.recibos, valeProdutoId, valeTipoId),
+      recibos: await normalizeVendaRecibosProdutos(
+        params.client,
+        resolveValeViagemRecibos(params.recibos, valeProdutoId, valeTipoId),
+      ),
     };
   }
 

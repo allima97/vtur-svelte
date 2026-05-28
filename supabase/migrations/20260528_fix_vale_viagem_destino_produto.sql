@@ -102,10 +102,35 @@ declare
   v_recibo_ref     text;
   v_venda_recibo_id uuid;
   v_valor_nao_comissionado numeric;
+  v_produto_id uuid;
+  v_produto_resolvido_id uuid;
+  v_produto_id_raw text;
+  v_produto_resolvido_id_raw text;
+  v_tipo_vale_id uuid;
+  v_produto_vale_id uuid;
 begin
   select data_venda into v_venda_data
   from public.vendas
   where id = p_venda_id;
+
+  select id into v_tipo_vale_id
+  from public.tipo_produtos
+  where lower(coalesce(nome, '')) like '%vale viagem%'
+     or lower(coalesce(tipo, '')) like '%vale viagem%'
+  order by nome
+  limit 1;
+
+  if v_tipo_vale_id is not null then
+    select id into v_produto_vale_id
+    from public.produtos
+    where tipo_produto = v_tipo_vale_id
+      and (
+        lower(coalesce(nome, '')) like '%vale viagem%'
+        or lower(coalesce(destino, '')) like '%vale viagem%'
+      )
+    order by nome
+    limit 1;
+  end if;
 
   select array_agg(id) into v_viagem_ids
     from viagens where venda_id = p_venda_id;
@@ -120,7 +145,50 @@ begin
 
   for r in select * from jsonb_array_elements(p_recibos)
   loop
-    if not ((r->>'produto_id') ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$') then
+    v_produto_id_raw := coalesce(
+      nullif(trim(coalesce(r->>'produto_id', '')), ''),
+      nullif(trim(coalesce(r->>'tipo_produto_id', '')), '')
+    );
+    v_produto_resolvido_id_raw := nullif(trim(coalesce(r->>'produto_resolvido_id', '')), '');
+    v_produto_id := null;
+    v_produto_resolvido_id := null;
+
+    if v_produto_id_raw ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+      v_produto_id := v_produto_id_raw::uuid;
+    end if;
+
+    if v_produto_resolvido_id_raw ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+      v_produto_resolvido_id := v_produto_resolvido_id_raw::uuid;
+    end if;
+
+    if v_produto_id is not null
+      and not exists (select 1 from public.tipo_produtos where id = v_produto_id)
+      and exists (select 1 from public.produtos where id = v_produto_id)
+    then
+      v_produto_resolvido_id := coalesce(v_produto_resolvido_id, v_produto_id);
+      select tipo_produto into v_produto_id
+      from public.produtos
+      where id = v_produto_resolvido_id;
+    end if;
+
+    if v_produto_id is null and v_produto_resolvido_id is not null then
+      select tipo_produto into v_produto_id
+      from public.produtos
+      where id = v_produto_resolvido_id;
+    end if;
+
+    if v_produto_id is null
+      and v_tipo_vale_id is not null
+      and (
+        lower(coalesce(r->>'produto_nome', '')) like '%vale viagem%'
+        or lower(coalesce(r->>'tipo_nome', '')) like '%vale viagem%'
+      )
+    then
+      v_produto_id := v_tipo_vale_id;
+      v_produto_resolvido_id := v_produto_vale_id;
+    end if;
+
+    if v_produto_id is null then
       raise exception 'RECIBO_INVALIDO';
     end if;
 
@@ -138,8 +206,8 @@ begin
       data_venda, data_inicio, data_fim, contrato_path, contrato_url
     ) values (
       p_venda_id,
-      (r->>'produto_id')::uuid,
-      nullif(trim(coalesce(r->>'produto_resolvido_id', '')), '')::uuid,
+      v_produto_id,
+      v_produto_resolvido_id,
       nullif(trim(coalesce(r->>'destino_cidade_id', '')), '')::uuid,
       v_numero_recibo,
       upper(regexp_replace(coalesce(v_numero_recibo, ''), '[^A-Z0-9]', '', 'gi')),
