@@ -609,8 +609,11 @@ export async function ensureReciboReservaUnicos(params: {
     .map((item) => normalizeReceiptKey(item?.numero_recibo))
     .filter(Boolean);
   const receiptKeys = uniqueCleanStrings(rawReceiptKeys);
+  const recibosReservaParaValidar = recibosParaValidar.filter(
+    (item) => !reciboIndicaValeViagem(item as Record<string, unknown>),
+  );
   const reservaKeys = uniqueCleanStrings(
-    recibosParaValidar.map((item) => normalizeReservaKey(item?.numero_reserva)),
+    recibosReservaParaValidar.map((item) => normalizeReservaKey(item?.numero_reserva)),
   );
 
   if (rawReceiptKeys.length !== receiptKeys.length) {
@@ -650,7 +653,7 @@ export async function ensureReciboReservaUnicos(params: {
       )
       .in(
         "numero_reserva",
-        recibosParaValidar
+        recibosReservaParaValidar
           .map((item) => toNullableString(item?.numero_reserva))
           .filter(Boolean),
       );
@@ -668,7 +671,7 @@ export async function ensureReciboReservaUnicos(params: {
     const vendaIds = uniqueCleanStrings(dadosAtivos.map((r) => String(r?.venda_id || "")));
     const clienteIdByVendaId = await fetchClienteIdsByVendaIds(client, vendaIds);
 
-    for (const recibo of recibosParaValidar) {
+    for (const recibo of recibosReservaParaValidar) {
       const reservaKey = normalizeReservaKey(recibo?.numero_reserva);
       if (!reservaKey) continue;
       const reciboKey = normalizeReceiptKey(recibo?.numero_recibo);

@@ -173,7 +173,16 @@ export async function POST(event) {
     } catch (err) {
       const code = toUserMessage(err, "Erro ao validar recibos.");
       if (code === "RECIBO_DUPLICADO" || code === "RESERVA_DUPLICADA") {
-        return json({ code }, { status: 409, headers: NO_STORE_HEADERS });
+        return json(
+          {
+            code,
+            error:
+              code === "RECIBO_DUPLICADO"
+                ? "Numero de recibo duplicado nesta venda ou ja utilizado em outra venda da empresa."
+                : "Reserva ja vinculada a outro recibo/venda.",
+          },
+          { status: 409, headers: NO_STORE_HEADERS },
+        );
       }
       throw err;
     }
