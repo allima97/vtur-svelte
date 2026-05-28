@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vtur-calculadora-v1';
+const CACHE_NAME = 'vtur-calculadora-v2';
 const STATIC_ASSETS = [
   '/calculadora',
   '/icons/icon-192x192.png',

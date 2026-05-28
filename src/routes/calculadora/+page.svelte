@@ -78,8 +78,8 @@
 <svelte:head>
   <title>VTUR Calculadora</title>
   <meta name="description" content="Calculadora e análise de concorrência VTUR" />
-  <meta name="theme-color" content="#16a34a" />
-  <link rel="manifest" href="/manifest-calculadora.webmanifest" />
+  <meta name="theme-color" content="#1e1b4b" />
+  <link rel="manifest" href="/manifest-calculadora.webmanifest?v=9" />
 </svelte:head>
 
 <div class="bg-slate-200 px-3 py-3 sm:px-4 sm:py-6">
