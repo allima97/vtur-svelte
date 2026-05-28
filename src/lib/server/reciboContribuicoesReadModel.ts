@@ -193,7 +193,7 @@ type PersistentContributionRow = {
   source_taxas: number | string;
 };
 
-const MODEL_NAME = "recibo_contribuicoes_v1";
+const MODEL_NAME = "recibo_contribuicoes_v2";
 const TABLE_CONTRIBUICOES = "ranking_recibo_contribuicoes";
 const TABLE_STATUS = "ranking_read_model_status";
 const INSERT_CHUNK_SIZE = 500;
@@ -1186,6 +1186,32 @@ export async function fetchReciboContribuicoesReadModel(
     const modelClient = getAdminClient();
     if (options.mode === "stale-while-revalidate") {
       try {
+        const monthStarts = monthKeysBetween(params.dataInicio, params.dataFim)
+          .map(monthStartFromKey);
+        const statuses = await fetchStatusRows(modelClient, companyIds, monthStarts);
+        const statusMap = new Map(
+          statuses.map((row) => [
+            `${row.company_id}|${String(row.mes).slice(0, 10)}`,
+            row,
+          ]),
+        );
+        const allReady = companyIds.every((companyId) =>
+          monthStarts.every((mes) =>
+            isStatusReady(statusMap.get(`${companyId}|${mes}`)),
+          ),
+        );
+
+        if (!allReady) {
+          scheduleReadModelEnsure(
+            modelClient,
+            { ...params, companyIds },
+            rebuildRawLoader,
+            options.executionContext,
+          );
+          if (options.fallbackToRawOnReadError !== false) return rawLoader(params);
+          return emptyContributionPayload();
+        }
+
         const payload = await readPersistentContributions(modelClient, {
           ...params,
           companyIds,

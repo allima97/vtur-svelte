@@ -384,7 +384,27 @@ function isSeguroPorComissao(recibo?: ReportReceiptRow | null) {
   return isSeguroPercentual((comissao / bruto) * 100);
 }
 
+function getReciboProdutoIdentity(recibo?: ReportReceiptRow | null) {
+  const tipo = String(recibo?.tipo_produtos?.tipo || "").toLowerCase();
+  const nome = String(
+    recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || "",
+  ).toLowerCase();
+  const produtoId = toStr(
+    recibo?.tipo_produtos?.id ||
+      recibo?.produto_id ||
+      recibo?.produto_resolvido?.id,
+  );
+  return {
+    hasProduto: Boolean(produtoId || tipo || nome),
+    isSeguro: tipo.includes("seguro") || nome.includes("seguro"),
+  };
+}
+
 function isSeguroProduto(recibo?: ReportReceiptRow | null) {
+  const produto = getReciboProdutoIdentity(recibo);
+  if (produto.isSeguro) return true;
+  if (produto.hasProduto) return false;
+
   const reciboFlags = recibo as SeguroReceiptFlags | null | undefined;
   if (
     reciboFlags?._conciliacao_is_seguro === true ||
@@ -394,11 +414,7 @@ function isSeguroProduto(recibo?: ReportReceiptRow | null) {
   if (isSeguroFaixa(recibo?.faixa_comissao)) return true;
   if (isSeguroPercentual(recibo?.percentual_comissao_loja)) return true;
   if (isSeguroPorComissao(recibo)) return true;
-  const tipo = String(recibo?.tipo_produtos?.tipo || "").toLowerCase();
-  const nome = String(
-    recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || "",
-  ).toLowerCase();
-  return tipo.includes("seguro") || nome.includes("seguro");
+  return false;
 }
 
 function hasConciliacaoOverride(recibo?: ReportReceiptRow | null) {

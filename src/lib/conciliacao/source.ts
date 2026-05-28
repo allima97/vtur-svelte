@@ -1230,10 +1230,27 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const manualProduto = manualProdutoId
         ? produtosMap.get(manualProdutoId) || null
         : null;
+      const hasProdutoIdentificado = Boolean(
+        linkedProdutoId ||
+          manualProdutoId ||
+          linkedProduto?.id ||
+          manualProduto?.id ||
+          linkedProduto?.nome ||
+          manualProduto?.nome ||
+          linkedProduto?.tipo ||
+          manualProduto?.tipo,
+      );
+      const produtoIdentificadoSeguro =
+        isSeguroText(linkedProduto?.tipo) ||
+        isSeguroText(linkedProduto?.nome) ||
+        isSeguroText(manualProduto?.tipo) ||
+        isSeguroText(manualProduto?.nome);
       const produtoId =
         linkedProdutoId ||
         manualProdutoId ||
-        (hasSeguroSinalizado ? seguroFallbackId : null);
+        (!hasProdutoIdentificado && hasSeguroSinalizado
+          ? seguroFallbackId
+          : null);
       const produto = produtoId ? produtosMap.get(produtoId) || null : null;
 
       const valorTaxas = toNumber(sourceRow?.valor_taxas);
@@ -1343,18 +1360,16 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         : valorTaxas;
       const valorLiquido = Math.max(0, valorBruto - valorTaxasRanking);
       const isSeguro =
-        hasSeguroSinalizado ||
-        isSeguroText(linkedProduto?.tipo) ||
-        isSeguroText(linkedProduto?.nome) ||
-        isSeguroText(manualProduto?.tipo) ||
-        isSeguroText(manualProduto?.nome) ||
+        produtoIdentificadoSeguro ||
         isSeguroText(produto?.tipo) ||
         isSeguroText(produto?.nome) ||
-        isSeguroPorComissao(
-          sourceRow?.valor_comissao_loja,
-          valorMetaBaseSemRav,
-        ) ||
-        isSeguroPorComissao(sourceRow?.valor_comissao_loja, valorBruto);
+        (!hasProdutoIdentificado &&
+          (hasSeguroSinalizado ||
+            isSeguroPorComissao(
+              sourceRow?.valor_comissao_loja,
+              valorMetaBaseSemRav,
+            ) ||
+            isSeguroPorComissao(sourceRow?.valor_comissao_loja, valorBruto)));
 
       // Verifica se algum dos IDs do grupo tem rateio cadastrado
       const rateioId =
