@@ -9,6 +9,7 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
+import { canUseCompanyClienteScope } from "$lib/server/clientes";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -52,8 +53,8 @@ export async function GET(event: RequestEvent) {
     }
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get("empresa_id"));
-    const vendedorIds = scope.isVendedor ? [user.id] : [];
-    const useCompanyScope = scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor;
+    const useCompanyScope = canUseCompanyClienteScope(scope);
+    const vendedorIds = useCompanyScope ? [] : [user.id];
     const accessibleClientIds = !useCompanyScope
       ? await resolveAccessibleClientIds(client, {
           companyIds,
@@ -71,7 +72,7 @@ export async function GET(event: RequestEvent) {
       companyIds,
       vendedorIds,
       accessibleClientCount: accessibleClientIds.length,
-      userId: user.id,
+      userId: useCompanyScope ? null : user.id,
     });
     const payload = await getCachedReadModel({
       key: cacheKey,
@@ -82,7 +83,7 @@ export async function GET(event: RequestEvent) {
         ...scopeCacheTags({
           companyIds,
           vendedorIds,
-          userId: user.id,
+          userId: useCompanyScope ? undefined : user.id,
         }),
       ],
       ttlMs: 120_000,

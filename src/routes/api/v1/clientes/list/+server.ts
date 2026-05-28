@@ -13,6 +13,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import {
+  canUseCompanyClienteScope,
   deriveClienteStatus,
   ensureClienteModuloAccess,
   formatDocumentoDisplay,
@@ -124,13 +125,7 @@ export async function GET(event) {
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
     const companyIdSet = cleanStringSet(companyIds);
     const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
-    const tipoNome = String(scope.tipoNome || '').toUpperCase();
-    const canUseCompanyScope =
-      scope.isAdmin ||
-      scope.isMaster ||
-      tipoNome.includes('MASTER') ||
-      (tipoNome.includes('FINANCEIRO') && !String(requestedVendedorRaw || '').trim()) ||
-      (tipoNome.includes('GESTOR') && !String(requestedVendedorRaw || '').trim());
+    const canUseCompanyScope = canUseCompanyClienteScope(scope, requestedVendedorRaw);
 
     const accessibleClientIds = canUseCompanyScope
       ? null

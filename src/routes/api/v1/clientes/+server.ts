@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { getAdminClient, requireAuthenticatedUser, resolveAccessibleClientIds, resolveScopedCompanyIds, resolveScopedVendedorIds, resolveUserScope, sanitizePostgrestSearchTerm, toErrorResponse } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { ensureClienteModuloAccess } from '$lib/server/clientes';
+import { canUseCompanyClienteScope, ensureClienteModuloAccess } from '$lib/server/clientes';
 import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type ClienteLookupRow = {
@@ -42,13 +42,7 @@ export async function GET(event) {
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const requestedVendedorRaw = event.url.searchParams.get('vendedor_id');
     const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
-    const tipoNome = String(scope.tipoNome || '').toUpperCase();
-    const canUseCompanyScope =
-      scope.isAdmin ||
-      scope.isMaster ||
-      tipoNome.includes('MASTER') ||
-      (tipoNome.includes('FINANCEIRO') && !String(requestedVendedorRaw || '').trim()) ||
-      (tipoNome.includes('GESTOR') && !String(requestedVendedorRaw || '').trim());
+    const canUseCompanyScope = canUseCompanyClienteScope(scope, requestedVendedorRaw);
     const accessibleClientIds = canUseCompanyScope
       ? null
       : await resolveAccessibleClientIds(client, { companyIds, vendedorIds });

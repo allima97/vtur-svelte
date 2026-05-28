@@ -25,6 +25,18 @@ type PassageiroViagemAccessRow = {
   } | null;
 };
 
+export function canUseCompanyClienteScope(scope: UserScope, vendedorParam?: string | null) {
+  const requestedVendedor = String(vendedorParam || '').trim();
+  const tipoNome = String(scope.tipoNome || '').toUpperCase();
+
+  if (scope.isAdmin || scope.isMaster) return true;
+  if (requestedVendedor) return false;
+  if (scope.usoIndividual) return false;
+  if ((scope.companyIds || []).length > 0 || scope.companyId) return true;
+
+  return tipoNome.includes('MASTER') || tipoNome.includes('FINANCEIRO') || tipoNome.includes('GESTOR');
+}
+
 export function diffDays(fromDateIso: string, toDate = new Date()) {
   const diff = diffDaysISODate(fromDateIso, todayISODateLocal(toDate));
   return diff ?? Number.POSITIVE_INFINITY;
@@ -134,16 +146,7 @@ export async function resolveClienteScopedFilters(
 ): Promise<ClienteScopedFilters> {
   const companyIds = resolveScopedCompanyIds(scope, companyParam);
   const vendedorIds = await resolveScopedVendedorIds(client, scope, vendedorParam);
-  const tipoNome = String(scope.tipoNome || '').toUpperCase();
-  const requestedVendedor = String(vendedorParam || '').trim();
-  const canUseCompanyScope =
-    scope.isAdmin ||
-    scope.isMaster ||
-    (scope.isFinanceiro && !requestedVendedor) ||
-    (scope.isGestor && !requestedVendedor) ||
-    tipoNome.includes('MASTER') ||
-    (tipoNome.includes('FINANCEIRO') && !requestedVendedor) ||
-    (tipoNome.includes('GESTOR') && !requestedVendedor);
+  const canUseCompanyScope = canUseCompanyClienteScope(scope, vendedorParam);
 
   if (canUseCompanyScope) {
     return {
@@ -207,15 +210,7 @@ export async function ensureClienteAccess(
     return filters;
   }
 
-  const tipoNome = String(scope.tipoNome || '').toUpperCase();
-  const canUseCompanyScope =
-    scope.isAdmin ||
-    scope.isMaster ||
-    scope.isFinanceiro ||
-    scope.isGestor ||
-    tipoNome.includes('MASTER') ||
-    tipoNome.includes('FINANCEIRO') ||
-    tipoNome.includes('GESTOR');
+  const canUseCompanyScope = canUseCompanyClienteScope(scope, vendedorParam);
 
   if (canUseCompanyScope) {
     let foundCliente = false;

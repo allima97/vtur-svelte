@@ -208,8 +208,11 @@
   function isValeViagemTipo(tipoId: string) {
     if (!tipoId) return false;
     const tipoSelecionado = tipos.find((item) => String(item.id) === String(tipoId));
-    const nomeBase = normalizeText(String(tipoSelecionado?.nome || tipoSelecionado?.tipo || ''));
-    return nomeBase.includes('vale viagem');
+    return [
+      tipoId,
+      String(tipoSelecionado?.nome || ''),
+      String(tipoSelecionado?.tipo || '')
+    ].some((value) => normalizeText(value).includes('vale viagem'));
   }
 
   function isValeViagemProduto(item: Option) {
@@ -385,9 +388,16 @@
     return [valeViagemVirtual, ...filtered];
   }
 
-  function syncReciboTipoProduto(index: number) {
+  function getSelectValue(event: Event) {
+    return String((event.target as HTMLSelectElement | null)?.value || '');
+  }
+
+  function syncReciboTipoProduto(index: number, event?: Event) {
     const recibo = recibos[index];
     if (!recibo) return;
+    if (event) {
+      recibo.tipo_produto_id = getSelectValue(event);
+    }
     if (!isValeViagemTipo(recibo.tipo_produto_id)) {
       const produtoAtual = produtos.find((item) => String(item.id) === String(recibo.produto_id));
       if (recibo.produto_id && (!produtoAtual || !produtoMatchesTipo(produtoAtual, recibo.tipo_produto_id))) {
@@ -403,6 +413,15 @@
     recibo.produto_id = String(valeViagem.id);
     recibo.produto_resolvido_id = produtos.some((item) => String(item.id) === String(valeViagem.id)) ? String(valeViagem.id) : '';
     recibos = recibos;
+  }
+
+  function getProdutosOptionsRecibo(recibo: (typeof recibos)[number]) {
+    const filtered = getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo));
+    if (!isValeViagemTipo(recibo.tipo_produto_id)) return filtered;
+    const valeViagem = filtered.find((item) => isValeViagemProduto(item)) || getValeViagemProdutoVirtual(recibo.tipo_produto_id);
+    if (!valeViagem) return filtered;
+    const withoutDuplicates = filtered.filter((item) => String(item.id) !== String(valeViagem.id) && !isValeViagemProduto(item));
+    return [valeViagem, ...withoutDuplicates];
   }
 
   function syncReciboCidade(index: number, cidadeId: string) {
@@ -427,8 +446,11 @@
     syncReciboCidade(index, String(recibo.destino_cidade_id || ''));
   }
 
-  function updateReciboProduto(index: number) {
+  function updateReciboProduto(index: number, event?: Event) {
     const recibo = recibos[index];
+    if (event) {
+      recibo.produto_id = getSelectValue(event);
+    }
     if (isValeViagemTipo(recibo.tipo_produto_id) && String(recibo.produto_id) === String(recibo.tipo_produto_id)) {
       recibo.produto_resolvido_id = '';
       recibos = recibos;
@@ -724,13 +746,17 @@
 
       const payload = {
         venda: vendaPayload,
-        recibos: recibos.map((item) => ({
-          ...item,
-          produto_id: item.tipo_produto_id || item.produto_id,
-          destino_cidade_id: getReciboCidadeId(item) || null,
-          cidade_nome: getCidadeById(getReciboCidadeId(item))?.nome || null,
-          produto_resolvido_id: item.produto_resolvido_id || item.produto_id
-        })),
+        recibos: recibos.map((item) => {
+          const produtoVirtualValeViagem = isValeViagemTipo(item.tipo_produto_id) && String(item.produto_id) === String(item.tipo_produto_id);
+          return {
+            ...item,
+            produto_id: item.tipo_produto_id || item.produto_id,
+            destino_cidade_id: getReciboCidadeId(item) || null,
+            cidade_nome: getCidadeById(getReciboCidadeId(item))?.nome || null,
+            produto_nome: produtoVirtualValeViagem ? 'Vale Viagem' : null,
+            produto_resolvido_id: produtoVirtualValeViagem ? null : item.produto_resolvido_id || item.produto_id
+          };
+        }),
         pagamentos: pagamentos.map((item) => {
           const parcelasQtd = Number(item.parcelas_qtd || item.parcelas.length || 1);
           return {
@@ -984,7 +1010,7 @@
                     class_name="w-full"
                     error={errors[`recibo_tipo_${index}`]}
                     required
-                    on:change={() => syncReciboTipoProduto(index)}
+                    on:change={(event) => syncReciboTipoProduto(index, event)}
                   />
                 </div>
                 <div>
@@ -994,12 +1020,12 @@
                     bind:value={recibo.produto_id}
                     options={[
                       { value: '', label: 'Selecione uma opção' },
-                      ...getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo)).map((produto) => ({ value: produto.id, label: produto.nome || '' }))
+                      ...getProdutosOptionsRecibo(recibo).map((produto) => ({ value: produto.id, label: produto.nome || '' }))
                     ]}
                     class_name="w-full"
                     error={errors[`recibo_produto_${index}`]}
                     required
-                    on:change={() => updateReciboProduto(index)}
+                    on:change={(event) => updateReciboProduto(index, event)}
                   />
                 </div>
                 <div>

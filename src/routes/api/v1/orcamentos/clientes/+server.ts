@@ -10,6 +10,7 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
+import { canUseCompanyClienteScope } from "$lib/server/clientes";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -64,7 +65,8 @@ export async function GET(event: RequestEvent) {
       scope,
       searchParams.get("vendedor_id"),
     );
-    const accessibleClientIds = !scope.isAdmin && scope.isVendedor
+    const useCompanyScope = canUseCompanyClienteScope(scope, searchParams.get("vendedor_id"));
+    const accessibleClientIds = !useCompanyScope
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : null;
 
@@ -75,9 +77,9 @@ export async function GET(event: RequestEvent) {
     const cacheKey = buildReadModelCacheKey("orcamentos:clientes", {
       companyIds,
       vendedorIds,
-      isVendedor: scope.isVendedor,
+      useCompanyScope,
       isAdmin: scope.isAdmin,
-      userId: user.id,
+      userId: useCompanyScope ? null : user.id,
     });
     const payload = await getCachedReadModel({
       key: cacheKey,
@@ -85,7 +87,7 @@ export async function GET(event: RequestEvent) {
         READ_MODEL_TAGS.clients,
         READ_MODEL_TAGS.sales,
         READ_MODEL_TAGS.quote,
-        ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
+        ...scopeCacheTags({ companyIds, vendedorIds, userId: useCompanyScope ? undefined : user.id }),
       ],
       ttlMs: 120_000,
       staleTtlMs: 600_000,
@@ -106,7 +108,7 @@ export async function GET(event: RequestEvent) {
           return query;
         };
 
-        if (accessibleClientIds && scope.isVendedor && accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE) {
+        if (accessibleClientIds && accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE) {
           const rows: OrcamentoClienteRow[] = [];
           for (const batch of chunkArray(accessibleClientIds)) {
             const { data, error } = await buildQuery(batch);
