@@ -18,7 +18,8 @@ import {
   ensureClienteModuloAccess,
   formatDocumentoDisplay,
   isBirthdayToday,
-  matchesClienteBusca
+  matchesClienteBusca,
+  resolveCompanyClienteIds
 } from '$lib/server/clientes';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import {
@@ -127,9 +128,13 @@ export async function GET(event) {
     const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
     const canUseCompanyScope = canUseCompanyClienteScope(scope, requestedVendedorRaw);
 
+    const companyClientIds = canUseCompanyScope && companyIds.length > 0
+      ? await resolveCompanyClienteIds(client, companyIds)
+      : null;
     const accessibleClientIds = canUseCompanyScope
       ? null
       : await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
+    const scopedClientIds = companyClientIds || accessibleClientIds;
     const cacheScopeTags = scopeCacheTags({ companyIds, vendedorIds, userId: user.id });
     const listCacheTags = [
       READ_MODEL_TAGS.clients,
@@ -138,7 +143,7 @@ export async function GET(event) {
       ...cacheScopeTags
     ];
 
-    if (accessibleClientIds && accessibleClientIds.length === 0) {
+    if (scopedClientIds && scopedClientIds.length === 0) {
       return json(
         {
           page,
@@ -198,7 +203,7 @@ export async function GET(event) {
       };
 
       const fetchLookupRows = async () => {
-        if (!accessibleClientIds) {
+        if (!scopedClientIds) {
           if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
             const rows: ClienteLookupRow[] = [];
             for (const batch of chunkArray(companyIds)) {
@@ -221,12 +226,12 @@ export async function GET(event) {
           return buildLookupQuery();
         }
 
-        if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-          return buildLookupQuery(accessibleClientIds);
+        if (scopedClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+          return buildLookupQuery(scopedClientIds);
         }
 
         const rows: ClienteLookupRow[] = [];
-        for (const batch of chunkArray(accessibleClientIds)) {
+        for (const batch of chunkArray(scopedClientIds)) {
           const result = await buildLookupQuery(batch);
           if (result.error) {
             return { data: null, error: result.error } as typeof result;
@@ -286,7 +291,7 @@ export async function GET(event) {
       !statusQuery &&
       !aniversarioHojeQuery &&
       companyIds.length <= SUPABASE_IN_BATCH_SIZE &&
-      (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE);
+      (!scopedClientIds || scopedClientIds.length <= SUPABASE_IN_BATCH_SIZE);
     const canUseScopeAggregateSummaries =
       summaryFastPath &&
       canUseCompanyScope &&
@@ -336,11 +341,11 @@ export async function GET(event) {
 
     const fetchClients = async () => {
       if (canUseDbPagination) {
-        return buildClientsQuery(accessibleClientIds || undefined, true);
+        return buildClientsQuery(scopedClientIds || undefined, true);
       }
 
-      if (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-        if (!accessibleClientIds && companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+      if (!scopedClientIds || scopedClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        if (!scopedClientIds && companyIds.length > SUPABASE_IN_BATCH_SIZE) {
           const rows: ClienteBaseRow[] = [];
           for (const batch of chunkArray(companyIds)) {
             const result = await buildClientsQuery(undefined, false, batch);
@@ -358,11 +363,11 @@ export async function GET(event) {
           };
         }
 
-        return buildClientsQuery(accessibleClientIds || undefined);
+        return buildClientsQuery(scopedClientIds || undefined);
       }
 
       const rows: ClienteBaseRow[] = [];
-      for (const batch of chunkArray(accessibleClientIds)) {
+      for (const batch of chunkArray(scopedClientIds)) {
         const result = await buildClientsQuery(batch);
         if (result.error) {
           return { data: null, error: result.error } as typeof result;
@@ -410,11 +415,11 @@ export async function GET(event) {
     const clientsCount = clientsResult.count;
 
     const clientIds = ((clientsData || []) as ClienteBaseRow[]).map((row) => row.id);
-    const summaryClientIds = canUseScopeAggregateSummaries
+      const summaryClientIds = canUseScopeAggregateSummaries
       ? []
       : canUseDbPagination
         ? clientIds
-        : accessibleClientIds || clientIds;
+        : scopedClientIds || clientIds;
 
     const buildSalesQuery = (
       clientIdsFilter?: string[],

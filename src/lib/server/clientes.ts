@@ -1,6 +1,12 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
+import {
   ensureModuloAccess,
   normalizeText,
   resolveAccessibleClientIds,
@@ -9,7 +15,7 @@ import {
   type UserScope
 } from '$lib/server/v1';
 import { diffDaysISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 export type ClienteScopedFilters = {
   companyIds: string[];
@@ -35,6 +41,77 @@ export function canUseCompanyClienteScope(scope: UserScope, vendedorParam?: stri
   if ((scope.companyIds || []).length > 0 || scope.companyId) return true;
 
   return tipoNome.includes('MASTER') || tipoNome.includes('FINANCEIRO') || tipoNome.includes('GESTOR');
+}
+
+export async function resolveCompanyClienteIds(client: SupabaseClient, companyIds: string[]) {
+  const scopedCompanyIds = uniqueCleanStrings(companyIds || []).sort();
+  if (scopedCompanyIds.length === 0) return [];
+
+  return getCachedReadModel({
+    key: buildReadModelCacheKey('clientes:company-client-ids', { companyIds: scopedCompanyIds }),
+    tags: [
+      READ_MODEL_TAGS.clients,
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.users,
+      ...scopeCacheTags({ companyIds: scopedCompanyIds })
+    ],
+    ttlMs: 120_000,
+    staleTtlMs: 900_000,
+    loader: async () => {
+      const clienteIds = new Set<string>();
+      const creatorIds = new Set<string>();
+
+      const addClienteIds = (rows?: Array<{ id?: string | null; cliente_id?: string | null }> | null) => {
+        for (const row of rows || []) {
+          const id = String(row?.id || row?.cliente_id || '').trim();
+          if (id) clienteIds.add(id);
+        }
+      };
+
+      for (const companyBatch of chunkArray(scopedCompanyIds)) {
+        const { data } = await client
+          .from('clientes')
+          .select('id')
+          .in('company_id', companyBatch)
+          .limit(10000);
+        addClienteIds(data);
+      }
+
+      for (const companyBatch of chunkArray(scopedCompanyIds)) {
+        const { data } = await client
+          .from('users')
+          .select('id')
+          .in('company_id', companyBatch)
+          .limit(10000);
+        for (const row of data || []) {
+          const id = String(row?.id || '').trim();
+          if (id) creatorIds.add(id);
+        }
+      }
+
+      for (const creatorBatch of chunkArray(Array.from(creatorIds))) {
+        const { data, error: createdByError } = await client
+          .from('clientes')
+          .select('id')
+          .in('created_by', creatorBatch)
+          .limit(10000);
+        if (!createdByError) addClienteIds(data);
+      }
+
+      for (const companyBatch of chunkArray(scopedCompanyIds)) {
+        const { data } = await client
+          .from('vendas')
+          .select('cliente_id')
+          .in('company_id', companyBatch)
+          .eq('cancelada', false)
+          .not('cliente_id', 'is', null)
+          .limit(10000);
+        addClienteIds(data);
+      }
+
+      return Array.from(clienteIds);
+    }
+  });
 }
 
 export function diffDays(fromDateIso: string, toDate = new Date()) {
@@ -213,6 +290,12 @@ export async function ensureClienteAccess(
   const canUseCompanyScope = canUseCompanyClienteScope(scope, vendedorParam);
 
   if (canUseCompanyScope) {
+    if (companyIds.length > 0) {
+      const companyClienteIds = await resolveCompanyClienteIds(client, companyIds);
+      if (companyClienteIds.includes(normalizedClienteId)) return filters;
+      throw error(403, 'Sem permissao para acessar este cliente.');
+    }
+
     let foundCliente = false;
     const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
     for (const companyBatch of companyBatches) {

@@ -16,6 +16,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { resolveCompanyClienteIds } from '$lib/server/clientes';
 import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
@@ -170,18 +171,44 @@ export async function GET(event: RequestEvent) {
         .sort((a, b) => PT_BR_COLLATOR.compare(String(a.nome_completo || ''), String(b.nome_completo || '')));
     }
 
-    const buildClientesQuery = (idsFilter: string[]) => {
+    const buildClientesQuery = (idsFilter: string[], clientIdsFilter?: string[]) => {
       let query = client
         .from('clientes')
         .select('id, nome, cpf, telefone, email, whatsapp, company_id')
         .order('nome', { ascending: true })
         .limit(INITIAL_CLIENTES_LIMIT);
-      if (idsFilter.length > 0) query = query.in('company_id', idsFilter);
+      if (clientIdsFilter && clientIdsFilter.length > 0) query = query.in('id', clientIdsFilter);
+      else if (idsFilter.length > 0) query = query.in('company_id', idsFilter);
       return query;
     };
 
     const fetchClientesBase = async () => {
       if (!canLoadClientes) return { data: [], error: null };
+      const companyClientIds = activeCompanyIds.length > 0
+        ? await resolveCompanyClienteIds(client, activeCompanyIds)
+        : null;
+
+      if (companyClientIds && companyClientIds.length === 0) return { data: [], error: null };
+      if (companyClientIds && companyClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildClientesQuery(activeCompanyIds, companyClientIds);
+      }
+      if (companyClientIds) {
+        const rows: ClienteRow[] = [];
+        for (const batch of chunkArray(companyClientIds)) {
+          const result = await buildClientesQuery(activeCompanyIds, batch);
+          if (result.error) return result;
+          rows.push(...(result.data || []));
+          if (dedupeById(rows).length >= INITIAL_CLIENTES_LIMIT) break;
+        }
+
+        return {
+          data: dedupeById(rows)
+            .sort((left, right) => PT_BR_COLLATOR.compare(String(left?.nome || ''), String(right?.nome || '')))
+            .slice(0, INITIAL_CLIENTES_LIMIT),
+          error: null
+        };
+      }
+
       if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildClientesQuery(activeCompanyIds);
 
       const rows: ClienteRow[] = [];

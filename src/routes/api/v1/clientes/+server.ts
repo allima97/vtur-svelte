@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { getAdminClient, requireAuthenticatedUser, resolveAccessibleClientIds, resolveScopedCompanyIds, resolveScopedVendedorIds, resolveUserScope, sanitizePostgrestSearchTerm, toErrorResponse } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { canUseCompanyClienteScope, ensureClienteModuloAccess } from '$lib/server/clientes';
+import { canUseCompanyClienteScope, ensureClienteModuloAccess, resolveCompanyClienteIds } from '$lib/server/clientes';
 import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type ClienteLookupRow = {
@@ -43,11 +43,15 @@ export async function GET(event) {
     const requestedVendedorRaw = event.url.searchParams.get('vendedor_id');
     const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
     const canUseCompanyScope = canUseCompanyClienteScope(scope, requestedVendedorRaw);
+    const companyClientIds = canUseCompanyScope && companyIds.length > 0
+      ? await resolveCompanyClienteIds(client, companyIds)
+      : null;
     const accessibleClientIds = canUseCompanyScope
       ? null
       : await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
+    const scopedClientIds = companyClientIds || accessibleClientIds;
 
-    if (accessibleClientIds && accessibleClientIds.length === 0) {
+    if (scopedClientIds && scopedClientIds.length === 0) {
       return json(
         { items: [], total: 0 },
         { headers: DYNAMIC_READ_HEADERS }
@@ -75,13 +79,13 @@ export async function GET(event) {
     };
 
     const fetchClientes = async () => {
-      if (accessibleClientIds && !scope.isAdmin) {
-        if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-          return buildQuery(accessibleClientIds);
+      if (scopedClientIds) {
+        if (scopedClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+          return buildQuery(scopedClientIds);
         }
 
         const rows: ClienteLookupRow[] = [];
-        for (const batch of chunkArray(accessibleClientIds)) {
+        for (const batch of chunkArray(scopedClientIds)) {
           const result = await buildQuery(batch);
           if (result.error) {
             return { data: null, error: result.error } as typeof result;

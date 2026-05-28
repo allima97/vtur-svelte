@@ -10,7 +10,7 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
-import { canUseCompanyClienteScope } from "$lib/server/clientes";
+import { canUseCompanyClienteScope, resolveCompanyClienteIds } from "$lib/server/clientes";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -66,11 +66,15 @@ export async function GET(event: RequestEvent) {
       searchParams.get("vendedor_id"),
     );
     const useCompanyScope = canUseCompanyClienteScope(scope, searchParams.get("vendedor_id"));
+    const companyClientIds = useCompanyScope && companyIds.length > 0
+      ? await resolveCompanyClienteIds(client, companyIds)
+      : null;
     const accessibleClientIds = !useCompanyScope
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : null;
+    const scopedClientIds = companyClientIds || accessibleClientIds;
 
-    if (accessibleClientIds && accessibleClientIds.length === 0) {
+    if (scopedClientIds && scopedClientIds.length === 0) {
       return json([], { headers: DYNAMIC_READ_HEADERS });
     }
 
@@ -108,9 +112,9 @@ export async function GET(event: RequestEvent) {
           return query;
         };
 
-        if (accessibleClientIds && accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE) {
+        if (scopedClientIds && scopedClientIds.length > SUPABASE_IN_BATCH_SIZE) {
           const rows: OrcamentoClienteRow[] = [];
-          for (const batch of chunkArray(accessibleClientIds)) {
+          for (const batch of chunkArray(scopedClientIds)) {
             const { data, error } = await buildQuery(batch);
             if (error) throw error;
             rows.push(...((data || []) as OrcamentoClienteRow[]));
@@ -120,7 +124,7 @@ export async function GET(event: RequestEvent) {
           return dedupeClientes(rows).slice(0, 500);
         }
 
-        if (!accessibleClientIds && companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+        if (!scopedClientIds && companyIds.length > SUPABASE_IN_BATCH_SIZE) {
           const rows: OrcamentoClienteRow[] = [];
           for (const batch of chunkArray(companyIds)) {
             const { data, error } = await buildQuery(undefined, batch);
@@ -132,7 +136,7 @@ export async function GET(event: RequestEvent) {
           return dedupeClientes(rows).slice(0, 500);
         }
 
-        const { data, error } = await buildQuery(accessibleClientIds || undefined);
+        const { data, error } = await buildQuery(scopedClientIds || undefined);
         if (error) throw error;
         return data || [];
       },

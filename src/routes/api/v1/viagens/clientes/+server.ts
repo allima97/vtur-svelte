@@ -9,7 +9,7 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
-import { canUseCompanyClienteScope } from "$lib/server/clientes";
+import { canUseCompanyClienteScope, resolveCompanyClienteIds } from "$lib/server/clientes";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -55,14 +55,18 @@ export async function GET(event: RequestEvent) {
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get("empresa_id"));
     const useCompanyScope = canUseCompanyClienteScope(scope);
     const vendedorIds = useCompanyScope ? [] : [user.id];
+    const companyClientIds = useCompanyScope && companyIds.length > 0
+      ? await resolveCompanyClienteIds(client, companyIds)
+      : null;
     const accessibleClientIds = !useCompanyScope
       ? await resolveAccessibleClientIds(client, {
           companyIds,
           vendedorIds,
         })
-      : [];
+      : null;
+    const scopedClientIds = companyClientIds || accessibleClientIds;
 
-    if (!useCompanyScope && accessibleClientIds.length === 0) {
+    if (scopedClientIds && scopedClientIds.length === 0) {
       return json([], { headers: DYNAMIC_READ_HEADERS });
     }
 
@@ -71,7 +75,7 @@ export async function GET(event: RequestEvent) {
       useCompanyScope,
       companyIds,
       vendedorIds,
-      accessibleClientCount: accessibleClientIds.length,
+      accessibleClientCount: scopedClientIds?.length ?? null,
       userId: useCompanyScope ? null : user.id,
     });
     const payload = await getCachedReadModel({
@@ -104,13 +108,13 @@ export async function GET(event: RequestEvent) {
         };
 
         const fetchClientes = async () => {
-          if (!useCompanyScope && accessibleClientIds.length > 0) {
-            if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-              return buildQuery(accessibleClientIds);
+          if (scopedClientIds && scopedClientIds.length > 0) {
+            if (scopedClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+              return buildQuery(scopedClientIds);
             }
 
             const rows: ViagemClienteRow[] = [];
-            for (const batch of chunkArray(accessibleClientIds)) {
+            for (const batch of chunkArray(scopedClientIds)) {
               const result = await buildQuery(batch);
               if (result.error) {
                 return { data: null, error: result.error } as typeof result;
