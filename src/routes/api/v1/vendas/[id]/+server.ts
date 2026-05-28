@@ -15,12 +15,14 @@ import {
   buildVendaPayload,
   ensureAssignableActiveSeller,
   ensureReciboReservaUnicos,
+  resolveVendaDestinoProduto,
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { fetchSaleForScope, isSaleInScope } from "$lib/server/salesScope";
+import { resolveCompanyClienteIds } from "$lib/server/clientes";
 import { chunkArray } from "$lib/utils/array";
 import { toUserMessage } from "$lib/utils/errors";
 
@@ -92,6 +94,15 @@ function isMissingColumnError(err: unknown) {
   const code = String(errorLike?.code || "").trim();
   const message = `${errorLike?.message || ""} ${errorLike?.details || ""}`.toLowerCase();
   return code === "42703" || (message.includes("column") && message.includes("does not exist"));
+}
+
+function isVendaDestinoFkError(err: unknown) {
+  const errorLike =
+    err && typeof err === "object"
+      ? (err as { code?: string | null; message?: string | null; details?: string | null })
+      : null;
+  const text = `${errorLike?.message || ""} ${errorLike?.details || ""}`.toLowerCase();
+  return errorLike?.code === "23503" && text.includes("vendas_destino_id_fkey");
 }
 
 async function fetchVendaBase(client: SupabaseClient, id: string, lite = false) {
@@ -357,6 +368,7 @@ export async function PATCH(event) {
         { status: 400, headers: NO_STORE_HEADERS },
       );
     }
+    const saleCompanyId = String(targetCompanyId);
 
     const body: VendaUpdateBody =
       bodyResult.data && typeof bodyResult.data === "object"
@@ -386,10 +398,12 @@ export async function PATCH(event) {
     if (!isUuid(clienteId)) {
       return json({ error: "Cliente invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
-
-    const destinationId = String(venda?.destino_id || "").trim();
-    if (!isUuid(destinationId)) {
-      return json({ error: "Destino invalido." }, { status: 400, headers: NO_STORE_HEADERS });
+    const companyClienteIds = await resolveCompanyClienteIds(client, [saleCompanyId]);
+    if (!companyClienteIds.includes(clienteId)) {
+      return json(
+        { error: "Cliente fora da empresa da venda." },
+        { status: 403, headers: NO_STORE_HEADERS },
+      );
     }
 
     if (!Array.isArray(recibos) || recibos.length === 0) {
@@ -445,7 +459,7 @@ export async function PATCH(event) {
       if (reservaKey) currentReciboByReserva.set(reservaKey, row);
     }
 
-    const recibosForSync = recibos.map((item: VendaUpdateReciboPayload) => {
+    let recibosForSync = recibos.map((item: VendaUpdateReciboPayload) => {
       const current =
         currentReciboByReceipt.get(normalizeReceiptKey(item?.numero_recibo)) ||
         currentReciboByReserva.get(normalizeReservaKey(item?.numero_reserva)) ||
@@ -518,13 +532,38 @@ export async function PATCH(event) {
       }
     }
 
+    let destinoResolvido;
+    try {
+      destinoResolvido = await resolveVendaDestinoProduto({
+        client,
+        venda,
+        recibos: recibosForSync,
+        companyId: targetCompanyId,
+        userId: user.id,
+      });
+      recibosForSync = destinoResolvido.recibos as VendaUpdateReciboPayload[];
+    } catch (err) {
+      const code = toUserMessage(err, "");
+      if (
+        code === "DESTINO_INVALIDO" ||
+        code === "VALE_VIAGEM_TIPO_NAO_ENCONTRADO" ||
+        code === "VALE_VIAGEM_PRODUTO_INVALIDO"
+      ) {
+        return json(
+          { error: "Produto/destino invalido para a venda." },
+          { status: 400, headers: NO_STORE_HEADERS },
+        );
+      }
+      throw err;
+    }
+
     let payload;
     try {
       payload = buildVendaPayload(
         venda,
         vendedorId,
         clienteId,
-        destinationId,
+        destinoResolvido.destinoId,
         targetCompanyId,
       );
     } catch (err) {
@@ -542,6 +581,12 @@ export async function PATCH(event) {
       .eq("id", id)
       .eq("company_id", targetCompanyId);
     const { data, error: updateError } = await query.select("id").maybeSingle();
+    if (isVendaDestinoFkError(updateError)) {
+      return json(
+        { error: "Produto/destino invalido para a venda." },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
+    }
     if (updateError) {
       logVendaError("[PATCH venda] update vendas error:", updateError);
       throw updateError;

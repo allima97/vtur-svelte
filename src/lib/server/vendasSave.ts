@@ -12,7 +12,7 @@ import {
   todayISODateLocal,
   toISODateLocal as formatISODateLocal,
 } from "$lib/date";
-import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+import { invalidateCatalogReadModels, invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -47,6 +47,20 @@ type VendaIdRow = {
 type VendaClienteLookupRow = {
   id?: string | null;
   cliente_id?: string | null;
+};
+
+type ProdutoDestinoLookupRow = {
+  id?: string | null;
+  nome?: string | null;
+  destino?: string | null;
+  tipo_produto?: string | null;
+};
+
+type TipoProdutoLookupRow = {
+  id?: string | null;
+  nome?: string | null;
+  tipo?: string | null;
+  ativo?: boolean | null;
 };
 
 type LookupClient = Pick<SupabaseClient, "from">;
@@ -146,6 +160,255 @@ function normalizeReservaKey(value?: string | null) {
 
 function sanitizeLabel(value?: string | null) {
   return collapseSpaces(normalizeText(value || ""));
+}
+
+function normalizeLabel(value: unknown) {
+  return normalizeText(collapseSpaces(String(value || "")), {
+    collapseWhitespace: true,
+    trim: true,
+  });
+}
+
+function isValeViagemLabel(value: unknown) {
+  const label = normalizeLabel(value);
+  return label.includes("vale viagem") || label.includes("valeviagem");
+}
+
+function toUuidOrNull(value: unknown) {
+  const id = toNullableString(value);
+  return id && isUuid(id) ? id : null;
+}
+
+async function fetchProdutosDestinoByIds(client: LookupClient, ids: string[]) {
+  const validIds = uniqueCleanStrings(ids).filter(isUuid);
+  const produtos = new Map<string, ProdutoDestinoLookupRow>();
+  if (validIds.length === 0) return produtos;
+
+  const { data, error } = await client
+    .from("produtos")
+    .select("id, nome, destino, tipo_produto")
+    .in("id", validIds);
+  if (error) throw error;
+
+  for (const row of (data || []) as ProdutoDestinoLookupRow[]) {
+    const id = toUuidOrNull(row?.id);
+    if (id) produtos.set(id, row);
+  }
+  return produtos;
+}
+
+async function fetchTipoProdutosByIds(client: LookupClient, ids: string[]) {
+  const validIds = uniqueCleanStrings(ids).filter(isUuid);
+  const tipos = new Map<string, TipoProdutoLookupRow>();
+  if (validIds.length === 0) return tipos;
+
+  const { data, error } = await client
+    .from("tipo_produtos")
+    .select("id, nome, tipo, ativo")
+    .in("id", validIds);
+  if (error) throw error;
+
+  for (const row of (data || []) as TipoProdutoLookupRow[]) {
+    const id = toUuidOrNull(row?.id);
+    if (id) tipos.set(id, row);
+  }
+  return tipos;
+}
+
+async function resolveValeViagemTipoId(client: LookupClient, preferredIds: string[]) {
+  const preferredTipos = await fetchTipoProdutosByIds(client, preferredIds);
+  const preferredMatch = Array.from(preferredTipos.values()).find(
+    (row) => isValeViagemLabel(row?.nome) || isValeViagemLabel(row?.tipo),
+  );
+  const preferredId = toUuidOrNull(preferredMatch?.id);
+  if (preferredId) return preferredId;
+
+  const { data, error } = await client
+    .from("tipo_produtos")
+    .select("id, nome, tipo, ativo")
+    .order("nome", { ascending: true })
+    .limit(500);
+  if (error) throw error;
+
+  const match = ((data || []) as TipoProdutoLookupRow[]).find(
+    (row) =>
+      row?.ativo !== false &&
+      (isValeViagemLabel(row?.nome) || isValeViagemLabel(row?.tipo)),
+  );
+  return toUuidOrNull(match?.id);
+}
+
+async function findValeViagemProduto(client: LookupClient, tipoProdutoId: string) {
+  const { data, error } = await client
+    .from("produtos")
+    .select("id, nome, destino, tipo_produto")
+    .eq("tipo_produto", tipoProdutoId)
+    .limit(100);
+  if (error) throw error;
+
+  const match = ((data || []) as ProdutoDestinoLookupRow[]).find(
+    (row) => isValeViagemLabel(row?.nome) || isValeViagemLabel(row?.destino),
+  );
+  return toUuidOrNull(match?.id);
+}
+
+async function ensureValeViagemProduto(params: {
+  client: LookupClient;
+  tipoProdutoId: string;
+  companyId?: string | null;
+  userId?: string | null;
+}) {
+  const existingId = await findValeViagemProduto(params.client, params.tipoProdutoId);
+  if (existingId) return existingId;
+
+  const insertPayload = {
+    nome: "Vale Viagem",
+    destino: "Vale Viagem",
+    tipo_produto: params.tipoProdutoId,
+    cidade_id: null,
+    todas_as_cidades: true,
+    ativo: true,
+    valor_neto: 0,
+    margem: null,
+    valor_venda: 0,
+    moeda: "BRL",
+    cambio: 1,
+    valor_em_reais: 0,
+  };
+
+  const { data, error } = await params.client
+    .from("produtos")
+    .insert(insertPayload)
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  const id = toUuidOrNull((data as { id?: string | null } | null)?.id);
+  if (!id) throw new Error("VALE_VIAGEM_PRODUTO_INVALIDO");
+
+  invalidateCatalogReadModels({
+    companyIds: params.companyId ? [params.companyId] : undefined,
+    userId: params.userId,
+  });
+  return id;
+}
+
+function reciboIndicaValeViagem(
+  recibo: Record<string, unknown>,
+  valeTipoId?: string | null,
+) {
+  const tipoId = toUuidOrNull(recibo?.produto_id) || toUuidOrNull(recibo?.tipo_produto_id);
+  return (
+    (valeTipoId && tipoId === valeTipoId) ||
+    isValeViagemLabel(recibo?.produto_nome) ||
+    isValeViagemLabel(recibo?.tipo_nome) ||
+    isValeViagemLabel(recibo?.nome_produto)
+  );
+}
+
+function resolveValeViagemRecibos(
+  recibos: Array<ReciboInput & Record<string, unknown>>,
+  valeProdutoId: string,
+  valeTipoId?: string | null,
+) {
+  return recibos.map((recibo) => {
+    if (!reciboIndicaValeViagem(recibo, valeTipoId)) return recibo;
+    return {
+      ...recibo,
+      produto_id:
+        toUuidOrNull(recibo?.produto_id) ||
+        toUuidOrNull(recibo?.tipo_produto_id) ||
+        valeTipoId ||
+        "",
+      produto_resolvido_id: valeProdutoId,
+      produto_nome: toNullableString(recibo?.produto_nome) || "Vale Viagem",
+    };
+  });
+}
+
+export async function resolveVendaDestinoProduto(params: {
+  client: LookupClient;
+  venda: VendaInput & { destino_id?: unknown };
+  recibos: Array<ReciboInput & Record<string, unknown>>;
+  companyId?: string | null;
+  userId?: string | null;
+}) {
+  const destinoSolicitadoId = toUuidOrNull(params.venda?.destino_id);
+  const produtoResolvidoIds = params.recibos
+    .map((recibo) => toUuidOrNull(recibo?.produto_resolvido_id))
+    .filter(Boolean) as string[];
+
+  const produtosById = await fetchProdutosDestinoByIds(params.client, [
+    destinoSolicitadoId || "",
+    ...produtoResolvidoIds,
+  ]);
+
+  if (destinoSolicitadoId && produtosById.has(destinoSolicitadoId)) {
+    const produtoDestino = produtosById.get(destinoSolicitadoId);
+    const tipoDestinoId = toUuidOrNull(produtoDestino?.tipo_produto);
+    const destinoValeViagem =
+      isValeViagemLabel(produtoDestino?.nome) ||
+      isValeViagemLabel(produtoDestino?.destino) ||
+      params.recibos.some((recibo) => reciboIndicaValeViagem(recibo, tipoDestinoId));
+    return {
+      destinoId: destinoSolicitadoId,
+      recibos: destinoValeViagem
+        ? resolveValeViagemRecibos(params.recibos, destinoSolicitadoId, tipoDestinoId)
+        : params.recibos,
+    };
+  }
+
+  const primeiroProdutoRealId = produtoResolvidoIds.find((id) => produtosById.has(id));
+  if (primeiroProdutoRealId) {
+    const produtoDestino = produtosById.get(primeiroProdutoRealId);
+    const tipoDestinoId = toUuidOrNull(produtoDestino?.tipo_produto);
+    const destinoValeViagem =
+      isValeViagemLabel(produtoDestino?.nome) ||
+      isValeViagemLabel(produtoDestino?.destino) ||
+      params.recibos.some((recibo) => reciboIndicaValeViagem(recibo, tipoDestinoId));
+    return {
+      destinoId: primeiroProdutoRealId,
+      recibos: destinoValeViagem
+        ? resolveValeViagemRecibos(params.recibos, primeiroProdutoRealId, tipoDestinoId)
+        : params.recibos,
+    };
+  }
+
+  const tipoCandidates = uniqueCleanStrings([
+    destinoSolicitadoId || "",
+    ...params.recibos.map((recibo) => String(recibo?.produto_id || "")),
+    ...params.recibos.map((recibo) => String(recibo?.tipo_produto_id || "")),
+  ]).filter(isUuid);
+  const tiposById = await fetchTipoProdutosByIds(params.client, tipoCandidates);
+  const tipoValePreferido = Array.from(tiposById.values()).find(
+    (row) => isValeViagemLabel(row?.nome) || isValeViagemLabel(row?.tipo),
+  );
+  let valeTipoId = toUuidOrNull(tipoValePreferido?.id);
+  const payloadIndicaValeViagem =
+    (destinoSolicitadoId &&
+      tiposById.has(destinoSolicitadoId) &&
+      (isValeViagemLabel(tiposById.get(destinoSolicitadoId)?.nome) ||
+        isValeViagemLabel(tiposById.get(destinoSolicitadoId)?.tipo))) ||
+    params.recibos.some((recibo) => reciboIndicaValeViagem(recibo, valeTipoId));
+
+  if (payloadIndicaValeViagem) {
+    valeTipoId = valeTipoId || await resolveValeViagemTipoId(params.client, tipoCandidates);
+    if (!valeTipoId) throw new Error("VALE_VIAGEM_TIPO_NAO_ENCONTRADO");
+
+    const valeProdutoId = await ensureValeViagemProduto({
+      client: params.client,
+      tipoProdutoId: valeTipoId,
+      companyId: params.companyId,
+      userId: params.userId,
+    });
+
+    return {
+      destinoId: valeProdutoId,
+      recibos: resolveValeViagemRecibos(params.recibos, valeProdutoId, valeTipoId),
+    };
+  }
+
+  throw new Error("DESTINO_INVALIDO");
 }
 
 export function calcularStatusPeriodo(

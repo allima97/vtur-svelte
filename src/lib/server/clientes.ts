@@ -32,11 +32,9 @@ type PassageiroViagemAccessRow = {
 };
 
 export function canUseCompanyClienteScope(scope: UserScope, vendedorParam?: string | null) {
-  const requestedVendedor = String(vendedorParam || '').trim();
   const tipoNome = String(scope.tipoNome || '').toUpperCase();
 
   if (scope.isAdmin || scope.isMaster) return true;
-  if (requestedVendedor) return false;
   if (scope.usoIndividual) return false;
   if ((scope.companyIds || []).length > 0 || scope.companyId) return true;
 
@@ -60,6 +58,7 @@ export async function resolveCompanyClienteIds(client: SupabaseClient, companyId
     loader: async () => {
       const clienteIds = new Set<string>();
       const creatorIds = new Set<string>();
+      const scopedCompanySet = new Set(scopedCompanyIds);
 
       const addClienteIds = (rows?: Array<{ id?: string | null; cliente_id?: string | null }> | null) => {
         for (const row of rows || []) {
@@ -92,10 +91,17 @@ export async function resolveCompanyClienteIds(client: SupabaseClient, companyId
       for (const creatorBatch of chunkArray(Array.from(creatorIds))) {
         const { data, error: createdByError } = await client
           .from('clientes')
-          .select('id')
+          .select('id, company_id')
           .in('created_by', creatorBatch)
           .limit(10000);
-        if (!createdByError) addClienteIds(data);
+        if (!createdByError) {
+          addClienteIds(
+            (data || []).filter((row: { company_id?: string | null }) => {
+              const rowCompanyId = String(row?.company_id || '').trim();
+              return !rowCompanyId || scopedCompanySet.has(rowCompanyId);
+            })
+          );
+        }
       }
 
       for (const companyBatch of chunkArray(scopedCompanyIds)) {

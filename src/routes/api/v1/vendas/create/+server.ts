@@ -13,11 +13,13 @@ import {
   closeQuoteIfNeeded,
   ensureAssignableActiveSeller,
   ensureReciboReservaUnicos,
+  resolveVendaDestinoProduto,
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+import { resolveCompanyClienteIds } from "$lib/server/clientes";
 import { toUserMessage } from "$lib/utils/errors";
 
 const MAX_VENDA_CREATE_BODY_BYTES = 512 * 1024;
@@ -27,6 +29,15 @@ type SellerScopeRow = { company_id?: string | null } | null;
 
 function isJsonObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isVendaDestinoFkError(err: unknown) {
+  const errorLike =
+    err && typeof err === "object"
+      ? (err as { code?: string | null; message?: string | null; details?: string | null })
+      : null;
+  const text = `${errorLike?.message || ""} ${errorLike?.details || ""}`.toLowerCase();
+  return errorLike?.code === "23503" && text.includes("vendas_destino_id_fkey");
 }
 
 export async function POST(event) {
@@ -110,13 +121,40 @@ export async function POST(event) {
     const clienteId = String(venda?.cliente_id || "").trim();
     if (!isUuid(clienteId))
       return json({ error: "Cliente invalido." }, { status: 400, headers: NO_STORE_HEADERS });
-
-    const destinoId = String(venda?.destino_id || "").trim();
-    if (!isUuid(destinoId))
-      return json({ error: "Destino invalido." }, { status: 400, headers: NO_STORE_HEADERS });
+    const companyClienteIds = await resolveCompanyClienteIds(client, [targetCompanyId]);
+    if (!companyClienteIds.includes(clienteId)) {
+      return json(
+        { error: "Cliente fora da empresa selecionada." },
+        { status: 403, headers: NO_STORE_HEADERS },
+      );
+    }
 
     if (!Array.isArray(recibos) || recibos.length === 0) {
       return json({ error: "Inclua ao menos um recibo." }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+
+    let destinoResolvido;
+    try {
+      destinoResolvido = await resolveVendaDestinoProduto({
+        client,
+        venda,
+        recibos,
+        companyId: targetCompanyId,
+        userId: user.id,
+      });
+    } catch (err) {
+      const code = toUserMessage(err, "");
+      if (
+        code === "DESTINO_INVALIDO" ||
+        code === "VALE_VIAGEM_TIPO_NAO_ENCONTRADO" ||
+        code === "VALE_VIAGEM_PRODUTO_INVALIDO"
+      ) {
+        return json(
+          { error: "Produto/destino invalido para a venda." },
+          { status: 400, headers: NO_STORE_HEADERS },
+        );
+      }
+      throw err;
     }
 
     try {
@@ -124,7 +162,7 @@ export async function POST(event) {
         client,
         companyId: targetCompanyId,
         clienteId,
-        recibos,
+        recibos: destinoResolvido.recibos,
       });
     } catch (err) {
       const code = toUserMessage(err, "Erro ao validar recibos.");
@@ -140,7 +178,7 @@ export async function POST(event) {
         venda,
         vendedorId,
         clienteId,
-        destinoId,
+        destinoResolvido.destinoId,
         targetCompanyId,
       );
     } catch (err) {
@@ -155,6 +193,12 @@ export async function POST(event) {
       .insert(vendaPayload)
       .select("id")
       .single();
+    if (isVendaDestinoFkError(saleError)) {
+      return json(
+        { error: "Produto/destino invalido para a venda." },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
+    }
     if (saleError || !insertedSale?.id)
       throw saleError || new Error("Erro ao criar venda.");
 
@@ -166,7 +210,7 @@ export async function POST(event) {
       vendedorId,
       userId: user.id,
       dataVenda: String(vendaPayload.data_venda || ""),
-      recibos,
+      recibos: destinoResolvido.recibos,
       pagamentos,
     });
 

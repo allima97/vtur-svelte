@@ -233,6 +233,15 @@
     };
   }
 
+  function getProdutoRealId(recibo: (typeof recibos)[number]) {
+    const produtoId = String(recibo.produto_id || '').trim();
+    const tipoId = String(recibo.tipo_produto_id || '').trim();
+    if (isValeViagemTipo(tipoId) && produtoId === tipoId) {
+      return String(recibo.produto_resolvido_id || '').trim();
+    }
+    return String(recibo.produto_resolvido_id || produtoId).trim();
+  }
+
   function produtoMatchesTipo(item: Option, tipoId: string) {
     if (!tipoId) return true;
     const selectedType = tipos.find((tipo) => String(tipo.id) === String(tipoId));
@@ -722,8 +731,8 @@
     saving = true;
 
     try {
-      const primeiroReciboComProduto = recibos.find((item) => item.produto_id) || recibos[0];
-      const destinoId = primeiroReciboComProduto?.produto_id || venda.destino_id;
+      const primeiroReciboComProduto = recibos.find((item) => getProdutoRealId(item)) || recibos[0];
+      const destinoId = primeiroReciboComProduto ? getProdutoRealId(primeiroReciboComProduto) || venda.destino_id : venda.destino_id;
 
       const totalRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_total), 0);
       const totalTaxasRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_taxas), 0);

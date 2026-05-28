@@ -621,7 +621,12 @@
   }
 
   function getProdutoRealId(recibo: (typeof recibos)[number]) {
-    return String(recibo.produto_resolvido_id || recibo.produto_id || '').trim();
+    const produtoId = String(recibo.produto_id || '').trim();
+    const tipoId = String(recibo.tipo_produto_id || '').trim();
+    if (isValeViagemTipo(tipoId) && produtoId === tipoId) {
+      return String(recibo.produto_resolvido_id || '').trim();
+    }
+    return String(recibo.produto_resolvido_id || produtoId).trim();
   }
 
   function getProdutoCidadeId(recibo: (typeof recibos)[number]) {
