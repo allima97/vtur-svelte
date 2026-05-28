@@ -107,6 +107,7 @@
   let vendedoresEquipe: Option[] = [];
   let empresas: Option[] = [];
   let empresaId = '';
+  let lastValeViagemBaseSignature = '';
   let loadController: AbortController | null = null;
   let lookupController: AbortController | null = null;
   let loadSeq = 0;
@@ -165,7 +166,8 @@
       data_inicio: '',
       data_fim: '',
       contrato_url: '',
-      contrato_path: ''
+      contrato_path: '',
+      vale_viagem_compacto: false
     };
   }
 
@@ -240,6 +242,76 @@
       return String(recibo.produto_resolvido_id || '').trim();
     }
     return String(recibo.produto_resolvido_id || produtoId).trim();
+  }
+
+  function isValeViagemRecibo(recibo: (typeof recibos)[number]) {
+    return isValeViagemTipo(String(recibo.tipo_produto_id || ''));
+  }
+
+  function isValeViagemLinhaCompacta(recibo: (typeof recibos)[number]) {
+    return recibo.vale_viagem_compacto === true && isValeViagemRecibo(recibo);
+  }
+
+  function getValeViagemBaseRecibo() {
+    return (
+      recibos.find((item) => isValeViagemRecibo(item) && item.vale_viagem_compacto !== true) ||
+      null
+    );
+  }
+
+  function getValeViagemCamposHerdados(base: (typeof recibos)[number]) {
+    return {
+      usar_cidade_padrao: base.usar_cidade_padrao,
+      destino_cidade_id: base.destino_cidade_id,
+      tipo_produto_id: base.tipo_produto_id,
+      produto_id: base.produto_id,
+      produto_resolvido_id: base.produto_resolvido_id,
+      numero_reserva: base.numero_reserva,
+      tipo_pacote: base.tipo_pacote,
+      valor_taxas: base.valor_taxas,
+      valor_du: base.valor_du,
+      valor_rav: base.valor_rav,
+      data_inicio: base.data_inicio,
+      data_fim: base.data_fim,
+      contrato_url: base.contrato_url,
+      contrato_path: base.contrato_path
+    };
+  }
+
+  function createValeViagemCompacto(base: (typeof recibos)[number]) {
+    return {
+      ...createRecibo(false),
+      ...getValeViagemCamposHerdados(base),
+      numero_recibo: '',
+      valor_total: '',
+      vale_viagem_compacto: true
+    };
+  }
+
+  function syncValeViagemCompactos() {
+    const base = getValeViagemBaseRecibo();
+    if (!base) return;
+    const camposHerdados = getValeViagemCamposHerdados(base);
+    let changed = false;
+    const nextRecibos = recibos.map((item) => {
+      if (!isValeViagemLinhaCompacta(item)) return item;
+      changed = true;
+      return {
+        ...item,
+        ...camposHerdados,
+        numero_recibo: item.numero_recibo,
+        valor_total: item.valor_total,
+        principal: item.principal,
+        vale_viagem_compacto: true
+      };
+    });
+    if (changed) recibos = nextRecibos;
+  }
+
+  function getValeViagemBaseSignature() {
+    const base = getValeViagemBaseRecibo();
+    if (!base) return '';
+    return JSON.stringify(getValeViagemCamposHerdados(base));
   }
 
   function produtoMatchesTipo(item: Option, tipoId: string) {
@@ -334,7 +406,11 @@
   });
 
   function addRecibo() {
-    recibos = [...recibos, createRecibo(false)];
+    const valeViagemBase = getValeViagemBaseRecibo();
+    recibos = [
+      ...recibos,
+      valeViagemBase ? createValeViagemCompacto(valeViagemBase) : createRecibo(false)
+    ];
     ensurePrincipalRecibo();
   }
 
@@ -679,13 +755,14 @@
       if (recibos.length === 0) errors.recibos = 'Inclua ao menos um recibo.';
       for (const [index, recibo] of recibos.entries()) {
         const cidadeReciboId = getReciboCidadeId(recibo);
+        const valeViagem = isValeViagemRecibo(recibo);
         if (!recibo.tipo_produto_id) errors[`recibo_tipo_${index}`] = 'Obrigatório';
         if (!recibo.produto_id) errors[`recibo_produto_${index}`] = 'Obrigatório';
-        if (!cidadeReciboId) errors[`recibo_cidade_${index}`] = 'Selecione a cidade.';
+        if (!valeViagem && !cidadeReciboId) errors[`recibo_cidade_${index}`] = 'Selecione a cidade.';
         if (!recibo.numero_recibo) errors[`recibo_numero_${index}`] = 'Obrigatório';
-        if (!recibo.tipo_pacote) errors[`recibo_pacote_${index}`] = 'Obrigatório';
-        if (!recibo.data_inicio) errors[`recibo_inicio_${index}`] = 'Obrigatório';
-        if (!recibo.data_fim) errors[`recibo_fim_${index}`] = 'Obrigatório';
+        if (!valeViagem && !recibo.tipo_pacote) errors[`recibo_pacote_${index}`] = 'Obrigatório';
+        if (!valeViagem && !recibo.data_inicio) errors[`recibo_inicio_${index}`] = 'Obrigatório';
+        if (!valeViagem && !recibo.data_fim) errors[`recibo_fim_${index}`] = 'Obrigatório';
         if (recibo.data_inicio && recibo.data_fim && recibo.data_fim < recibo.data_inicio) {
           errors[`recibo_fim_${index}`] = 'Fim deve ser igual ou após início.';
         }
@@ -723,6 +800,7 @@
   }
 
   async function handleSubmit() {
+    syncValeViagemCompactos();
     if (!validateStep(2)) {
       toast.error('Preencha os campos obrigatórios antes de salvar.');
       return;
@@ -803,6 +881,16 @@
   $: diferencaFinanceira = Number((totalPagamentos - totalRecibos).toFixed(2));
   $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
   $: produtosDestinoFiltrados = produtos.filter((item) => isProdutoCompativelCidade(item));
+  $: possuiValeViagemBase = Boolean(getValeViagemBaseRecibo());
+  $: {
+    const valeViagemBaseSignature = getValeViagemBaseSignature();
+    if (valeViagemBaseSignature && valeViagemBaseSignature !== lastValeViagemBaseSignature) {
+      lastValeViagemBaseSignature = valeViagemBaseSignature;
+      syncValeViagemCompactos();
+    } else if (!valeViagemBaseSignature && lastValeViagemBaseSignature) {
+      lastValeViagemBaseSignature = '';
+    }
+  }
   $: if (venda.destino_cidade_id !== lastDestinoCidadeId) {
     lastDestinoCidadeId = venda.destino_cidade_id;
     recibos = recibos.map((recibo) => {
@@ -963,8 +1051,15 @@
             <p class="text-sm text-slate-600">Cada recibo tem seu próprio produto, cidade, comissionamento e conciliação. A venda apenas agrupa a viagem do cliente.</p>
             {#if errors.recibos}<p class="mt-1 text-xs text-red-600">{errors.recibos}</p>{/if}
           </div>
-          <Button type="button" variant="secondary" on:click={addRecibo}><Plus size={16} class="mr-2" />Adicionar recibo</Button>
+          <Button type="button" variant="secondary" on:click={addRecibo}>
+            <Plus size={16} class="mr-2" />{possuiValeViagemBase ? 'Adicionar Vale Viagem' : 'Adicionar recibo'}
+          </Button>
         </div>
+        {#if possuiValeViagemBase}
+          <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            Para Vale Viagem, os novos recibos entram como linhas compactas. O sistema herda os dados do recibo base e você preenche apenas número do recibo e valor.
+          </div>
+        {/if}
 
         <div class="space-y-4">
           {#each recibos as recibo, index}
@@ -979,6 +1074,19 @@
                 </div>
               </div>
 
+              {#if isValeViagemLinhaCompacta(recibo)}
+                <div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                  Linha compacta de Vale Viagem. Tipo, produto, pacote, datas, reserva, taxas e contrato serão gravados com os dados herdados do recibo base.
+                </div>
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <FieldInput id={`venda-nova-recibo-numero-${index}`} label="Número recibo" bind:value={recibo.numero_recibo} class_name="w-full" error={errors[`recibo_numero_${index}`]} required />
+                  </div>
+                  <div>
+                    <FieldInput id={`venda-nova-recibo-total-${index}`} label="Valor total" bind:value={recibo.valor_total} class_name="w-full" error={errors[`recibo_total_${index}`]} required />
+                  </div>
+                </div>
+              {:else}
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2 xl:col-span-4">
                   <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -997,7 +1105,7 @@
                       <CidadeAutocomplete
                         id={`venda-nova-recibo-cidade-${index}`}
                         label="Cidade deste recibo"
-                        required={true}
+                        required={!isValeViagemRecibo(recibo)}
                         bind:value={recibo.destino_cidade_id}
                         cities={cidades}
                         error={errors[`recibo_cidade_${index}`]}
@@ -1054,14 +1162,14 @@
                     ]}
                     class_name="w-full"
                     error={errors[`recibo_pacote_${index}`]}
-                    required
+                    required={!isValeViagemRecibo(recibo)}
                   />
                 </div>
                 <div>
-                  <FieldInput id={`venda-nova-recibo-inicio-${index}`} label="Data início" type="date" bind:value={recibo.data_inicio} class_name="w-full" error={errors[`recibo_inicio_${index}`]} required />
+                  <FieldInput id={`venda-nova-recibo-inicio-${index}`} label="Data início" type="date" bind:value={recibo.data_inicio} class_name="w-full" error={errors[`recibo_inicio_${index}`]} required={!isValeViagemRecibo(recibo)} />
                 </div>
                 <div>
-                  <FieldInput id={`venda-nova-recibo-fim-${index}`} label="Data fim" type="date" bind:value={recibo.data_fim} min={recibo.data_inicio || null} class_name="w-full" error={errors[`recibo_fim_${index}`]} required />
+                  <FieldInput id={`venda-nova-recibo-fim-${index}`} label="Data fim" type="date" bind:value={recibo.data_fim} min={recibo.data_inicio || null} class_name="w-full" error={errors[`recibo_fim_${index}`]} required={!isValeViagemRecibo(recibo)} />
                 </div>
                 <div>
                   <FieldInput id={`venda-nova-recibo-total-${index}`} label="Valor total" bind:value={recibo.valor_total} class_name="w-full" error={errors[`recibo_total_${index}`]} required />
@@ -1082,6 +1190,7 @@
                   <FieldInput id={`venda-nova-recibo-contrato-path-${index}`} label="Contrato (Path)" bind:value={recibo.contrato_path} class_name="w-full" />
                 </div>
               </div>
+              {/if}
             </div>
           {/each}
         </div>
