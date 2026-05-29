@@ -117,6 +117,51 @@ function stripHotelStars(value?: string | null) {
   return cleanLine(value).replace(/\s*\*{2,5}\s*$/g, "").trim();
 }
 
+function getLineValue(lines: string[], index: number, pattern: RegExp) {
+  const line = cleanLine(lines[index]);
+  const match = line.match(pattern);
+  if (!match) return null;
+
+  const value = cleanLine(match[1] || "");
+  if (value) return { value, nextIndex: index };
+
+  const nextLine = cleanLine(lines[index + 1]);
+  if (!nextLine || isStructuredHotelLabelLine(nextLine)) return { value: "", nextIndex: index };
+  return { value: nextLine, nextIndex: index + 1 };
+}
+
+function isStructuredHotelLabelLine(value?: string | null) {
+  const line = cleanLine(value);
+  if (!line) return false;
+  return (
+    /^hotel(?:\s*[:\-]\s*|\s+|$)/i.test(line) ||
+    /^endere[çc]o(?:\s*\/\s*address)?(?:\s*[:\-]\s*|\s+|$)/i.test(line) ||
+    /^telefone(?:\s*[:\-]\s*|\s+|$)/i.test(line) ||
+    /^check\s*in\s*\/?\s*out(?:\s*[:\-]\s*|\s+|$)/i.test(line)
+  );
+}
+
+function parseHotelDateRange(value?: string | null) {
+  const raw = cleanLine(value);
+  if (!raw) return { start: "", end: "" };
+
+  const datePattern = "(\\d{4}-\\d{2}-\\d{2}|\\d{2}\\/\\d{2}(?:\\/\\d{4})?)";
+  const match =
+    raw.match(new RegExp(`${datePattern}\\s*(?:a|ate|até|to|[-–—])\\s*${datePattern}`, "i")) ||
+    raw.match(new RegExp(`${datePattern}\\s+${datePattern}`, "i"));
+
+  if (!match) return { start: "", end: "" };
+
+  const startRaw = match[1];
+  const endRaw = match[2];
+  const fallbackYear =
+    Number(startRaw.match(/^(\d{4})-/)?.[1] || startRaw.match(/\d{2}\/\d{2}\/(\d{4})/)?.[1] || 0) || null;
+  return {
+    start: parseIsoDateLoose(startRaw),
+    end: parseIsoDateLoose(endRaw, fallbackYear),
+  };
+}
+
 function normalizeHotelKey(hotel: VoucherHotel) {
   return [
     normalizeText(hotel.cidade),
@@ -264,7 +309,7 @@ export function parseVoucherImportText(text: string, provider: VoucherProvider):
     const header = lines[0];
     if (/^dias?\s*[:\-]/i.test(header)) {
       result.dias = parseDayLines(lines.slice(1));
-    } else if (/^hoteis?\s*[:\-]/i.test(header)) {
+    } else if (/^hot[eé]is?\s*[:\-]/i.test(header) || normalizeText(header).startsWith("hoteis confirmados")) {
       result.hoteis = parseHotelLines(lines.slice(1));
     } else if (/^passageiros?\s*[:\-]/i.test(header)) {
       const passengers: Partial<VoucherPassengerDetail>[] = [];
@@ -302,6 +347,9 @@ function parseDayLines(lines: string[]): VoucherDia[] {
 }
 
 function parseHotelLines(lines: string[]): VoucherHotel[] {
+  const structuredHotels = parseStructuredHotelLines(lines);
+  if (structuredHotels.length) return structuredHotels;
+
   const hoteis: VoucherHotel[] = [];
   let current: Partial<VoucherHotel> = {};
 
@@ -333,6 +381,73 @@ function parseHotelLines(lines: string[]): VoucherHotel[] {
     ...h,
     noites: diffNights(h.data_inicio, h.data_fim),
   }));
+}
+
+function parseStructuredHotelLines(lines: string[]): VoucherHotel[] {
+  const hoteis: VoucherHotel[] = [];
+  let current: Partial<VoucherHotel> | null = null;
+  let sawStructuredDetails = false;
+
+  const pushCurrent = () => {
+    if (!current?.hotel) return;
+    hoteis.push({
+      cidade: cleanLine(current.cidade) || "",
+      hotel: cleanLine(current.hotel),
+      endereco: cleanLine(current.endereco) || null,
+      data_inicio: current.data_inicio || null,
+      data_fim: current.data_fim || null,
+      noites: diffNights(current.data_inicio, current.data_fim),
+      telefone: cleanLine(current.telefone) || null,
+      contato: cleanLine(current.contato) || null,
+      status: cleanLine(current.status) || null,
+      observacao: cleanLine(current.observacao) || null,
+      ordem: hoteis.length,
+    } as VoucherHotel);
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const hotelValue = getLineValue(lines, index, /^hotel(?:\s*[:\-]\s*|\s+)(.*)$/i);
+    if (hotelValue) {
+      if (current?.hotel) pushCurrent();
+      current = {
+        cidade: "",
+        hotel: stripHotelStars(hotelValue.value),
+      };
+      index = hotelValue.nextIndex;
+      continue;
+    }
+
+    if (!current) continue;
+
+    const addressValue = getLineValue(lines, index, /^endere[çc]o(?:\s*\/\s*address)?(?:\s*[:\-]\s*|\s+)(.*)$/i);
+    if (addressValue) {
+      current.endereco = addressValue.value;
+      sawStructuredDetails = true;
+      index = addressValue.nextIndex;
+      continue;
+    }
+
+    const phoneValue = getLineValue(lines, index, /^telefone(?:\s*[:\-]\s*|\s+)(.*)$/i);
+    if (phoneValue) {
+      current.telefone = phoneValue.value;
+      sawStructuredDetails = true;
+      index = phoneValue.nextIndex;
+      continue;
+    }
+
+    const dateValue = getLineValue(lines, index, /^check\s*in\s*\/?\s*out(?:\s*[:\-]\s*|\s+)(.*)$/i);
+    if (dateValue) {
+      const range = parseHotelDateRange(dateValue.value);
+      current.data_inicio = range.start || current.data_inicio || null;
+      current.data_fim = range.end || current.data_fim || null;
+      sawStructuredDetails = true;
+      index = dateValue.nextIndex;
+    }
+  }
+
+  if (current?.hotel) pushCurrent();
+  if (!sawStructuredDetails) return [];
+  return mergeConsecutiveHotels(hoteis);
 }
 
 export function parseSpecialToursCircuitPasteText(
@@ -383,7 +498,7 @@ export function parseSpecialToursCircuitPasteText(
       inHotels = false;
       continue;
     }
-    if (lower.includes("hotel") && (lower.includes("confirmado") || lower.includes("lista"))) {
+    if ((lower.includes("hotel") || lower.includes("hoteis")) && (lower.includes("confirmado") || lower.includes("lista"))) {
       inItinerary = false;
       inHotels = true;
       continue;
@@ -470,6 +585,9 @@ function parseSpecialToursDays(lines: string[], startDate?: string | null): Vouc
 }
 
 function parseSpecialToursHotels(lines: string[]): VoucherHotel[] {
+  const structuredHotels = parseStructuredHotelLines(lines);
+  if (structuredHotels.length) return structuredHotels;
+
   const hoteis: VoucherHotel[] = [];
   let currentCity = "";
 
@@ -497,8 +615,11 @@ function parseSpecialToursHotels(lines: string[]): VoucherHotel[] {
   return hoteis;
 }
 
-export function parseSpecialToursHotelPaste(text: string): VoucherImportResult {
-  const result = createEmptyVoucherImport("special_tours");
+export function parseSpecialToursHotelPaste(
+  text: string,
+  provider: VoucherProvider = "special_tours",
+): VoucherImportResult {
+  const result = createEmptyVoucherImport(provider);
   result.hoteis = parseSpecialToursHotels(text.split("\n"));
   return result;
 }

@@ -635,6 +635,7 @@ function buildEuropamundoTransferBlocks(
 function renderEuropamundoTransferSections(params: {
   cvcLogo: string;
   providerLogo: string;
+  providerName?: string;
   transferIn?: VoucherTransferInfo | null;
   transferOut?: VoucherTransferInfo | null;
 }) {
@@ -650,7 +651,7 @@ function renderEuropamundoTransferSections(params: {
     .map(
       (pageBlocks) => `
         <section class="sheet">
-          ${buildSpecialHeader(params.cvcLogo, params.providerLogo, "Europamundo")}
+          ${buildSpecialHeader(params.cvcLogo, params.providerLogo, params.providerName || "Europamundo")}
           ${buildBand("TRASLADOS")}
           <div class="europa-transfer-grid europa-transfer-grid--print-safe">
             ${pageBlocks
@@ -816,8 +817,16 @@ function buildSpecialToursPreviewDocument(
     dias,
   });
 
+  const transfersSection = renderEuropamundoTransferSections({
+    cvcLogo,
+    providerLogo,
+    providerName,
+    transferIn: extraData.traslado_chegada,
+    transferOut: extraData.traslado_saida,
+  });
+
   const hotelSection = renderHotelSections({
-    providerName: "Special Tours",
+    providerName,
     cvcLogo,
     providerLogo,
     hoteis,
@@ -832,7 +841,7 @@ function buildSpecialToursPreviewDocument(
   const appSection = providerImages.length
     ? `
       <section class="sheet sheet-keep-together">
-        ${buildSpecialHeader(cvcLogo, providerLogo, "Special Tours")}
+        ${buildSpecialHeader(cvcLogo, providerLogo, providerName)}
         <div class="sheet-keep-together-block">
           ${buildBand("BAIXE O APLICATIVO CONQUISTA")}
           <div class="provider-images">
@@ -858,7 +867,7 @@ function buildSpecialToursPreviewDocument(
 
   const emergencySection = `
     <section class="sheet">
-      ${buildSpecialHeader(cvcLogo, providerLogo, "Special Tours")}
+      ${buildSpecialHeader(cvcLogo, providerLogo, providerName)}
       ${buildBand("TELEFONE DE EMERGÊNCIA")}
       <div class="sheet-card emergency-card">
         <p>Nos adicione no seu WhatsApp e em caso de emergência durante a sua viagem,<br/>ou qualquer outra dúvida, entre em contato conosco.</p>
@@ -1048,10 +1057,47 @@ function buildSpecialToursPreviewDocument(
         font-weight: 700;
         line-height: 1.4;
       }
+      .europa-transfer-title {
+        font-size: clamp(18px, 1.4vw, 24px);
+        font-weight: 700;
+      }
       .program-description {
         margin-top: 10px;
         font-size: clamp(15px, 1.05vw, 20px);
         line-height: 1.55;
+      }
+      .europa-transfer-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 18px;
+      }
+      .europa-transfer-card {
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }
+      .europa-transfer-content {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+        line-height: 1.55;
+      }
+      .europa-transfer-phone {
+        margin-top: 16px;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      .europa-transfer-notes-title {
+        margin-top: 18px;
+        font-weight: 700;
+      }
+      .voucher-bullet-list {
+        margin: 14px 0 0;
+        padding-left: 20px;
+        line-height: 1.6;
+      }
+      .voucher-bullet-list li + li {
+        margin-top: 8px;
       }
       .voucher-hotel-list,
       .hotel-list {
@@ -1151,6 +1197,9 @@ function buildSpecialToursPreviewDocument(
           min-height: auto;
           padding-top: 12px;
         }
+        .europa-transfer-grid {
+          grid-template-columns: 1fr;
+        }
       }
       @media print {
         @page {
@@ -1194,6 +1243,10 @@ function buildSpecialToursPreviewDocument(
           border-right: 1px solid var(--border) !important;
           border-bottom: 0 !important;
         }
+        .europa-transfer-grid,
+        .europa-transfer-grid--print-safe {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
         .provider-image-card img {
           width: 100%;
           max-width: 100%;
@@ -1210,7 +1263,9 @@ function buildSpecialToursPreviewDocument(
         .program-list,
         .provider-images,
         .voucher-hotel-list,
-        .hotel-list {
+        .hotel-list,
+        .europa-transfer-grid,
+        .europa-transfer-grid--print-safe {
           gap: 12px !important;
           margin-top: 12px !important;
         }
@@ -1246,6 +1301,7 @@ function buildSpecialToursPreviewDocument(
         }
         .sheet-card,
         .program-card,
+        .europa-transfer-card,
         .voucher-hotel-card,
         .sheet-keep-together,
         .sheet-keep-together-block {
@@ -1264,13 +1320,14 @@ function buildSpecialToursPreviewDocument(
   <body>
     <main class="document">
       <section class="sheet">
-        ${buildSpecialHeader(cvcLogo, providerLogo, "Special Tours")}
+        ${buildSpecialHeader(cvcLogo, providerLogo, providerName)}
         ${buildBand("DADOS DE SUA VIAGEM")}
         ${buildBand(routeTitle)}
         <div class="sheet-card">
           ${infoTable}
         </div>
       </section>
+      ${transfersSection}
       ${programSection}
       ${hotelSection}
       ${appSection}

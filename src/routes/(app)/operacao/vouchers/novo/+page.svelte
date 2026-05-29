@@ -336,10 +336,10 @@
     }
     try {
       importingHotels = true;
-      const imported =
-        form.provider === 'special_tours' || form.provider === 'sato_tours'
-          ? parseSpecialToursHotelPaste(hotelPasteText)
-          : parseVoucherImportText(hotelPasteText, form.provider);
+      const structuredHotels = parseSpecialToursHotelPaste(hotelPasteText, form.provider);
+      const imported = structuredHotels.hoteis.length
+        ? structuredHotels
+        : parseVoucherImportText(hotelPasteText, form.provider);
       applyImportedResult(imported, { replaceDays: false, replaceHotels: true });
       toast.success('Hotéis importados com sucesso');
     } catch (err: unknown) {
