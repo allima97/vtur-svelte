@@ -4,7 +4,6 @@
   import { page } from '$app/stores';
   import {
     Button,
-    Card,
     FieldInput,
     FieldSelect,
     FieldTextarea,
@@ -185,6 +184,16 @@
     const diff = diffDaysISODate(start, end);
     if (diff === null) return null;
     return diff > 0 ? diff : 0;
+  }
+
+  function setVoucherProvider(provider: VoucherProvider) {
+    if (form.provider === provider) return;
+
+    form = {
+      ...form,
+      provider,
+      extra_data: normalizeVoucherExtraData(form.extra_data, provider)
+    };
   }
 
   // ============ ETAPA 1: DADOS DA VIAGEM ============
@@ -575,6 +584,41 @@
   <LoadingState />
 {:else}
   <div class="max-w-6xl mx-auto pb-20">
+    <section class="mb-6 rounded-xl border border-clientes-100 bg-white p-5 shadow-sm">
+      <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-sm font-medium text-clientes-600">Primeiro passo</p>
+          <h2 class="text-xl font-bold text-slate-900">Escolha o fornecedor do voucher</h2>
+          <p class="text-sm text-slate-500">
+            A importação e os campos abaixo seguem o padrão do fornecedor selecionado.
+          </p>
+        </div>
+        <div class="text-sm font-medium text-slate-600">
+          Selecionado: {providers.find((provider) => provider.value === form.provider)?.label}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {#each providers as provider}
+          <Button
+            type="button"
+            variant={form.provider === provider.value ? 'primary' : 'outline'}
+            size="lg"
+            class_name={`!min-h-[72px] !justify-start !rounded-xl !border-2 !px-5 !py-4 !text-left ${
+              form.provider === provider.value ? '!shadow-md' : '!bg-white hover:!bg-slate-50'
+            }`}
+            on:click={() => setVoucherProvider(provider.value)}
+          >
+            <span class="mr-3 h-4 w-4 shrink-0 rounded-full {provider.color}"></span>
+            <span>
+              <span class="block font-semibold">{provider.label}</span>
+              <span class="block text-xs opacity-75">Usar modelo {provider.label}</span>
+            </span>
+          </Button>
+        {/each}
+      </div>
+    </section>
+
     <!-- Wizard Steps -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
       <div class="flex flex-wrap">
@@ -719,25 +763,6 @@
               </div>
               <p class="text-xs text-slate-500 mt-2">Escolha o arquivo Word (.docx), PDF ou texto (.txt) e importe tudo de uma vez.</p>
             </div>
-
-            <!-- Fornecedor -->
-            <fieldset class="p-5 bg-slate-50 rounded-xl border border-slate-200">
-              <legend class="block text-sm font-medium text-slate-700 mb-3">Fornecedor *</legend>
-              <div class="flex flex-wrap gap-3">
-                {#each providers as p}
-                  <Button
-                    type="button"
-                    variant={form.provider === p.value ? 'primary' : 'outline'}
-                    size="md"
-                    class_name="!rounded-xl !border-2 !px-5 !py-3 !gap-2"
-                    on:click={() => form.provider = p.value}
-                  >
-                    <div class="mr-0.5 h-3.5 w-3.5 shrink-0 rounded-full {p.color}"></div>
-                    <span class="font-medium">{p.label}</span>
-                  </Button>
-                {/each}
-              </div>
-            </fieldset>
 
             <!-- Informações Principais -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
