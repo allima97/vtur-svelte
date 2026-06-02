@@ -101,6 +101,7 @@ type ContratoImportRow = ContratoDraft & {
   desconto_comercial?: number | null;
   destino_cidade_id?: string | null;
   produto_resolvido_id?: string | null;
+  aplica_du?: boolean | null;
 };
 
 function textNoStore(message: string, status: number) {
@@ -152,6 +153,21 @@ function getContratoValorDu(contrato: ContratoDraft, isFacialRextur: boolean) {
 function getContratoValorRavRac(contrato: ContratoDraft, isFacialRextur: boolean) {
   if (!isFacialRextur) return 0;
   return parseMoney(contrato.taxa_du) + parseMoney(contrato.rc);
+}
+
+function getContratoValorTotalRecibo(
+  contrato: ContratoDraft,
+  tipoImportacao: string,
+) {
+  const valorTotal = parseMoney(contrato.total_pago ?? contrato.total_bruto);
+  const valorDu = parseMoney(contrato.taxa_du);
+  const aplicaDu = (contrato as ContratoImportRow).aplica_du === true;
+
+  if (tipoImportacao === 'facial_cvc' && valorDu > 0 && !aplicaDu) {
+    return Math.max(0, valorTotal - valorDu);
+  }
+
+  return valorTotal;
 }
 
 function normalizeRexturLocalizador(value?: string | null) {
@@ -742,6 +758,7 @@ export async function POST(event) {
     const totalBruto = contratos.reduce((sum, c) => sum + parseMoney(c.total_bruto), 0);
     const totalPago = contratos.reduce((sum, c) => sum + parseMoney(c.total_pago), 0);
     const totalTaxas = contratos.reduce((sum, c) => sum + parseMoney(c.taxas_embarque), 0);
+    const totalRecibos = contratos.reduce((sum, c) => sum + getContratoValorTotalRecibo(c, tipoImportacao), 0);
     const descontoComercial = contratos.reduce((sum, c) => sum + parseMoney((c as ContratoImportRow).desconto_comercial), 0);
     const pagamentosDedup = dedupePagamentos(contratos.flatMap((c) => c.pagamentos || []));
     const totalPagoFallback = pagamentosDedup.length ? calcularTotalPagamentos(pagamentosDedup) : 0;
@@ -851,7 +868,7 @@ export async function POST(event) {
           numero_recibo: reciboNumeros.numero_recibo,
           numero_reserva: reciboNumeros.numero_reserva,
           tipo_pacote: contrato.tipo_pacote || null,
-          valor_total: parseMoney(contrato.total_pago ?? contrato.total_bruto),
+          valor_total: getContratoValorTotalRecibo(contrato, tipoImportacao),
           valor_taxas: parseMoney(contrato.taxas_embarque),
           valor_du: getContratoValorDu(contrato, isFacialRextur),
           valor_rav: getContratoValorRavRac(contrato, isFacialRextur),
@@ -1044,7 +1061,8 @@ export async function POST(event) {
     }
 
     const valorNaoComissionado = totalCreditosNaoComissionados || null;
-    const valorTotal = totalPagoFinal > 0 ? Math.max(totalPagoFinal - totalCreditosNaoComissionados, 0) : 0;
+    const valorTotalBase = totalRecibos > 0 ? totalRecibos : totalPagoFinal;
+    const valorTotal = valorTotalBase > 0 ? Math.max(valorTotalBase - totalCreditosNaoComissionados, 0) : 0;
     await client
       .from('vendas')
       .update({ valor_nao_comissionado: valorNaoComissionado, valor_total: valorTotal || null })

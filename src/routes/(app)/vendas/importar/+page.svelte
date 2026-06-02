@@ -697,7 +697,12 @@
         ? {
             ...c,
             aplica_du: value,
-            taxa_du: value ? (c.passageiros?.length || 1) * 20 : 0
+            taxa_du:
+              tipoImportacao === 'facial_cvc'
+                ? c.taxa_du
+                : value
+                  ? (c.passageiros?.length || 1) * 20
+                  : 0
           }
         : c
     );
@@ -709,7 +714,7 @@
 
   function getContratoTaxasPreview(contrato: ContratoDraftUI) {
     const taxas = Number(contrato.taxas_embarque || 0);
-    if (tipoImportacao === 'facial_rextur') return taxas;
+    if (tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc') return taxas;
     return taxas + Number(contrato.taxa_du || 0);
   }
 
@@ -786,7 +791,12 @@
       const payload = {
         contratos: contratos.map((c) => ({
           ...c,
-          taxa_du: tipoImportacao === 'facial_rextur' ? c.taxa_du : c.aplica_du ? c.taxa_du : 0,
+          taxa_du:
+            tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc'
+              ? c.taxa_du
+              : c.aplica_du
+                ? c.taxa_du
+                : 0,
           destino_cidade_id: getCidadeContratoId(c),
           produto_resolvido_id: c.produto_resolvido_id || null
         })),
