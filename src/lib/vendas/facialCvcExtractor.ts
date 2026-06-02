@@ -37,6 +37,31 @@ function normalizeWS(s: string) {
   return s.replace(/\s+/g, ' ').trim();
 }
 
+type ParsedPassengerLine = {
+  tarifa: number;
+  du: number;
+  taxas: number;
+};
+
+function sumCaixaValues(text: string): number | null {
+  const caixaStart = text.search(/^\s*Caixa\s*$/im);
+  if (caixaStart < 0) return null;
+
+  const afterCaixa = text.slice(caixaStart);
+  const caixaEnd = afterCaixa.search(/^\s*(?:Cart[oã]o\s+cia\s+a[eé]rea|Transa[cç][õo]es)\b/im);
+  const caixaBlock = caixaEnd >= 0 ? afterCaixa.slice(0, caixaEnd) : afterCaixa;
+
+  const values = caixaBlock
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^\d{3,5}\s+/.test(line))
+    .map((line) => parseCurrencyBR(line.match(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})\s*$/)?.[1]))
+    .filter((value): value is number => value !== null);
+
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return total > 0 ? total : null;
+}
+
 export function extractFacialCvcFromText(text: string): { contratos: ContratoDraft[]; raw_text: string } {
   const flat = normalizeWS(text);
 
@@ -46,7 +71,9 @@ export function extractFacialCvcFromText(text: string): { contratos: ContratoDra
   const tipoBilhete = isInternacional ? 'Aéreo Internacional' : isNacional ? 'Aéreo Nacional' : 'Aéreo';
 
   // ── RESERVA CVC ──────────────────────────────────────────────────────────────
-  const reservaMatch = flat.match(/Reserva\s+CVC\s+N[\s\w]*?(\d{8,12})/i);
+  const reservaMatch =
+    flat.match(/Reserva\s+CVC\s+N[\s\wÀ-ú]*?(\d{8,12})/i) ||
+    flat.match(/Reserva\s+CVC\b.{0,120}?(\d{8,12})/i);
   const numeroReserva = reservaMatch?.[1]?.trim() || null;
   if (!numeroReserva) throw new Error('Número da Reserva CVC não encontrado.');
 
@@ -92,6 +119,7 @@ export function extractFacialCvcFromText(text: string): { contratos: ContratoDra
   // Linha:        "ALCIDES CONCEICAO ADT  630,77 63,07 62,14 1272300436823  23/05/1973"
   // Linha multi:  "FLAVIO ANDRADE ADT  7.134,81 499,44 574,36  29/03/1989"
   const passageiros: PassageiroDraft[] = [];
+  const parsedPassengerLines: ParsedPassengerLine[] = [];
 
   // Localizar o bloco de passageiros
   const passStart = text.search(/Passageiros\s+Nome\s+Sobrenome/i);
@@ -105,18 +133,24 @@ export function extractFacialCvcFromText(text: string): { contratos: ContratoDra
     .replace(/Passageiros\s+Nome\s+Sobrenome.*?Nascimento\s*/is, '')
     .trim();
 
-  // Cada linha de passageiro: NOME SOBRENOME ADT [assento?] tarifa du taxas [bilhete?] nascimento
-  // O campo bilhete (13 dígitos) é opcional
-  const passLineRegex = /^([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇÑ\s]+?)\s+ADT\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+(\d{13})?\s*(\d{2}\/\d{2}\/\d{4})?/gim;
+  // Cada linha de passageiro: NOME SOBRENOME TIPO [assento?] tarifa du taxas [bilhete?] nascimento
+  // O tipo pode ser ADT, CHD ou INF. O campo bilhete (13 dígitos) é opcional.
+  const passLineRegex = /^([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇÑ\s]+?)\s+(ADT|CHD|INF)\b(.+)$/gim;
+  const moneyRegex = /\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}/g;
   let plm: RegExpExecArray | null;
   while ((plm = passLineRegex.exec(passBlockClean)) !== null) {
     const nomeCompleto = normalizeWS(plm[1]);
-    const tarifa = parseCurrencyBR(plm[2]);
-    const du = parseCurrencyBR(plm[3]);
-    const taxas = parseCurrencyBR(plm[4]);
-    const nascimento = parseDateBR(plm[6]);
+    const rest = plm[3] || '';
+    const valores = Array.from(rest.matchAll(moneyRegex))
+      .map((match) => parseCurrencyBR(match[0]))
+      .filter((value): value is number => value !== null);
+    if (valores.length < 3) continue;
+    const [tarifa, du, taxas] = valores;
+    const nascimento = parseDateBR(rest.match(/(\d{2}\/\d{2}\/\d{4})\s*$/)?.[1]);
     // Sem CPF disponível
-    passageiros.push({ nome: nomeCompleto, cpf: '', nascimento });
+    const passageiro = { nome: nomeCompleto, cpf: '', nascimento };
+    passageiros.push(passageiro);
+    parsedPassengerLines.push({ tarifa, du, taxas });
   }
 
   // ── VALORES TOTAIS ────────────────────────────────────────────────────────────
@@ -124,27 +158,21 @@ export function extractFacialCvcFromText(text: string): { contratos: ContratoDra
   const valTotalMatch = flat.match(/Valores\s+Totais.*?Total\s+do\s+Recibo\s+([\d.,]+)/i);
   // Prioridade 2: "Cart o cia a rea (R$) Cart o cia a rea 16.417,22"
   const cartaoMatch = flat.match(/Cart[oã]o\s+cia\s+a[eé]rea\s*\(R\$\)\s+Cart[oã]o\s+cia\s+a[eé]rea\s+([\d.,]+)/i);
-  // Prioridade 3: Caixa "Valor" simples quando há só uma linha (bilhete nacional)
-  const caixaMatch = flat.match(/Caixa.*?C[oó]digo.*?Descri[cç][aã]o.*?Valor\s+([\d.,]+)/i);
+  // Prioridade 3: somar as linhas do Caixa, quando existem múltiplas formas de pagamento
+  const caixaTotal = sumCaixaValues(text);
   // Prioridade 4: somar passageiros
   let valorTotalBruto: number | null = null;
   if (valTotalMatch?.[1]) {
     valorTotalBruto = parseCurrencyBR(valTotalMatch[1]);
+  } else if (caixaTotal) {
+    valorTotalBruto = caixaTotal;
   } else if (cartaoMatch?.[1]) {
     valorTotalBruto = parseCurrencyBR(cartaoMatch[1]);
-  } else if (caixaMatch?.[1]) {
-    valorTotalBruto = parseCurrencyBR(caixaMatch[1]);
   }
 
   // Fallback: somar tarifa + du + taxas de todos os passageiros
   if (!valorTotalBruto && passageiros.length > 0) {
-    // Re-extrair somando os números por passageiro
-    let soma = 0;
-    const passNumsRegex = /ADT\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/g;
-    let pn: RegExpExecArray | null;
-    while ((pn = passNumsRegex.exec(passBlock)) !== null) {
-      soma += (parseCurrencyBR(pn[1]) ?? 0) + (parseCurrencyBR(pn[2]) ?? 0) + (parseCurrencyBR(pn[3]) ?? 0);
-    }
+    const soma = parsedPassengerLines.reduce((total, row) => total + row.tarifa + row.du + row.taxas, 0);
     if (soma > 0) valorTotalBruto = soma;
   }
 
@@ -152,14 +180,8 @@ export function extractFacialCvcFromText(text: string): { contratos: ContratoDra
 
   // ── TAXAS TOTAIS ──────────────────────────────────────────────────────────────
   // Somar taxas de embarque (coluna "Taxas") de todos os passageiros
-  let totalTaxas = 0;
-  let totalDu = 0;
-  const passNumsForTax = /ADT\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/g;
-  let pt: RegExpExecArray | null;
-  while ((pt = passNumsForTax.exec(passBlock)) !== null) {
-    totalDu += parseCurrencyBR(pt[2]) ?? 0;
-    totalTaxas += parseCurrencyBR(pt[3]) ?? 0;
-  }
+  const totalTaxas = parsedPassengerLines.reduce((total, row) => total + row.taxas, 0);
+  const totalDu = parsedPassengerLines.reduce((total, row) => total + row.du, 0);
 
   // ── PAGAMENTO ─────────────────────────────────────────────────────────────────
   const pagamento: PagamentoDraft = {
