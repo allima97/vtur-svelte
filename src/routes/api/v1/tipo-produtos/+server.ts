@@ -20,6 +20,13 @@ type TipoProdutoRow = {
   descricao?: string | null;
   ativo?: boolean | null;
   created_at?: string | null;
+  regra_comissionamento?: string | null;
+  soma_na_meta?: boolean | null;
+  usa_meta_produto?: boolean | null;
+  meta_produto_valor?: number | null;
+  comissao_produto_meta_pct?: number | null;
+  descontar_meta_geral?: boolean | null;
+  exibe_kpi_comissao?: boolean | null;
 };
 
 type TipoProdutosBody = {
@@ -28,6 +35,13 @@ type TipoProdutosBody = {
   tipo?: string;
   descricao?: string;
   ativo?: boolean;
+  regra_comissionamento?: string;
+  soma_na_meta?: boolean;
+  usa_meta_produto?: boolean;
+  meta_produto_valor?: number | null;
+  comissao_produto_meta_pct?: number | null;
+  descontar_meta_geral?: boolean;
+  exibe_kpi_comissao?: boolean;
 };
 
 function isMissingColumnError(err: unknown) {
@@ -57,6 +71,14 @@ function readTipoProdutosBody(value: unknown): TipoProdutosBody {
   if (typeof body.descricao === 'string') parsed.descricao = body.descricao;
   if (typeof body.ativo === 'boolean') parsed.ativo = body.ativo;
 
+  if (typeof body.regra_comissionamento === 'string') parsed.regra_comissionamento = body.regra_comissionamento;
+  if (typeof body.soma_na_meta === 'boolean') parsed.soma_na_meta = body.soma_na_meta;
+  if (typeof body.usa_meta_produto === 'boolean') parsed.usa_meta_produto = body.usa_meta_produto;
+  if (body.meta_produto_valor !== undefined) parsed.meta_produto_valor = body.meta_produto_valor === null ? null : Number(body.meta_produto_valor);
+  if (body.comissao_produto_meta_pct !== undefined) parsed.comissao_produto_meta_pct = body.comissao_produto_meta_pct === null ? null : Number(body.comissao_produto_meta_pct);
+  if (typeof body.descontar_meta_geral === 'boolean') parsed.descontar_meta_geral = body.descontar_meta_geral;
+  if (typeof body.exibe_kpi_comissao === 'boolean') parsed.exibe_kpi_comissao = body.exibe_kpi_comissao;
+
   return parsed;
 }
 
@@ -74,7 +96,7 @@ export async function GET(event) {
 
     let query = client
       .from('tipo_produtos')
-      .select('id, nome, tipo, descricao, ativo, created_at')
+      .select('id, nome, tipo, descricao, ativo, created_at, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao')
       .order('nome', { ascending: true })
       .limit(200);
 
@@ -84,17 +106,38 @@ export async function GET(event) {
     let error = queryError;
     let items = (data || []) as unknown as TipoProdutoRow[];
 
-    // Se falhar por colunas inexistentes, tenta com colunas basicas reais
+    // Se falhar por colunas inexistentes, tenta com colunas intermediarias e depois basicas
     if (error && isMissingColumnError(error)) {
       const fallback = await client
         .from('tipo_produtos')
-        .select('id, nome, tipo, ativo, created_at')
+        .select('id, nome, tipo, descricao, ativo, created_at, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral')
         .order('nome', { ascending: true })
         .limit(200);
       if (!fallback.error) {
         items = ((fallback.data || []) as unknown as TipoProdutoRow[]).map((row) => ({
           ...row,
-          descricao: null
+          exibe_kpi_comissao: null
+        }));
+        error = null;
+      }
+    }
+    if (error && isMissingColumnError(error)) {
+      const fallback2 = await client
+        .from('tipo_produtos')
+        .select('id, nome, tipo, ativo, created_at')
+        .order('nome', { ascending: true })
+        .limit(200);
+      if (!fallback2.error) {
+        items = ((fallback2.data || []) as unknown as TipoProdutoRow[]).map((row) => ({
+          ...row,
+          descricao: null,
+          regra_comissionamento: null,
+          soma_na_meta: null,
+          usa_meta_produto: null,
+          meta_produto_valor: null,
+          comissao_produto_meta_pct: null,
+          descontar_meta_geral: null,
+          exibe_kpi_comissao: null
         }));
         error = null;
       }
@@ -129,7 +172,7 @@ export async function POST(event) {
     }
 
     const body = readTipoProdutosBody(bodyResult.data);
-    const { id, nome, tipo, descricao, ativo } = body;
+    const { id, nome, tipo, descricao, ativo, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao } = body;
     const idRaw = String(id || '').trim();
 
     const nomeTrimmed = String(nome || '').trim();
@@ -141,12 +184,20 @@ export async function POST(event) {
       nome: nomeTrimmed,
       tipo: String(tipo || 'servico').trim() || 'servico',
       descricao: String(descricao || '').trim() || null,
-      ativo: ativo !== false
+      ativo: ativo !== false,
+      regra_comissionamento: regra_comissionamento || null,
+      soma_na_meta: soma_na_meta === true,
+      usa_meta_produto: usa_meta_produto === true,
+      meta_produto_valor: meta_produto_valor != null ? Number(meta_produto_valor) : null,
+      comissao_produto_meta_pct: comissao_produto_meta_pct != null ? Number(comissao_produto_meta_pct) : null,
+      descontar_meta_geral: descontar_meta_geral === true,
+      exibe_kpi_comissao: exibe_kpi_comissao !== false
     };
 
     const fallbackPayload = {
       nome: payload.nome,
       tipo: payload.tipo,
+      descricao: payload.descricao,
       ativo: payload.ativo
     };
 

@@ -165,6 +165,8 @@
         { key: 'cambios', name: 'Câmbios', href: '/parametros/cambios', icon: Banknote },
         { key: 'tipo_pacotes', name: 'Tipo Pacotes', href: '/parametros/tipo-pacotes', icon: Package },
         { key: 'tipo_produtos', name: 'Tipo Produtos', href: '/parametros/tipo-produtos', icon: Package },
+        { key: 'regras_produto', name: 'Regras por Produto', href: '/parametros/regras-produto', icon: SlidersHorizontal },
+        { key: 'regras_produto_pacote', name: 'Regras por Produto + Pacote', href: '/parametros/regras-produto-pacote', icon: SlidersHorizontal },
         { key: 'vouchers_assets', name: 'Vouchers', href: '/parametros/vouchers', icon: ImagePlus },
         { key: 'orcamentos_pdf', name: 'Orçamentos PDF', href: '/parametros/orcamentos', icon: FileText },
         { key: 'crm', name: 'CRM', href: '/parametros/crm', icon: MessageSquare },

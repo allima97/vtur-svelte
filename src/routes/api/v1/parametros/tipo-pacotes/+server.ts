@@ -23,12 +23,20 @@ type TipoPacoteRow = {
   id: string;
   nome?: string | null;
   ativo?: boolean | null;
+  rule_id?: string | null;
+  fix_meta_nao_atingida?: number | null;
+  fix_meta_atingida?: number | null;
+  fix_super_meta?: number | null;
 };
 
 type TipoPacoteBody = {
   id?: unknown;
   nome?: unknown;
   ativo?: unknown;
+  rule_id?: unknown;
+  fix_meta_nao_atingida?: unknown;
+  fix_meta_atingida?: unknown;
+  fix_super_meta?: unknown;
 };
 
 function readTipoPacoteBody(value: unknown): TipoPacoteBody {
@@ -37,7 +45,11 @@ function readTipoPacoteBody(value: unknown): TipoPacoteBody {
   return {
     id: body.id,
     nome: body.nome,
-    ativo: body.ativo
+    ativo: body.ativo,
+    rule_id: body.rule_id,
+    fix_meta_nao_atingida: body.fix_meta_nao_atingida,
+    fix_meta_atingida: body.fix_meta_atingida,
+    fix_super_meta: body.fix_super_meta
   };
 }
 
@@ -59,7 +71,7 @@ export async function GET(event) {
       loader: async () => {
         const { data, error: queryError } = await client
           .from('tipo_pacotes')
-          .select('id, nome, ativo')
+          .select('id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta')
           .order('nome');
 
         if (queryError) throw queryError;
@@ -89,7 +101,7 @@ export async function POST(event) {
     }
 
     const body = readTipoPacoteBody(bodyResult.data);
-    const { id, nome, ativo } = body;
+    const { id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta } = body;
     const idRaw = String(id || '').trim();
 
     const nomeTrimmed = String(nome || '').trim().slice(0, 120);
@@ -108,9 +120,14 @@ export async function POST(event) {
       return json({ error: 'Já existe um tipo de pacote com este nome.' }, { status: 409, headers: NO_STORE_HEADERS });
     }
 
-    const payload = {
+    const ruleIdStr = rule_id ? String(rule_id).trim() : null;
+    const payload: Record<string, unknown> = {
       nome: nomeTrimmed,
-      ativo: ativo !== false
+      ativo: ativo !== false,
+      rule_id: ruleIdStr && isUuid(ruleIdStr) ? ruleIdStr : null,
+      fix_meta_nao_atingida: fix_meta_nao_atingida != null ? Number(fix_meta_nao_atingida) : null,
+      fix_meta_atingida: fix_meta_atingida != null ? Number(fix_meta_atingida) : null,
+      fix_super_meta: fix_super_meta != null ? Number(fix_super_meta) : null
     };
 
     let result;
