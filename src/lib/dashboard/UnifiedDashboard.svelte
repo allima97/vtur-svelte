@@ -140,6 +140,8 @@
     podeVerOperacao?: boolean | null;
     podeVerConsultoria?: boolean | null;
     widgetPrefs?: WidgetPrefRow[] | null;
+    /** ISO timestamp da última reconstrução do read model. Nulo = dados do caminho raw. */
+    readModelRebuiltAt?: string | null;
   };
 
   type ViagemProximaRow = {
@@ -235,6 +237,8 @@
   let podeVerOperacao = false;
   let podeVerConsultoria = false;
   let assinaturaUsuario = 'André Lima';
+  /** ISO timestamp da última reconstrução do read model — null = dado veio do caminho raw */
+  let readModelRebuiltAt: string | null = null;
 
   let aniversariantes: Aniversariante[] = [];
   let viagens: Viagem[] = [];
@@ -729,6 +733,7 @@
       podeVerOperacao = Boolean(data.podeVerOperacao);
       podeVerConsultoria = Boolean(data.podeVerConsultoria);
       applyPrefs((data.widgetPrefs || []) as WidgetPrefRow[]);
+      readModelRebuiltAt = data.readModelRebuiltAt ?? null;
     } catch (err: unknown) {
       if (isCanceledApiError(err)) return;
       if (requestSeq !== dashboardRequestSeq) return;
@@ -987,6 +992,14 @@
     { label: 'Ranking', onClick: goToRanking, variant: 'secondary', icon: BarChart2 }
   ]}
 />
+
+{#if !loading && readModelRebuiltAt}
+  {@const diffMs = Date.now() - new Date(readModelRebuiltAt).getTime()}
+  {@const diffMin = Math.round(diffMs / 60_000)}
+  <p class="mb-2 text-right text-xs text-slate-400">
+    Dados atualizados {diffMin <= 1 ? 'agora mesmo' : `há ${diffMin} min`} · <span class="text-slate-300">read model</span>
+  </p>
+{/if}
 
 <!-- Filtros -->
 <Card color="financeiro" class="mb-6">

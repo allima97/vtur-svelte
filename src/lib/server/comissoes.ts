@@ -53,7 +53,6 @@ type TipoProdutoRow = {
   comissao_produto_meta_pct?: number | null;
   descontar_meta_geral?: boolean | null;
   exibe_kpi_comissao?: boolean | null;
-  rule_id?: string | null;
 };
 
 type CommissionRuleRow = {
@@ -295,8 +294,7 @@ function getProduto(context: CommissionContext, receipt: ReportReceiptRow): Tipo
       meta_produto_valor: receipt.tipo_produtos?.meta_produto_valor ?? null,
       comissao_produto_meta_pct: receipt.tipo_produtos?.comissao_produto_meta_pct ?? null,
       descontar_meta_geral: receipt.tipo_produtos?.descontar_meta_geral ?? null,
-      exibe_kpi_comissao: receipt.tipo_produtos?.exibe_kpi_comissao ?? null,
-      rule_id: receipt.tipo_produtos?.rule_id ?? null
+      exibe_kpi_comissao: receipt.tipo_produtos?.exibe_kpi_comissao ?? null
     };
   }
 
@@ -336,20 +334,7 @@ function getRegraProduto(
   if (produto) {
     // Tenta pelo id do tipo se diferente do prodId
     const tipoId = produto.id !== prodId ? produto.id : null;
-    if (tipoId) {
-      const fromTipo = context.regraProdutoMap[tipoId];
-      if (fromTipo) return fromTipo;
-    }
-    // Se o tipo de produto tem rule_id vinculada, usa como regra default
-    if (produto.rule_id) {
-      return {
-        produto_id: prodId,
-        rule_id: produto.rule_id,
-        fix_meta_nao_atingida: null,
-        fix_meta_atingida: null,
-        fix_super_meta: null
-      };
-    }
+    if (tipoId) return context.regraProdutoMap[tipoId];
   }
   return undefined;
 }
@@ -627,11 +612,11 @@ async function fetchTipoProdutoMap(
   };
 
   const fullCols =
-    'id, nome, tipo, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao, rule_id';
+    'id, nome, tipo, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao';
   let { data, error } = await tryFetch(fullCols);
   if (error && isMissingSchemaError(error)) {
     ({ data, error } = await tryFetch(
-      'id, nome, tipo, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, rule_id'
+      'id, nome, tipo, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral'
     ));
   }
   if (error && isMissingSchemaError(error)) {

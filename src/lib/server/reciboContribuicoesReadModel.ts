@@ -38,6 +38,8 @@ export type ReadModelDashboardSummary = {
   timeline: VendasTimelinePoint[];
   topDestinos: Array<{ name: string; value: number; count: number }>;
   porProduto: Array<{ id: string; name: string; value: number }>;
+  /** ISO timestamp da última reconstrução do read model. Null se dados vieram do fallback raw. */
+  rebuiltAt?: string | null;
 };
 
 export type ReadModelCompanyComparativoRow = {
@@ -119,6 +121,7 @@ type DashboardSummaryRpcRow = {
   timeline?: unknown;
   top_destinos?: unknown;
   por_produto?: unknown;
+  rebuilt_at?: string | null;
 };
 
 type CompanyComparativoRpcRow = {
@@ -509,6 +512,7 @@ function normalizeDashboardSummaryRow(row?: DashboardSummaryRpcRow | null): Read
       name: toStr(item.name) || "Produto",
       value: toNum(item.value),
     })),
+    rebuiltAt: toStr(row.rebuilt_at) || null,
   };
 }
 

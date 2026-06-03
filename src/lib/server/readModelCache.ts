@@ -16,10 +16,20 @@ type CacheOptions<T> = {
   loader: () => Promise<T>;
 };
 
-// TTL padrão para dados que mudam frequentemente (vendas, ranking, KPIs)
-const DEFAULT_TTL_MS = 15_000;
-// Stale padrão — mantém cache válido para revalidação em background
-const DEFAULT_STALE_TTL_MS = 60_000;
+// TTL padrão para dados que mudam com frequência (vendas, ranking, KPIs).
+// Usado quando nenhum TTL explícito é passado e não é dado transacional.
+const DEFAULT_TTL_MS = 30_000;
+// Stale padrão — mantém cache válido para revalidação em background.
+const DEFAULT_STALE_TTL_MS = 120_000;
+
+// TTL para catálogos semi-estáticos: países, cidades, produtos base, planos, módulos.
+// Mudam raramente (operação admin) — cache agressivo sem thrash no banco.
+export const CATALOG_TTL_MS = 600_000;        // 10 min fresco
+export const CATALOG_STALE_TTL_MS = 3_600_000; // 1h stale
+
+// TTL para dados de usuários/empresas — mudam em operações admin pontuais.
+export const USER_TTL_MS = 300_000;            // 5 min fresco
+export const USER_STALE_TTL_MS = 1_800_000;   // 30 min stale
 // Aumentado de 250 para 600: sistema multi-tenant com múltiplas empresas/usuários
 // esgota 250 entradas rapidamente, causando expulsão prematura e recarga constante.
 const MAX_ENTRIES = 600;

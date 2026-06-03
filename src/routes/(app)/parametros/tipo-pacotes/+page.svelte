@@ -4,7 +4,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
@@ -13,20 +13,10 @@
   import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';
-  type RegraOption = {
-    id: string;
-    nome: string;
-    ativo?: boolean;
-  };
-
   type TipoPacote = {
     id: string;
     nome: string;
     ativo: boolean;
-    rule_id?: string | null;
-    fix_meta_nao_atingida?: number | null;
-    fix_meta_atingida?: number | null;
-    fix_super_meta?: number | null;
   };
 
   let tipos: TipoPacote[] = [];
@@ -38,16 +28,11 @@
   const loadGuard = createLoadGuard();
 
   let form = createForm();
-  let regras: RegraOption[] = [];
 
   function createForm() {
     return {
       nome: '',
-      ativo: true,
-      rule_id: '',
-      fix_meta_nao_atingida: '' as string | number,
-      fix_meta_atingida: '' as string | number,
-      fix_super_meta: '' as string | number
+      ativo: true
     };
   }
 
@@ -56,19 +41,6 @@
 
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
-    {
-      key: 'rule_id',
-      label: 'Regra',
-      sortable: true,
-      width: '140px',
-      formatter: (_value: string | null, row: TipoPacote) => {
-        if (row.rule_id) return '<span class="inline-flex rounded-full bg-financeiro-100 px-2.5 py-1 text-xs font-semibold text-financeiro-700">Regra vinculada</span>';
-        if (row.fix_meta_nao_atingida != null || row.fix_meta_atingida != null || row.fix_super_meta != null) {
-          return '<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">Fixos</span>';
-        }
-        return '<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">—</span>';
-      }
-    },
     {
       key: 'ativo',
       label: 'Status',
@@ -85,13 +57,9 @@
     const request = loadGuard.next();
     loading = true;
     try {
-      const [payload, regrasPayload] = await Promise.all([
-        apiGet<{ items?: TipoPacote[] }>('/api/v1/parametros/tipo-pacotes', undefined, request.signal),
-        apiGet<{ items?: RegraOption[] }>('/api/v1/parametros/commission-rules', undefined, request.signal)
-      ]);
+      const payload = await apiGet<{ items?: TipoPacote[] }>('/api/v1/parametros/tipo-pacotes', undefined, request.signal);
       if (!loadGuard.isCurrent(request.seq)) return;
       tipos = payload.items || [];
-      regras = (regrasPayload.items || []).filter((r: RegraOption) => r.ativo !== false);
     } catch (err) {
       if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar tipos de pacote.'));
@@ -110,11 +78,7 @@
     editingId = tipo.id;
     form = {
       nome: tipo.nome,
-      ativo: tipo.ativo,
-      rule_id: tipo.rule_id || '',
-      fix_meta_nao_atingida: tipo.fix_meta_nao_atingida ?? '',
-      fix_meta_atingida: tipo.fix_meta_atingida ?? '',
-      fix_super_meta: tipo.fix_super_meta ?? ''
+      ativo: tipo.ativo
     };
     modalOpen = true;
   }
@@ -127,11 +91,7 @@
       await apiPost('/api/v1/parametros/tipo-pacotes', {
         id: editingId || undefined,
         nome: form.nome.trim(),
-        ativo: form.ativo,
-        rule_id: form.rule_id || null,
-        fix_meta_nao_atingida: form.fix_meta_nao_atingida === '' ? null : Number(form.fix_meta_nao_atingida),
-        fix_meta_atingida: form.fix_meta_atingida === '' ? null : Number(form.fix_meta_atingida),
-        fix_super_meta: form.fix_super_meta === '' ? null : Number(form.fix_super_meta)
+        ativo: form.ativo
       });
       toast.success(editingId ? 'Tipo de pacote atualizado.' : 'Tipo de pacote criado.');
       modalOpen = false;
@@ -229,24 +189,6 @@
       placeholder="Ex: Pacote Completo"
       required={true}
     />
-
-    <div class="rounded-xl border border-financeiro-200 bg-financeiro-50/40 p-4 space-y-4">
-      <p class="text-sm font-semibold text-financeiro-700">Configuração de comissão</p>
-      <FieldSelect
-        id="tp-rule"
-        label="Regra de comissão"
-        bind:value={form.rule_id}
-        options={[{ value: '', label: 'Nenhuma (usar fixos ou regra geral)' }, ...regras.map((r) => ({ value: r.id, label: r.nome }))]}
-        placeholder=""
-        class_name="w-full"
-      />
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <FieldInput id="tp-fix-nao" label="% meta não atingida" type="number" bind:value={form.fix_meta_nao_atingida} placeholder="0" class_name="w-full" suffix="%" />
-        <FieldInput id="tp-fix-atingida" label="% meta atingida" type="number" bind:value={form.fix_meta_atingida} placeholder="0" class_name="w-full" suffix="%" />
-        <FieldInput id="tp-fix-super" label="% super meta" type="number" bind:value={form.fix_super_meta} placeholder="0" class_name="w-full" suffix="%" />
-      </div>
-    </div>
-
     <FieldCheckbox
       label="Tipo ativo"
       bind:checked={form.ativo}

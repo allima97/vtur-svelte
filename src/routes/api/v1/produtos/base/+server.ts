@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { fetchProdutosBase } from '$lib/server/cadastros-base';
-import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { CATALOG_READ_HEADERS, DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -14,7 +14,7 @@ export async function GET(event) {
     }
 
     const payload = await fetchProdutosBase(client, scope, event.url.searchParams);
-    return json(payload, { headers: DYNAMIC_READ_HEADERS });
+    return json(payload, { headers: CATALOG_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar base de produtos.');
   }

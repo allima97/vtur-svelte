@@ -10,11 +10,13 @@ import {
 } from '$lib/server/v1';
 import {
   buildReadModelCacheKey,
+  CATALOG_STALE_TTL_MS,
+  CATALOG_TTL_MS,
   getCachedReadModel,
   invalidateCatalogReadModels,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
-import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { CATALOG_READ_HEADERS, DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PAISES_BODY_BYTES = 64 * 1024;
@@ -61,8 +63,8 @@ export async function GET(event) {
     const items = await getCachedReadModel<PaisRow[]>({
       key: buildReadModelCacheKey('paises:list', { q }),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 300_000,
-      staleTtlMs: 1_800_000,
+      ttlMs: CATALOG_TTL_MS,
+      staleTtlMs: CATALOG_STALE_TTL_MS,
       loader: async () => {
         const { data, error: queryError } = await client
           .from('paises')
@@ -84,7 +86,7 @@ export async function GET(event) {
       }
     });
 
-    return json({ items }, { headers: DYNAMIC_READ_HEADERS });
+    return json({ items }, { headers: CATALOG_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar países.');
   }

@@ -181,8 +181,6 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/parametros': 'Parametros',
   '/parametros/tipo-pacotes': 'TipoPacotes',
   '/parametros/tipo-produtos': 'TipoProdutos',
-  '/parametros/regras-produto': 'RegrasProduto',
-  '/parametros/regras-produto-pacote': 'RegrasProdutoPacote',
   '/parametros/equipe': 'Equipe',
   '/parametros/escalas': 'Escalas',
   '/parametros/cambios': 'Cambios',

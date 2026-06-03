@@ -9,7 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { CONFIG_READ_HEADERS, DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -194,7 +194,7 @@ export async function GET(event) {
     return json({
       empresas,
       vendedores: vendedoresFiltro
-    }, { headers: DYNAMIC_READ_HEADERS });
+    }, { headers: CONFIG_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar filtros do dashboard.');
   }

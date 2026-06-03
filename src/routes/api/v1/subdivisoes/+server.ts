@@ -11,11 +11,13 @@ import {
 } from '$lib/server/v1';
 import {
   buildReadModelCacheKey,
+  CATALOG_STALE_TTL_MS,
+  CATALOG_TTL_MS,
   getCachedReadModel,
   invalidateCatalogReadModels,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
-import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { CATALOG_READ_HEADERS, DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_SUBDIVISOES_BODY_BYTES = 64 * 1024;
@@ -77,7 +79,7 @@ export async function GET(event) {
         return json({ error: 'Estado/Subdivisão não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
       }
 
-      return json(item, { headers: DYNAMIC_READ_HEADERS });
+      return json(item, { headers: CATALOG_READ_HEADERS });
     }
 
     if (paisId && !isUuid(paisId)) {
@@ -87,8 +89,8 @@ export async function GET(event) {
     const { items, total } = await getCachedReadModel<{ items: SubdivisaoRow[]; total: number }>({
       key: buildReadModelCacheKey('subdivisoes:list', { q, paisId, page, pageSize }),
       tags: [READ_MODEL_TAGS.catalog],
-      ttlMs: 300_000,
-      staleTtlMs: 1_800_000,
+      ttlMs: CATALOG_TTL_MS,
+      staleTtlMs: CATALOG_STALE_TTL_MS,
       loader: async () => {
         // Sem join de pais na listagem — evita query lenta com join desnecessário
         let query = client
@@ -111,7 +113,7 @@ export async function GET(event) {
       }
     });
 
-    return json({ items, total, page, pageSize }, { headers: DYNAMIC_READ_HEADERS });
+    return json({ items, total, page, pageSize }, { headers: CATALOG_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar estados/subdivisões.');
   }

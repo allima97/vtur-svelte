@@ -29,7 +29,9 @@ import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModel
 import { logServerError } from '$lib/server/v1';
 
 const KV_EPOCH_KEY = 'invalidation:sales:epoch';
-const POLL_INTERVAL_MS = 5_000; // Verificar KV a cada 5 segundos por instância
+// Verificar KV a cada 2s: reduz a janela de inconsistência cross-instance de 5s para 2s.
+// O overhead é mínimo — leitura KV é ~1ms e fire-and-forget (não bloqueia requests).
+const POLL_INTERVAL_MS = 2_000;
 const KV_EPOCH_TTL_SECONDS = 300; // TTL de 5 minutos no KV (apenas para limpeza automática)
 
 // Estado local da instância

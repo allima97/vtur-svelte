@@ -131,6 +131,24 @@ async function fetchAllVisibleCompanyIds(client: ReturnType<typeof getAdminClien
   });
 }
 
+// Cache de escopo de request — evita bater no banco múltiplas vezes pelo mesmo conjunto
+// de companyIds dentro de um único handler (metas + orçamentos + ranking usam a mesma query).
+function makeRequestScopedGestorCache(client: ReturnType<typeof getAdminClient>) {
+  const memo = new Map<string, Promise<string[]>>();
+  return function fetchGestorCompanyScopeIdsMemo(
+    options: { companyIds?: string[]; userIds?: string[] },
+  ): Promise<string[]> {
+    const key = JSON.stringify({
+      c: uniqueCleanStrings(options.companyIds || []).sort(),
+      u: uniqueCleanStrings(options.userIds || []).sort(),
+    });
+    if (!memo.has(key)) {
+      memo.set(key, fetchGestorCompanyScopeIds(client, options));
+    }
+    return memo.get(key)!;
+  };
+}
+
 async function fetchGestorCompanyScopeIds(
   client: ReturnType<typeof getAdminClient>,
   options: { companyIds?: string[]; userIds?: string[] },
@@ -236,6 +254,10 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
+    // Memo de escopo de request: deduplica chamadas a fetchGestorCompanyScopeIds
+    // que ocorrem para metas, orçamentos e KPIs dentro do mesmo handler.
+    const fetchScopeIds = makeRequestScopedGestorCache(client);
+
     const { searchParams } = event.url;
     const { inicio: defaultInicio, fim: defaultFim } = getMonthRange();
     const inicio = String(searchParams.get("inicio") || defaultInicio).trim();
@@ -292,7 +314,7 @@ export async function GET(event) {
       vendedorIds = requestedVendedorIds;
     } else if (isFinanceiroByType) {
       companyIds = resolveScopedCompanyIds(scope, requestedCompanyIdValue);
-      const allowedFinanceiroIds = await fetchGestorCompanyScopeIds(client, {
+      const allowedFinanceiroIds = await fetchScopeIds( {
         companyIds,
       });
       const allowedFinanceiroIdSet = new Set(allowedFinanceiroIds);
@@ -311,7 +333,7 @@ export async function GET(event) {
         ? [scope.companyId]
         : resolveScopedCompanyIds(scope, requestedCompanyIdValue);
       if (hasRequestedVendedorFilter) {
-        const allowedGestorIds = await fetchGestorCompanyScopeIds(client, {
+        const allowedGestorIds = await fetchScopeIds( {
           companyIds,
         });
         const allowedGestorIdSet = new Set(allowedGestorIds);
@@ -327,7 +349,7 @@ export async function GET(event) {
         resolveScopedCompanyIds(scope, requestedCompanyIdValue),
       );
       if (hasRequestedVendedorFilter) {
-        const allowedMasterIds = await fetchGestorCompanyScopeIds(client, {
+        const allowedMasterIds = await fetchScopeIds( {
           companyIds,
         });
         const allowedMasterIdSet = new Set(allowedMasterIds);
@@ -441,7 +463,7 @@ export async function GET(event) {
             vendedorIds.length > 0
               ? vendedorIds
               : companyIds.length > 0
-                ? await fetchGestorCompanyScopeIds(client, { companyIds })
+                ? await fetchScopeIds( { companyIds })
                 : [];
 
           if (metasVendedorIds.length > 0) {
@@ -525,7 +547,7 @@ export async function GET(event) {
           if (vendedorIds.length > 0) {
             return fetchQuotesByIds("created_by", vendedorIds);
           } else if (companyIds.length > 0) {
-            const creatorIds = await fetchGestorCompanyScopeIds(client, { companyIds });
+            const creatorIds = await fetchScopeIds( { companyIds });
             return fetchQuotesByIds("created_by", creatorIds);
           } else {
             const { data: quotesData, error: quotesError } = await buildQuotesQuery();
@@ -599,6 +621,10 @@ export async function GET(event) {
           metas: metasResult.metasResumo,
           orcamentos,
           widgetPrefs: widgetPrefsData || [],
+          // Timestamp da última reconstrução do read model.
+          // Nulo quando os dados vieram do caminho raw (sem read model persistido).
+          // Usado no frontend para exibir "Dados atualizados há X min".
+          readModelRebuiltAt: vendasSummary.rebuiltAt ?? null,
         };
       },
     });
