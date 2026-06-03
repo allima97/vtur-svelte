@@ -26,9 +26,17 @@
     comissao_produto_meta_pct?: number | null;
     descontar_meta_geral?: boolean | null;
     exibe_kpi_comissao?: boolean | null;
+    rule_id?: string | null;
+  };
+
+  type RegraOption = {
+    id: string;
+    nome: string;
+    ativo?: boolean;
   };
 
   let tipos: TipoProduto[] = [];
+  let regras: RegraOption[] = [];
   let loading = true;
   let modalOpen = false;
   let saving = false;
@@ -50,7 +58,8 @@
       meta_produto_valor: '' as string | number,
       comissao_produto_meta_pct: '' as string | number,
       descontar_meta_geral: false,
-      exibe_kpi_comissao: true
+      exibe_kpi_comissao: true,
+      rule_id: ''
     };
   }
 
@@ -73,6 +82,11 @@
   $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('parametros', 'edit');
   $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('parametros', 'admin');
 
+  $: regraOptions = [
+    { value: '', label: 'Nenhuma (usar regra geral da empresa)' },
+    ...regras.map((r) => ({ value: r.id, label: r.nome }))
+  ];
+
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
     {
@@ -86,13 +100,18 @@
       }
     },
     {
-      key: 'regra_comissionamento',
-      label: 'Comissão',
+      key: 'rule_id',
+      label: 'Regra',
       sortable: true,
-      width: '130px',
-      formatter: (value: string | null) => {
-        if (!value || value === 'geral') return '<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Geral</span>';
-        return '<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">Diferenciado</span>';
+      width: '140px',
+      formatter: (_value: string | null, row: TipoProduto) => {
+        if (row.rule_id) {
+          const regra = regras.find((r) => r.id === row.rule_id);
+          const nome = regra?.nome || 'Vinculada';
+          return `<span class="inline-flex rounded-full bg-financeiro-100 px-2.5 py-1 text-xs font-semibold text-financeiro-700">${escapeHtml(nome)}</span>`;
+        }
+        if (row.regra_comissionamento === 'diferenciado') return '<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">Diferenciado</span>';
+        return '<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Geral</span>';
       }
     },
     {
@@ -107,13 +126,30 @@
     }
   ];
 
+  function escapeHtml(text: string): string {
+    const div = typeof document !== 'undefined' ? document.createElement('div') : null;
+    if (div) {
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   async function load() {
     const request = loadGuard.next();
     loading = true;
     try {
-      const payload = await apiGet<{ items?: TipoProduto[] }>('/api/v1/tipo-produtos', { all: 1 }, request.signal);
+      const [payload, regrasPayload] = await Promise.all([
+        apiGet<{ items?: TipoProduto[] }>('/api/v1/tipo-produtos', { all: 1 }, request.signal),
+        apiGet<{ items?: RegraOption[] }>('/api/v1/parametros/commission-rules', undefined, request.signal)
+      ]);
       if (!loadGuard.isCurrent(request.seq)) return;
       tipos = payload.items || [];
+      regras = (regrasPayload.items || []).filter((r: RegraOption) => r.ativo !== false);
     } catch (err) {
       if (isCanceledApiError(err)) return;
       toast.error(toUserMessage(err, 'Erro ao carregar tipos de produto.'));
@@ -141,7 +177,8 @@
       meta_produto_valor: tipo.meta_produto_valor ?? '',
       comissao_produto_meta_pct: tipo.comissao_produto_meta_pct ?? '',
       descontar_meta_geral: tipo.descontar_meta_geral === true,
-      exibe_kpi_comissao: tipo.exibe_kpi_comissao !== false
+      exibe_kpi_comissao: tipo.exibe_kpi_comissao !== false,
+      rule_id: tipo.rule_id || ''
     };
     modalOpen = true;
   }
@@ -163,7 +200,8 @@
         meta_produto_valor: form.meta_produto_valor === '' ? null : Number(form.meta_produto_valor),
         comissao_produto_meta_pct: form.comissao_produto_meta_pct === '' ? null : Number(form.comissao_produto_meta_pct),
         descontar_meta_geral: form.descontar_meta_geral,
-        exibe_kpi_comissao: form.exibe_kpi_comissao
+        exibe_kpi_comissao: form.exibe_kpi_comissao,
+        rule_id: form.rule_id || null
       });
       toast.success(editingId ? 'Tipo de produto atualizado.' : 'Tipo de produto criado.');
       modalOpen = false;
@@ -259,10 +297,11 @@
     <div class="rounded-xl border border-financeiro-200 bg-financeiro-50/40 p-4 space-y-4">
       <p class="text-sm font-semibold text-financeiro-700">Configuração de comissão</p>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <FieldSelect id="tprod-regra" label="Regra de comissionamento" bind:value={form.regra_comissionamento} options={REGRAS_COMISSIONAMENTO} placeholder="" class_name="w-full" />
-        <FieldInput id="tprod-meta-valor" label="Meta do produto (R$)" type="number" bind:value={form.meta_produto_valor} placeholder="0,00" class_name="w-full" prefix="R$" />
+        <FieldSelect id="tprod-regra-com" label="Regra de comissionamento" bind:value={form.regra_comissionamento} options={REGRAS_COMISSIONAMENTO} placeholder="" class_name="w-full" />
+        <FieldSelect id="tprod-regra-vinc" label="Regra vinculada (Financeiro > Regras)" bind:value={form.rule_id} options={regraOptions} placeholder="" class_name="w-full" />
       </div>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <FieldInput id="tprod-meta-valor" label="Meta do produto (R$)" type="number" bind:value={form.meta_produto_valor} placeholder="0,00" class_name="w-full" prefix="R$" />
         <FieldInput id="tprod-meta-pct" label="% comissão ao atingir meta" type="number" bind:value={form.comissao_produto_meta_pct} placeholder="0" class_name="w-full" suffix="%" />
       </div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">

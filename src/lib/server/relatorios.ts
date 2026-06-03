@@ -51,6 +51,7 @@ export type ReportReceiptRow = {
     comissao_produto_meta_pct?: number | null;
     descontar_meta_geral?: boolean | null;
     exibe_kpi_comissao?: boolean | null;
+    rule_id?: string | null;
   } | null;
   produto_resolvido?: {
     id?: string | null;

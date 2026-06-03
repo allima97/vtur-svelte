@@ -27,6 +27,7 @@ type TipoProdutoRow = {
   comissao_produto_meta_pct?: number | null;
   descontar_meta_geral?: boolean | null;
   exibe_kpi_comissao?: boolean | null;
+  rule_id?: string | null;
 };
 
 type TipoProdutosBody = {
@@ -42,6 +43,7 @@ type TipoProdutosBody = {
   comissao_produto_meta_pct?: number | null;
   descontar_meta_geral?: boolean;
   exibe_kpi_comissao?: boolean;
+  rule_id?: string | null;
 };
 
 function isMissingColumnError(err: unknown) {
@@ -78,6 +80,7 @@ function readTipoProdutosBody(value: unknown): TipoProdutosBody {
   if (body.comissao_produto_meta_pct !== undefined) parsed.comissao_produto_meta_pct = body.comissao_produto_meta_pct === null ? null : Number(body.comissao_produto_meta_pct);
   if (typeof body.descontar_meta_geral === 'boolean') parsed.descontar_meta_geral = body.descontar_meta_geral;
   if (typeof body.exibe_kpi_comissao === 'boolean') parsed.exibe_kpi_comissao = body.exibe_kpi_comissao;
+  if (body.rule_id !== undefined) parsed.rule_id = body.rule_id === null ? null : String(body.rule_id).trim() || null;
 
   return parsed;
 }
@@ -96,7 +99,7 @@ export async function GET(event) {
 
     let query = client
       .from('tipo_produtos')
-      .select('id, nome, tipo, descricao, ativo, created_at, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao')
+      .select('id, nome, tipo, descricao, ativo, created_at, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao, rule_id')
       .order('nome', { ascending: true })
       .limit(200);
 
@@ -116,7 +119,8 @@ export async function GET(event) {
       if (!fallback.error) {
         items = ((fallback.data || []) as unknown as TipoProdutoRow[]).map((row) => ({
           ...row,
-          exibe_kpi_comissao: null
+          exibe_kpi_comissao: null,
+          rule_id: null
         }));
         error = null;
       }
@@ -137,7 +141,8 @@ export async function GET(event) {
           meta_produto_valor: null,
           comissao_produto_meta_pct: null,
           descontar_meta_geral: null,
-          exibe_kpi_comissao: null
+          exibe_kpi_comissao: null,
+          rule_id: null
         }));
         error = null;
       }
@@ -172,7 +177,7 @@ export async function POST(event) {
     }
 
     const body = readTipoProdutosBody(bodyResult.data);
-    const { id, nome, tipo, descricao, ativo, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao } = body;
+    const { id, nome, tipo, descricao, ativo, regra_comissionamento, soma_na_meta, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao, rule_id } = body;
     const idRaw = String(id || '').trim();
 
     const nomeTrimmed = String(nome || '').trim();
@@ -191,7 +196,8 @@ export async function POST(event) {
       meta_produto_valor: meta_produto_valor != null ? Number(meta_produto_valor) : null,
       comissao_produto_meta_pct: comissao_produto_meta_pct != null ? Number(comissao_produto_meta_pct) : null,
       descontar_meta_geral: descontar_meta_geral === true,
-      exibe_kpi_comissao: exibe_kpi_comissao !== false
+      exibe_kpi_comissao: exibe_kpi_comissao !== false,
+      rule_id: rule_id && isUuid(String(rule_id).trim()) ? String(rule_id).trim() : null
     };
 
     const fallbackPayload = {
