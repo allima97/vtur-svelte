@@ -88,6 +88,20 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - **Causa**: IDs sintéticos de rateio (`uuid::rateio:vendedorId`) estavam persistidos na coluna `conciliacao_recibos.venda_recibo_id` (provavelmente gravados por algum fluxo de matching/importação). A função `fetchEffectiveConciliacaoReceipts` em `source.ts` extrai esses IDs e os passava para queries SQL (`.in('id', reciboIds)`) usando apenas `.filter(Boolean)`, que não remove strings malformadas.
 - **Correção aplicada**: `src/lib/conciliacao/source.ts` — trocado `.filter(Boolean)` por `.filter(isUuid)` nas linhas que montam `vendaIds`, `reciboIds` e `vendaIdsBatch` antes de enviar para queries SQL. Isso garante que apenas UUIDs válidos cheguem ao Postgres.
 
+#### 2.9. Permissões — inconsistência entre hook e API em `/financeiro/formas-pagamento` ✅
+- **Problema**: Usuários MASTER/GESTOR com permissão `financeiro` recebiam "acesso negado" ao acessar `/financeiro/formas-pagamento`, mesmo com o módulo concedido. O mesmo padrão afetava outros módulos onde a rota do frontend mapeava para um módulo diferente da API.
+- **Causa**: `ROTAS_MODULOS['/financeiro/formas-pagamento']` mapeava para `'Formas de Pagamento'` (DB key: `parametros_formas_pagamento`), mas a API `financeiro/formas-pagamento/+server.ts` verificava `ensureModuloAccess(scope, ['financeiro'], ...)`. Resultado: quem tinha apenas `financeiro` passava na API mas era bloqueado pelo hook; quem tinha apenas `parametros_formas_pagamento` passava no hook mas era bloqueado pela API.
+- **Correção aplicada**:
+  - `src/lib/config/modulos.ts`: Adicionada herança `'Formas de Pagamento': ['Financeiro']` em `MODULO_HERANCA`. Quem tem permissão `financeiro` agora hereda acesso automático a `Formas de Pagamento` no hook.
+  - `src/routes/api/v1/financeiro/formas-pagamento/+server.ts`: Todas as chamadas `ensureModuloAccess(scope, ['financeiro'], ...)` foram expandidas para `ensureModuloAccess(scope, ['financeiro', 'Formas de Pagamento'], ...)`. Quem tem permissão `parametros_formas_pagamento` agora também passa na API.
+- **Padrão geral**: Sempre que uma rota sob `/financeiro/*` ou `/parametros/*` mapear para um módulo específico no hook mas a API verificar um módulo genérico (pai), adicionar herança no `MODULO_HERANCA` e incluir o módulo específico nas verificações da API.
+
+#### 2.10. KPIs de Vendas e Dashboard zerados no período filtrado ✅
+- **Problema**: Dashboard e página `/vendas` mostravam KPIs zerados (R$ 0,00, 0 vendas) ao filtrar por período, mesmo quando a lista de vendas e o relatório de vendas mostravam dados corretos para o mesmo período.
+- **Causa**: O commit `7864c938` (RANKING) introduziu `filterByReceiptDate: true` em `fetchResolvedRows` em `src/lib/server/vendas-kpis.ts`. Isso fazia o SQL filtrar por `recibos.data_venda` (data do recibo) com inner join, em vez de `data_venda` da tabela `vendas`. Quando um recibo tinha data diferente da venda (ex: venda em junho, pagamento/emissão do recibo em outra data), a venda desaparecia dos KPIs.
+- **Correção aplicada**: `src/lib/server/vendas-kpis.ts` — alterado `filterByReceiptDate: true` para `filterByReceiptDate: false` nas duas chamadas a `fetchSalesReportRows` dentro de `fetchResolvedRowsUncached`. Agora o SQL filtra pelo campo `data_venda` da própria venda (left join), alinhando o comportamento dos KPIs com a listagem e o relatório de vendas.
+- **Impacto**: Dashboard (`/dashboard`), página de vendas (`/vendas`) e ranking (`/relatorios/ranking`) agora refletem corretamente as vendas do período selecionado.
+
 #### 3. Comissões (`financeiro/comissoes`) ⚠️
 - **Diagnóstico atualizado**: o motor em `src/lib/server/comissoes.ts` já implementa muito mais do que o diagnóstico antigo indicava
 - **Já cobre**:

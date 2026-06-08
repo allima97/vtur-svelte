@@ -52,7 +52,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro'], 1, 'Sem acesso ao Financeiro.');
+      ensureModuloAccess(scope, ['financeiro', 'Formas de Pagamento'], 1, 'Sem acesso ao Financeiro.');
     }
 
     const { searchParams } = event.url;
@@ -105,7 +105,7 @@ export async function POST(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureModuloAccess(scope, ['financeiro'], 2, 'Sem permissão para criar formas de pagamento.');
+    ensureModuloAccess(scope, ['financeiro', 'Formas de Pagamento'], 2, 'Sem permissão para criar formas de pagamento.');
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
@@ -170,7 +170,7 @@ export async function PATCH(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureModuloAccess(scope, ['financeiro'], 3, 'Sem permissão para editar formas de pagamento.');
+    ensureModuloAccess(scope, ['financeiro', 'Formas de Pagamento'], 3, 'Sem permissão para editar formas de pagamento.');
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
@@ -237,7 +237,7 @@ export async function DELETE(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureModuloAccess(scope, ['financeiro'], 4, 'Sem permissão para excluir formas de pagamento.');
+    ensureModuloAccess(scope, ['financeiro', 'Formas de Pagamento'], 4, 'Sem permissão para excluir formas de pagamento.');
 
     const { searchParams } = event.url;
     const id = searchParams.get('id');

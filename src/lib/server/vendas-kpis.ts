@@ -642,7 +642,7 @@ async function fetchResolvedRowsUncached(
       includeCancelled: false,
       dataInicio: params.dataInicio,
       dataFim: params.dataFim,
-      filterByReceiptDate: true,
+      filterByReceiptDate: false,
     }),
   ]);
 
@@ -700,7 +700,7 @@ async function fetchResolvedRowsUncached(
         includeCancelled: false,
         dataInicio: params.dataInicio,
         dataFim: params.dataFim,
-        filterByReceiptDate: true,
+        filterByReceiptDate: false,
       }),
     ).filter((row) => !baixaRacSet.has(toStr(row?.vendedor_id)));
     rows = mergeRowsById(rows, splitRows);

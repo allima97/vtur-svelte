@@ -253,6 +253,7 @@ export const MODULO_HERANCA: Record<string, string[]> = {
   ParametrosAvisos: ['Parametros'],
   Avisos: ['Parametros'],
   'Importar Contratos': ['Vendas'],
+  'Formas de Pagamento': ['Financeiro'],
 };
 
 // ---------------------------------------------------------------------------
