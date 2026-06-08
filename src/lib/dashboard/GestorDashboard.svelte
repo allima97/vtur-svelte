@@ -10,7 +10,7 @@
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Award, BarChart2, Building2, Calendar, Clock, Eye, Gift, MapPin, MessageCircle, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, UserPlus, Users, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { goto } from '$app/navigation';
   import { addDaysISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
@@ -532,13 +532,19 @@
     errorMessage = null;
 
     try {
-      const payload = await apiGet<SummaryPayload>('/api/v1/dashboard/summary', {
-        inicio: periodoInicio,
-        fim: periodoFim,
-        include_orcamentos: 0,
-        company_id: empresaSelecionada || undefined,
-        vendedor_ids: vendedorSelecionado || undefined
-      }, controller.signal, 60_000);
+      const payload = await apiFetch<SummaryPayload>('/api/v1/dashboard/summary', {
+        method: 'GET',
+        signal: controller.signal,
+        timeoutMs: 60_000,
+        noCache: true,
+        query: {
+          inicio: periodoInicio,
+          fim: periodoFim,
+          include_orcamentos: 0,
+          company_id: empresaSelecionada || undefined,
+          vendedor_ids: vendedorSelecionado || undefined
+        }
+      });
       if (requestSeq !== dashboardRequestSeq) return;
 
       userCtx = payload.userCtx || null;

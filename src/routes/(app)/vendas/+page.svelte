@@ -11,7 +11,7 @@
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
   import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar, SlidersHorizontal } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet, isCanceledApiError } from '$lib/services/api';
+  import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
@@ -88,7 +88,7 @@
   let requestAbortController: AbortController | null = null;
   let kpisRequestSeq = 0;
   let kpisAbortController: AbortController | null = null;
-  let kpisMesCorrente: VendasKpis = {
+  let kpis: VendasKpis = {
     totalVendas: 0,
     totalTaxas: 0,
     totalLiquido: 0,
@@ -189,15 +189,21 @@
     errorMessage = null;
 
     try {
-      const payload = await apiGet<VendasListPayload>('/api/v1/vendas/list', {
-        page: listPage,
-        pageSize: listPageSize,
-        q: searchTerm,
-        inicio: periodoInicio || undefined,
-        fim: periodoFim || undefined,
-        vendedor_ids: filterValues.vendedor_id || undefined,
-        include_vendedores: vendedoresOptions.length === 0 ? 1 : undefined
-      }, controller.signal, 60_000);
+      const payload = await apiFetch<VendasListPayload>('/api/v1/vendas/list', {
+        method: 'GET',
+        signal: controller.signal,
+        timeoutMs: 60_000,
+        noCache: true,
+        query: {
+          page: listPage,
+          pageSize: listPageSize,
+          q: searchTerm,
+          inicio: periodoInicio || undefined,
+          fim: periodoFim || undefined,
+          vendedor_ids: filterValues.vendedor_id || undefined,
+          include_vendedores: vendedoresOptions.length === 0 ? 1 : undefined
+        }
+      });
 
       if (seq !== requestSeq) return;
 
@@ -232,27 +238,25 @@
     }
   }
 
-  function getCurrentMonthRange() {
-    return {
-      inicio: currentMonthRange.inicio,
-      fim: currentMonthRange.fim
-    };
-  }
-
-  async function loadKpisMesCorrente() {
+  async function loadKpis() {
     const seq = ++kpisRequestSeq;
     kpisAbortController?.abort();
     const controller = new AbortController();
     kpisAbortController = controller;
     loadingKpis = true;
     try {
-      const range = getCurrentMonthRange();
-      const payload = await apiGet<VendasKpisPayload>('/api/v1/vendas/kpis', {
-        inicio: range.inicio,
-        fim: range.fim
-      }, controller.signal, 60_000);
+      const payload = await apiFetch<VendasKpisPayload>('/api/v1/vendas/kpis', {
+        method: 'GET',
+        signal: controller.signal,
+        timeoutMs: 60_000,
+        noCache: true,
+        query: {
+          inicio: periodoInicio,
+          fim: periodoFim
+        }
+      });
       if (seq !== kpisRequestSeq) return;
-      kpisMesCorrente = {
+      kpis = {
         totalVendas: Number(payload?.kpis?.totalVendas || 0),
         totalTaxas: Number(payload?.kpis?.totalTaxas || 0),
         totalLiquido: Number(payload?.kpis?.totalLiquido || 0),
@@ -263,7 +267,7 @@
     } catch (err) {
       if (isCanceledApiError(err)) return;
       if (seq !== kpisRequestSeq) return;
-      kpisMesCorrente = {
+      kpis = {
         totalVendas: 0,
         totalTaxas: 0,
         totalLiquido: 0,
@@ -271,7 +275,7 @@
         countVendas: 0,
         countAtivas: 0
       };
-      const msg = toUserMessage(err, 'Erro ao carregar KPIs do mês corrente.');
+      const msg = toUserMessage(err, 'Erro ao carregar KPIs do período.');
       toast.error(msg);
     } finally {
       if (seq === kpisRequestSeq) {
@@ -286,7 +290,7 @@
   onMount(() => {
     mounted = true;
     void loadVendas();
-    void loadKpisMesCorrente();
+    void loadKpis();
   });
 
   onDestroy(() => {
@@ -331,6 +335,7 @@
   function handlePeriodoChange() {
     syncPeriodoFromControls();
     scheduleLoadVendas(true);
+    void loadKpis();
   }
 
   function scheduleLoadVendas(resetPage = false) {
@@ -412,10 +417,10 @@
 
 <KPIGrid className="mb-6" columns={4} loading={loadingKpis}>
   {#if !loadingKpis}
-    <KPICard title="Valor total (mês corrente)" value={formatCurrency(kpisMesCorrente.totalVendas)} color="vendas" icon={DollarSign} />
-    <KPICard title="Total de vendas (mês corrente)" value={kpisMesCorrente.countAtivas} color="vendas" icon={ShoppingCart} />
-    <KPICard title="Taxas (mês corrente)" value={formatCurrency(kpisMesCorrente.totalTaxas)} color="clientes" icon={Calendar} />
-    <KPICard title="Líquido (mês corrente)" value={formatCurrency(kpisMesCorrente.totalLiquido)} color="financeiro" icon={Calendar} />
+    <KPICard title="Valor total" value={formatCurrency(kpis.totalVendas)} color="vendas" icon={DollarSign} />
+    <KPICard title="Total de vendas" value={kpis.countAtivas} color="vendas" icon={ShoppingCart} />
+    <KPICard title="Taxas" value={formatCurrency(kpis.totalTaxas)} color="clientes" icon={Calendar} />
+    <KPICard title="Líquido" value={formatCurrency(kpis.totalLiquido)} color="financeiro" icon={Calendar} />
   {/if}
 </KPIGrid>
 

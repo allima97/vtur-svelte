@@ -715,7 +715,7 @@
         method: 'GET',
         signal: controller.signal,
         timeoutMs: 90_000,
-        cacheTtlMs: 30_000,
+        noCache: true,
         query: {
           inicio: periodoInicio,
           fim: periodoFim,
