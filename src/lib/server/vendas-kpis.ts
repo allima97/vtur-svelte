@@ -208,6 +208,7 @@ export type VendasKpiReciboContribution = {
   reciboId: string;
   reciboNumero: string;
   reciboDate: string;
+  vendaDate: string;
   vendedorId: string;
   produtoId?: string | null;
   produtoNome?: string | null;
@@ -1465,6 +1466,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
           reciboId,
           reciboNumero: toStr(recibo?.numero_recibo),
           reciboDate: toDateKey(recibo?.data_venda) || vendaDate,
+          vendaDate: vendaDate || mes,
           vendedorId: allocation.vendedorId,
           produtoId,
           produtoNome,
