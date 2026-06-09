@@ -1,6 +1,0 @@
-{
-    "kiroAgent.configureMCP": "Enabled",
-    "chat.tools.terminal.autoApprove": {
-        "npm audit": true
-    }
-}
