@@ -1390,6 +1390,508 @@ export function collectImportedRoteiroAereoAliasValues(
   return Array.from(aliases);
 }
 
+function isCvcProductDetailsFormat(lines: string[]) {
+  if (lines.length < 10) return false;
+  const normalized = lines.map((line) => normalizeText(line));
+  return normalized.includes("detalhes do produto") && (normalized.includes("ida") || normalized.includes("volta"));
+}
+
+function isCvcDirectionLine(line: string) {
+  const normalized = normalizeText(line);
+  return normalized === "ida" || normalized === "volta";
+}
+
+function isCvcDateLine(line: string) {
+  return /^(?:[a-zA-ZÀ-ÿ-]+,\s*)?\d{1,2}\s+de\s+[a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+$/i.test(normalizeLine(line));
+}
+
+function parseCvcDate(line: string, referenceDate: Date, lastDate: Date | null) {
+  const normalized = normalizeLine(line);
+  const match = normalized.match(/(?:[a-zA-ZÀ-ÿ-]+,\s*)?(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)/i);
+  if (!match) return null;
+  let date = parseDate(Number(match[1]), match[2], referenceDate.getFullYear());
+  if (date && lastDate && date.getTime() < lastDate.getTime()) {
+    date = parseDate(Number(match[1]), match[2], referenceDate.getFullYear() + 1);
+  }
+  return date;
+}
+
+function isCvcAirportTimeLine(line: string) {
+  return /^[A-Z]{3}\s+\d{2}:\d{2}$/i.test(normalizeLine(line)) || /^\d{2}:\d{2}\s+[A-Z]{3}$/i.test(normalizeLine(line));
+}
+
+function parseCvcAirportTimeLine(line: string) {
+  const normalized = normalizeLine(line);
+  const codeFirst = normalized.match(/^([A-Z]{3})\s+(\d{2}:\d{2})$/i);
+  if (codeFirst) return { code: codeFirst[1].toUpperCase(), time: codeFirst[2] };
+  const timeFirst = normalized.match(/^(\d{2}:\d{2})\s+([A-Z]{3})$/i);
+  if (timeFirst) return { code: timeFirst[2].toUpperCase(), time: timeFirst[1] };
+  return null;
+}
+
+function isCvcFlightNumberLine(line: string) {
+  return /^[A-Z0-9]{1,3}\s*\d{2,4}$/i.test(normalizeLine(line));
+}
+
+function parseCvcFlightNumber(line: string) {
+  return normalizeLine(line);
+}
+
+function isCvcDurationLine(line: string) {
+  return /^\d+h\s*\d{1,2}min$/i.test(normalizeLine(line)) || /^\d+\s*min$/i.test(normalizeLine(line));
+}
+
+function isCvcFlightTypeLine(line: string) {
+  const normalized = normalizeText(line);
+  return normalized.includes("voo") && (normalized.includes("direto") || normalized.includes("parada") || normalized.includes("escala"));
+}
+
+function isCvcWaitLine(line: string) {
+  return /^espera\s+de\s+/i.test(normalizeText(line));
+}
+
+const CVC_FARE_NAMES = new Set([
+  "facil",
+  "fácil",
+  "light",
+  "flex",
+  "plus",
+  "premium",
+  "economica",
+  "econômica",
+  "business",
+  "executiva",
+  "executive",
+  "comfort",
+  "basic",
+  "basica",
+  "básica",
+  "standard",
+  "classic",
+  "smart",
+  "valor",
+  "essencial",
+  "max",
+  "especial",
+  "promo",
+]);
+
+function isCvcFareNameLine(line: string) {
+  const normalized = normalizeText(line);
+  if (!normalized) return false;
+  if (normalized.split(/\s+/).length > 3) return false;
+  return CVC_FARE_NAMES.has(normalized) || CVC_FARE_NAMES.has(normalized.split(/\s+/)[0] || "");
+}
+
+function isCvcBaggageHeaderLine(line: string) {
+  const normalized = normalizeText(line);
+  return normalized.includes("bagagem") || normalized.includes("bagagens");
+}
+
+function isCvcBaggageDetailLine(line: string) {
+  const normalized = normalizeText(line);
+  return normalized.includes("bolsa") || normalized.includes("mochila") || normalized.includes("mala");
+}
+
+function isCvcIrrelevantForCia(line: string) {
+  const normalized = normalizeText(line);
+  if (!normalized) return true;
+  if (isCvcFareNameLine(line)) return true;
+  if (isRefundLine(line)) return true;
+  if (isCvcDirectionLine(line)) return true;
+  if (isCvcDateLine(line)) return true;
+  if (extractMoneyValues(line).length > 0) return true;
+  if (isTimeLine(line)) return true;
+  if (isCvcAirportTimeLine(line)) return true;
+  if (isCvcDurationLine(line)) return true;
+  if (isCvcFlightNumberLine(line)) return true;
+  if (isCvcFlightTypeLine(line)) return true;
+  if (isCvcBaggageHeaderLine(line) || isCvcBaggageDetailLine(line)) return true;
+  if (isCvcWaitLine(line)) return true;
+  if (/^detalhes/.test(normalized)) return true;
+  if (/^regras/.test(normalized)) return true;
+  if (/^voo /.test(normalized)) return true;
+  if (/^espera /.test(normalized)) return true;
+  return false;
+}
+
+function findCvcCiaAerea(lines: string[], directionIndex: number) {
+  for (let i = directionIndex - 1; i >= Math.max(0, directionIndex - 8); i--) {
+    const line = lines[i] || "";
+    if (isCvcIrrelevantForCia(line)) continue;
+    const normalized = normalizeText(line);
+    if (!/^[a-zA-Z]/.test(normalized)) continue;
+    return toTitleCase(line);
+  }
+  return "";
+}
+
+function findCvcTarifaNome(lines: string[], directionIndex: number) {
+  for (let i = directionIndex - 1; i >= Math.max(0, directionIndex - 8); i--) {
+    const line = lines[i] || "";
+    if (isCvcFareNameLine(line)) return toTitleCase(line);
+  }
+  return "";
+}
+
+function findCvcReembolsoTipo(lines: string[], directionIndex: number) {
+  for (let i = directionIndex - 1; i >= Math.max(0, directionIndex - 8); i--) {
+    const line = lines[i] || "";
+    if (isRefundLine(line)) return line;
+  }
+  return "";
+}
+
+function isCvcSegmentStart(lines: string[], index: number) {
+  if (index >= lines.length) return false;
+  if (!isCvcAirportTimeLine(lines[index] || "")) return false;
+  const airportOutLabel = lines[index + 1] || "";
+  const duration = lines[index + 2] || "";
+  const flightType = lines[index + 3] || "";
+  const flightNumber = lines[index + 4] || "";
+  const arrivalLine = lines[index + 5] || "";
+  const airportInLabel = lines[index + 6] || "";
+  return (
+    isTripDetailAirportNameLine(airportOutLabel) &&
+    isCvcDurationLine(duration) &&
+    isCvcFlightTypeLine(flightType) &&
+    isCvcFlightNumberLine(flightNumber) &&
+    isCvcAirportTimeLine(arrivalLine) &&
+    isTripDetailAirportNameLine(airportInLabel)
+  );
+}
+
+function parseCvcSegment(
+  lines: string[],
+  index: number,
+  tripDate: string,
+  ciaAerea: string,
+  tarifaNome: string,
+  reembolsoTipo: string,
+  runtimeAliases: AirportAliasEntry[] = [],
+  airportCodeCityLookup: Record<string, string> = {}
+): (ImportedRoteiroAereo & { _nextIndex: number }) | null {
+  const departure = parseCvcAirportTimeLine(lines[index] || "");
+  if (!departure) return null;
+  const airportOutLabel = lines[index + 1] || "";
+  const duration = normalizeLine(lines[index + 2] || "");
+  const flightNumber = parseCvcFlightNumber(lines[index + 4] || "");
+  const arrival = parseCvcAirportTimeLine(lines[index + 5] || "");
+  const airportInLabel = lines[index + 6] || "";
+  if (!arrival) return null;
+
+  const dataFim = inferArrivalDateByTimes(tripDate, departure.time, arrival.time);
+  const cityOut = resolveCityFromAirportLabel(departure.code, runtimeAliases, airportCodeCityLookup);
+  const cityIn = resolveCityFromAirportLabel(arrival.code, runtimeAliases, airportCodeCityLookup);
+
+  return {
+    trecho: [cityOut, cityIn].filter(Boolean).join(" - "),
+    cia_aerea: ciaAerea,
+    data_voo: tripDate,
+    data_inicio: tripDate,
+    data_fim: dataFim || tripDate,
+    classe_reserva: "",
+    hora_saida: departure.time,
+    aeroporto_saida: normalizeAirportField(departure.code, runtimeAliases, airportCodeCityLookup),
+    duracao_voo: duration,
+    tipo_voo: "Voo direto",
+    hora_chegada: formatArrivalTimeWithOffset(tripDate, dataFim || tripDate, arrival.time),
+    aeroporto_chegada: normalizeAirportField(arrival.code, runtimeAliases, airportCodeCityLookup),
+    tarifa_nome: tarifaNome,
+    reembolso_tipo: reembolsoTipo,
+    qtd_adultos: 0,
+    qtd_criancas: 0,
+    taxas: 0,
+    valor_total: 0,
+    ordem: 0,
+    _nextIndex: index + 7,
+  };
+}
+
+function parseCvcProductDetails(
+  text: string,
+  referenceDate: Date,
+  runtimeAliases: AirportAliasEntry[] = [],
+  airportCodeCityLookup: Record<string, string> = {}
+) {
+  const lines = String(text || "")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => normalizeLine(line))
+    .filter(Boolean);
+
+  if (!isCvcProductDetailsFormat(lines)) return [];
+
+  const imported: ImportedRoteiroAereo[] = [];
+
+  type TripState = {
+    direction: "ida" | "volta";
+    cia_aerea: string;
+    tarifa_nome: string;
+    reembolso_tipo: string;
+    date: string;
+    firstCityOut: string;
+    lastCityIn: string;
+    segments: (ImportedRoteiroAereo & { _rawCityOut: string; _rawCityIn: string })[];
+  };
+
+  let currentTrip: TripState | null = null;
+  let lastDate: Date | null = null;
+
+  const flushTrip = () => {
+    if (!currentTrip || currentTrip.segments.length === 0) return;
+    const trecho = [currentTrip.firstCityOut, currentTrip.lastCityIn].filter(Boolean).join(" - ");
+    const tipoVoo = currentTrip.segments.length <= 1 ? "Voo direto" : `${currentTrip.segments.length - 1} escala`;
+    for (const segment of currentTrip.segments) {
+      imported.push({
+        ...segment,
+        trecho,
+        tipo_voo: tipoVoo,
+      });
+    }
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i] || "";
+
+    if (isCvcDirectionLine(line)) {
+      flushTrip();
+      const direction = normalizeText(line) as "ida" | "volta";
+      currentTrip = {
+        direction,
+        cia_aerea: findCvcCiaAerea(lines, i),
+        tarifa_nome: findCvcTarifaNome(lines, i),
+        reembolso_tipo: findCvcReembolsoTipo(lines, i),
+        date: "",
+        firstCityOut: "",
+        lastCityIn: "",
+        segments: [],
+      };
+      i += 1;
+      continue;
+    }
+
+    if (currentTrip && !currentTrip.date && isCvcDateLine(line)) {
+      const date = parseCvcDate(line, referenceDate, lastDate);
+      if (date) {
+        currentTrip.date = toIsoDate(date);
+        lastDate = date;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (currentTrip && currentTrip.date && isCvcSegmentStart(lines, i)) {
+      const parsed = parseCvcSegment(lines, i, currentTrip.date, currentTrip.cia_aerea, currentTrip.tarifa_nome, currentTrip.reembolso_tipo, runtimeAliases, airportCodeCityLookup);
+      if (parsed) {
+        if (!currentTrip.firstCityOut) {
+          currentTrip.firstCityOut = resolveCityFromAirportLabel(parsed.aeroporto_saida, runtimeAliases, airportCodeCityLookup);
+        }
+        currentTrip.lastCityIn = resolveCityFromAirportLabel(parsed.aeroporto_chegada, runtimeAliases, airportCodeCityLookup);
+        currentTrip.segments.push({ ...parsed, _rawCityOut: currentTrip.firstCityOut, _rawCityIn: currentTrip.lastCityIn });
+        i = parsed._nextIndex;
+        continue;
+      }
+    }
+
+    if (isCvcBaggageHeaderLine(line) || isCvcBaggageDetailLine(line) || isCvcWaitLine(line)) {
+      i += 1;
+      continue;
+    }
+
+    i += 1;
+  }
+
+  flushTrip();
+
+  return sortFlights(imported);
+}
+
+function isRexturFormat(lines: string[]) {
+  if (lines.length < 10) return false;
+  const normalized = lines.map((l) => normalizeText(l));
+  const hasHeader = normalized.some((l) => l.includes("cia") && l.includes("voo") && l.includes("saida") && l.includes("chegada") && l.includes("origem") && l.includes("destino"));
+  const hasSuaEscolha = normalized.includes("sua escolha") || normalized.includes("fechar");
+  return hasHeader && hasSuaEscolha;
+}
+
+function isRexturFlightNumberLine(line: string) {
+  return /^[A-Z0-9]{1,3}\s*\d{1,4}$/i.test(normalizeLine(line));
+}
+
+function isRexturDateTimeLine(line: string) {
+  return /^\d{2}\/\d{2}\/\d{4}\s*-\s*\d{2}:\d{2}$/.test(normalizeLine(line));
+}
+
+function parseRexturDateTime(line: string) {
+  const match = normalizeLine(line).match(/^(\d{2})\/(\d{2})\/(\d{4})\s*-\s*(\d{2}:\d{2})$/);
+  if (!match) return null;
+  return { date: `${match[3]}-${match[2]}-${match[1]}`, time: match[4] };
+}
+
+function isRexturAirlineLine(line: string) {
+  const normalized = normalizeLine(line);
+  if (!normalized) return false;
+  if (isRexturFlightNumberLine(normalized)) return false;
+  if (isRexturDateTimeLine(normalized)) return false;
+  if (/^\d+$/.test(normalized)) return false;
+  return /^[a-zA-ZÀ-ÿ\s]+(\([A-Z0-9]{2,4}\))?$/.test(normalized);
+}
+
+function parseRexturAirline(line: string) {
+  const normalized = normalizeLine(line);
+  const match = normalized.match(/^([a-zA-ZÀ-ÿ\s]+)\(([A-Z0-9]{2,4})\)$/i);
+  if (match) return { cia: toTitleCase(match[1]), code: match[2].toUpperCase() };
+  return { cia: toTitleCase(normalized), code: "" };
+}
+
+function isRexturAirportLabelLine(line: string) {
+  const normalized = normalizeLine(line);
+  if (!normalized) return false;
+  if (isRexturFlightNumberLine(normalized)) return false;
+  if (isRexturDateTimeLine(normalized)) return false;
+  if (/^\d+$/.test(normalized)) return false;
+  if (normalized.length < 5) return false;
+  return /[a-zA-ZÀ-ÿ]/.test(normalized);
+}
+
+function takeRexturBlock(lines: string[], start: number, count: number, predicate: (line: string) => boolean) {
+  const values: string[] = [];
+  let i = start;
+  let consecutiveMisses = 0;
+  while (i < lines.length && values.length < count) {
+    if (predicate(lines[i])) {
+      values.push(lines[i]);
+      i++;
+      consecutiveMisses = 0;
+    } else {
+      consecutiveMisses++;
+      i++;
+      if (consecutiveMisses > 3 && values.length > 0) break;
+    }
+  }
+  return { values, nextIndex: i };
+}
+
+function parseRexturFormat(
+  text: string,
+  runtimeAliases: AirportAliasEntry[] = [],
+  airportCodeCityLookup: Record<string, string> = {}
+) {
+  const lines = String(text || "")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => normalizeLine(line))
+    .filter(Boolean);
+
+  if (!isRexturFormat(lines)) return [];
+
+  const headerIndex = lines.findIndex((line) => {
+    const n = normalizeText(line);
+    return n.includes("cia") && n.includes("voo") && n.includes("saida") && n.includes("chegada") && n.includes("origem") && n.includes("destino");
+  });
+  if (headerIndex === -1) return [];
+
+  const tail = lines.slice(headerIndex + 1);
+
+  // Encontrar bloco de voos
+  let flightStartIdx = -1;
+  let flightCount = 0;
+  for (let i = 0; i < tail.length; i++) {
+    if (isRexturFlightNumberLine(tail[i])) {
+      if (flightStartIdx === -1) flightStartIdx = i;
+      flightCount++;
+    } else if (flightStartIdx !== -1) {
+      break;
+    }
+  }
+  if (flightCount === 0) return [];
+
+  // Cias aéreas: antes do primeiro voo
+  const airlineCandidates: string[] = [];
+  for (let i = 0; i < flightStartIdx; i++) {
+    if (isRexturAirlineLine(tail[i])) {
+      airlineCandidates.push(tail[i]);
+    }
+  }
+
+  let cursor = flightStartIdx + flightCount;
+
+  const departures = takeRexturBlock(tail, cursor, flightCount, isRexturDateTimeLine);
+  cursor = departures.nextIndex;
+
+  const arrivals = takeRexturBlock(tail, cursor, flightCount, isRexturDateTimeLine);
+  cursor = arrivals.nextIndex;
+
+  const origins = takeRexturBlock(tail, cursor, flightCount, isRexturAirportLabelLine);
+  cursor = origins.nextIndex;
+
+  const destinations = takeRexturBlock(tail, cursor, flightCount, isRexturAirportLabelLine);
+  cursor = destinations.nextIndex;
+
+  let totalValue = 0;
+  for (let i = cursor; i < tail.length; i++) {
+    const values = extractMoneyValues(tail[i]);
+    if (values.length > 0) {
+      totalValue = values[0];
+      break;
+    }
+  }
+
+  const firstCityOut = resolveCityFromAirportLabel(origins.values[0] || "", runtimeAliases, airportCodeCityLookup);
+  const lastCityIn = resolveCityFromAirportLabel(destinations.values[destinations.values.length - 1] || "", runtimeAliases, airportCodeCityLookup);
+  const trechoBase = [firstCityOut, lastCityIn].filter(Boolean).join(" - ");
+  const tipoVoo = flightCount <= 1 ? "Voo direto" : `${flightCount - 1} escala`;
+
+  const imported: ImportedRoteiroAereo[] = [];
+  for (let i = 0; i < flightCount; i++) {
+    const airline = parseRexturAirline(airlineCandidates[i] || airlineCandidates[0] || "");
+    const dep = parseRexturDateTime(departures.values[i] || "");
+    const arr = parseRexturDateTime(arrivals.values[i] || "");
+    const origin = origins.values[i] || "";
+    const dest = destinations.values[i] || "";
+
+    const cityOut = resolveCityFromAirportLabel(origin, runtimeAliases, airportCodeCityLookup);
+    const cityIn = resolveCityFromAirportLabel(dest, runtimeAliases, airportCodeCityLookup);
+    const airportOut = normalizeAirportField(origin, runtimeAliases, airportCodeCityLookup);
+    const airportIn = normalizeAirportField(dest, runtimeAliases, airportCodeCityLookup);
+
+    const dataFim = arr?.date || dep?.date || "";
+
+    imported.push({
+      trecho: trechoBase,
+      cia_aerea: airline.cia,
+      data_voo: dep?.date || "",
+      data_inicio: dep?.date || "",
+      data_fim: dataFim,
+      classe_reserva: airline.code,
+      hora_saida: dep?.time || "",
+      aeroporto_saida: airportOut,
+      duracao_voo: "",
+      tipo_voo: tipoVoo,
+      hora_chegada: arr?.time || "",
+      aeroporto_chegada: airportIn,
+      tarifa_nome: "",
+      reembolso_tipo: "",
+      qtd_adultos: 0,
+      qtd_criancas: 0,
+      taxas: 0,
+      valor_total: 0,
+      ordem: i,
+    });
+  }
+
+  const distributedTotals = splitTotalAcrossSegments(totalValue, imported.length);
+  return sortFlights(
+    imported.map((item, idx) => ({
+      ...item,
+      valor_total: distributedTotals[idx] ?? totalValue,
+      ordem: idx,
+    }))
+  );
+}
+
 export function parseImportedRoteiroAereo(
   text: string,
   referenceDate = new Date(),
@@ -1405,6 +1907,12 @@ export function parseImportedRoteiroAereo(
 
   const providerCards = parseProviderCards(text, referenceDate, runtimeAliases, airportCodeCityLookup);
   if (providerCards.length > 0) return providerCards;
+
+  const cvcProductDetails = parseCvcProductDetails(text, referenceDate, runtimeAliases, airportCodeCityLookup);
+  if (cvcProductDetails.length > 0) return cvcProductDetails;
+
+  const rexturDetails = parseRexturFormat(text, runtimeAliases, airportCodeCityLookup);
+  if (rexturDetails.length > 0) return rexturDetails;
 
   const lines = String(text || "")
     .replace(/\r/g, "\n")
