@@ -15,6 +15,7 @@ export type ImportedRoteiroAereo = {
   aeroporto_chegada: string;
   tarifa_nome: string;
   reembolso_tipo: string;
+  numero_voo: string;
   qtd_adultos: number;
   qtd_criancas: number;
   taxas: number;
@@ -883,6 +884,7 @@ function parseProvider2(
         aeroporto_chegada: normalizeAirportField(destino, runtimeAliases, airportCodeCityLookup),
         tarifa_nome: resolvedFareFamilies[index] || "",
         reembolso_tipo: reembolsoTipo,
+        numero_voo: flightNumbers[index] || "",
         qtd_adultos: qtdAdultos,
         qtd_criancas: qtdCriancas,
         taxas: distributedTaxes[index] ?? taxaTotal,
@@ -1054,6 +1056,7 @@ function parseProviderCards(
         aeroporto_chegada: segment.aeroporto_chegada,
         tarifa_nome: tarifaNome,
         reembolso_tipo: reembolsoTipo,
+        numero_voo: '',
         qtd_adultos: occupancy.qtd_adultos,
         qtd_criancas: occupancy.qtd_criancas,
         taxas: distributedTaxes[index] ?? cardTaxes,
@@ -1219,6 +1222,7 @@ function parseTripDetailsProvider(
         aeroporto_chegada: airportInCode,
         tarifa_nome: fareName,
         reembolso_tipo: refundLine,
+        numero_voo: isFlightNumberLooseLine(flightNumber) ? flightNumber : '',
         qtd_adultos: pax.qtd_adultos,
         qtd_criancas: pax.qtd_criancas,
         taxas: 0,
@@ -1575,7 +1579,7 @@ function parseCvcSegment(
   if (!departure) return null;
   const airportOutLabel = lines[index + 1] || "";
   const duration = normalizeLine(lines[index + 2] || "");
-  const flightNumber = parseCvcFlightNumber(lines[index + 4] || "");
+  const flightNumber = normalizeLine(lines[index + 4] || "");
   const arrival = parseCvcAirportTimeLine(lines[index + 5] || "");
   const airportInLabel = lines[index + 6] || "";
   if (!arrival) return null;
@@ -1599,6 +1603,7 @@ function parseCvcSegment(
     aeroporto_chegada: normalizeAirportField(arrival.code, runtimeAliases, airportCodeCityLookup),
     tarifa_nome: tarifaNome,
     reembolso_tipo: reembolsoTipo,
+    numero_voo: isCvcFlightNumberLine(flightNumber) ? flightNumber : "",
     qtd_adultos: 0,
     qtd_criancas: 0,
     taxas: 0,
@@ -1874,6 +1879,7 @@ function parseRexturFormat(
       aeroporto_chegada: airportIn,
       tarifa_nome: "",
       reembolso_tipo: "",
+      numero_voo: normalizeLine(tail[flightStartIdx + i] || ""),
       qtd_adultos: 0,
       qtd_criancas: 0,
       taxas: 0,
@@ -1972,6 +1978,7 @@ export function parseImportedRoteiroAereo(
       aeroporto_chegada: airportIn,
       tarifa_nome: "",
       reembolso_tipo: "",
+      numero_voo: "",
       qtd_adultos: 0,
       qtd_criancas: 0,
       taxas: 0,

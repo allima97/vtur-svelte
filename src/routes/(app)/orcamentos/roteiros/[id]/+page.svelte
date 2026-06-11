@@ -89,6 +89,7 @@
     hora_chegada: string;
     aeroporto_chegada: string;
     tarifa_nome: string;
+    reembolso_tipo: string;
     qtd_adultos: number | null;
     qtd_criancas: number | null;
     valor_total: number | null;
@@ -302,7 +303,7 @@
     return { ordem, cidade: '', passeio: '', fornecedor: '', data_inicio: '', data_fim: '', tipo: 'Passeio', ingressos: '', qtd_adultos: null, qtd_criancas: null, valor_original: null, valor_final: null };
   }
   function newTransporte(ordem: number): RotTransporte {
-    return { ordem, tipo: 'Aéreo', fornecedor: '', descricao: '', data_inicio: '', data_fim: '', categoria: '', observacao: '', trecho: '', cia_aerea: '', data_voo: '', classe_reserva: '', hora_saida: '', aeroporto_saida: '', duracao_voo: '', tipo_voo: 'Internacional', hora_chegada: '', aeroporto_chegada: '', tarifa_nome: '', qtd_adultos: null, qtd_criancas: null, valor_total: null, taxas: null };
+    return { ordem, tipo: 'Aéreo', fornecedor: '', descricao: '', data_inicio: '', data_fim: '', categoria: '', observacao: '', trecho: '', cia_aerea: '', data_voo: '', classe_reserva: '', hora_saida: '', aeroporto_saida: '', duracao_voo: '', tipo_voo: 'Internacional', hora_chegada: '', aeroporto_chegada: '', tarifa_nome: '', reembolso_tipo: '', qtd_adultos: null, qtd_criancas: null, valor_total: null, taxas: null };
   }
   function newInvestimento(ordem: number): RotInvestimento {
     return { ordem, tipo: '', valor_por_pessoa: null, qtd_apto: null, valor_por_apto: null };
@@ -931,7 +932,8 @@
         hora_chegada: item.hora_chegada || '',
         aeroporto_chegada: item.aeroporto_chegada || '',
         tarifa_nome: item.tarifa_nome || '',
-        reembolso_tipo: '',
+        reembolso_tipo: item.reembolso_tipo || '',
+        numero_voo: item.descricao || '',
         qtd_adultos: Number(item.qtd_adultos || 0),
         qtd_criancas: Number(item.qtd_criancas || 0),
         taxas: Number(item.taxas || 0),
@@ -958,6 +960,8 @@
           hora_chegada: item.hora_chegada || '',
           aeroporto_chegada: item.aeroporto_chegada || '',
           tarifa_nome: item.tarifa_nome || '',
+          reembolso_tipo: item.reembolso_tipo || '',
+          descricao: item.numero_voo || '',
           qtd_adultos: item.qtd_adultos || null,
           qtd_criancas: item.qtd_criancas || null,
           taxas: item.taxas || null,
@@ -2219,6 +2223,14 @@
                     label="Tarifa"
                     bind:value={transporte.tarifa_nome}
                     placeholder="Ex: Light"
+                    class_name="w-full"
+                  />
+                </div>
+                <div>
+                  <FieldInput
+                    label="Reembolso"
+                    bind:value={transporte.reembolso_tipo}
+                    placeholder="Ex: Reembolsável"
                     class_name="w-full"
                   />
                 </div>

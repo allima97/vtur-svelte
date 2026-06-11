@@ -54,7 +54,7 @@ export async function GET(event) {
         .eq('roteiro_id', id).order('ordem').limit(100),
 
       client.from('roteiro_transporte')
-        .select('id, roteiro_id, tipo, fornecedor, descricao, data_inicio, data_fim, categoria, observacao, ordem, trecho, cia_aerea, data_voo, classe_reserva, hora_saida, aeroporto_saida, duracao_voo, tipo_voo, hora_chegada, aeroporto_chegada, tarifa_nome, qtd_adultos, qtd_criancas, valor_total, taxas')
+        .select('id, roteiro_id, tipo, fornecedor, descricao, data_inicio, data_fim, categoria, observacao, ordem, trecho, cia_aerea, data_voo, classe_reserva, hora_saida, aeroporto_saida, duracao_voo, tipo_voo, hora_chegada, aeroporto_chegada, tarifa_nome, reembolso_tipo, qtd_adultos, qtd_criancas, valor_total, taxas')
         .eq('roteiro_id', id).order('ordem').limit(100),
 
       client.from('roteiro_investimento')
