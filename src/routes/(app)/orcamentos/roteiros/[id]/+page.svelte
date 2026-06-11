@@ -6,6 +6,7 @@
   import { supabase } from '$lib/db/supabase';
   import { construirLinkWhatsApp } from '$lib/whatsapp';
   import { mergeImportedRoteiroAereo, parseImportedRoteiroAereo } from '$lib/roteiroAereoImport';
+  import { parseImportedRoteiroHotels } from '$lib/roteiroHotelImport';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -827,7 +828,7 @@
     }
   }
 
-  // ─── Import hotel text (simple parser) ────────────────────────────────────
+  // ─── Import hotel text (structured parser) ────────────────────────────────
   function handleImportHotelText() {
     hotelImportMsg = null;
     hotelImportError = null;
@@ -836,15 +837,35 @@
       return;
     }
     try {
-      const lines = hotelImportText.split('\n').filter(l => l.trim());
-      const imported: RotHotel[] = lines.map((line, idx) => {
-        const h = newHotel(idx);
-        h.hotel = line.trim();
-        return h;
-      });
-      hoteis = reorder([...hoteis, ...imported]);
+      const imported = parseImportedRoteiroHotels(hotelImportText, new Date());
+      if (imported.length === 0) {
+        hotelImportError = 'Nenhum hotel foi identificado no texto colado.';
+        return;
+      }
+
+      const mapped: RotHotel[] = imported.map((item, idx) => ({
+        ...newHotel(idx),
+        ordem: item.ordem,
+        cidade: item.cidade || '',
+        hotel: item.hotel || '',
+        endereco: item.endereco || '',
+        data_inicio: item.data_inicio || '',
+        data_fim: item.data_fim || '',
+        noites: Number(item.noites) || null,
+        qtd_apto: Number(item.qtd_apto) || null,
+        apto: item.apto || '',
+        categoria: item.categoria || '',
+        regime: item.regime || '',
+        tipo_tarifa: item.tipo_tarifa || '',
+        qtd_adultos: Number(item.qtd_adultos) || null,
+        qtd_criancas: Number(item.qtd_criancas) || null,
+        valor_original: Number(item.valor_original) || null,
+        valor_final: Number(item.valor_final) || null
+      }));
+
+      hoteis = reorder([...hoteis, ...mapped]);
       hotelImportText = '';
-      hotelImportMsg = `${imported.length} linha(s) importada(s). Revise os campos.`;
+      hotelImportMsg = `${imported.length} hotel(is) importado(s). Revise os campos.`;
     } catch {
       hotelImportError = 'Não foi possível importar.';
     }
@@ -1357,7 +1378,7 @@
             .preview-group-title { font-size: 15px; font-weight: 700; color: #334155; margin: 0 0 10px 0; }
             .preview-legend { margin-top: 10px; font-size: 11px; color: #334155; }
             .preview-legend div + div { margin-top: 4px; }
-            .preview-footer-card { padding: 12px 14px; margin: 0 0 12px 0; font-size: 10px; color: #64748b; }
+            .preview-footer-card { padding: 12px 14px; margin: 24px 0 12px 0; font-size: 10px; color: #64748b; }
             .preview-complement-img { margin: 12px 0 0 0; text-align: center; }
             .preview-complement-img img { max-height: 170px; max-width: 100%; }
             .hotel-preview-table.preview-table {

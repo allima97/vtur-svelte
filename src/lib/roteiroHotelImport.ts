@@ -122,6 +122,27 @@ function isRecommendedLine(line: string) {
   return normalized === "recomendado";
 }
 
+function isIgnorableLine(line: string) {
+  const normalized = normalizeText(line);
+  if (!normalized) return true;
+  const exactIgnores = [
+    "selecionado",
+    "excluir",
+    "preferencial",
+    "detalhes",
+    "recomendado",
+    "selecionar",
+    "remover",
+    "excluido",
+    "cancelar",
+    "editar",
+  ];
+  if (exactIgnores.includes(normalized)) return true;
+  // ignora linhas que são apenas "x" ou "✓" etc.
+  if (/^[✓✔x×☐☑✗]+$/.test(normalized)) return true;
+  return false;
+}
+
 function isRoomLine(line: string) {
   return ROOM_LINE_RE.test(normalizeLine(line));
 }
@@ -138,7 +159,16 @@ function isRefundLine(line: string) {
 function isAddressLine(line: string) {
   const normalized = normalizeLine(line);
   if (!normalized) return false;
-  return /,/.test(normalized) || /\d/.test(normalized);
+  // Endereços costumam ter vírgula ou terminar com número de porta/lote.
+  // Não classificamos como endereço linhas que são claramente quarto, ocupação,
+  // tarifa ou que começam com padrões de hotel (ex: "Hotel ...").
+  if (isRoomLine(normalized)) return false;
+  if (isOccupancyLine(normalized)) return false;
+  if (isRefundLine(normalized)) return false;
+  if (extractMoneyValues(normalized).length > 0 && /^r\$/.test(normalizeText(normalized))) return false;
+  if (/,/.test(normalized)) return true;
+  // Termina com número (possível número de endereço)
+  return /\d\s*$/.test(normalized);
 }
 
 function buildBlocks(text: string) {
@@ -199,7 +229,7 @@ function parseHotelBlock(block: string[], index: number, referenceYear: number):
   }
 
   const noitesFromText = periodMatch[6] ? Number(periodMatch[6]) : 0;
-  const usefulLines = restLines.filter((line) => !isRecommendedLine(line));
+  const usefulLines = restLines.filter((line) => !isIgnorableLine(line));
   if (usefulLines.length === 0) return null;
 
   const destinationLine = usefulLines[0] || "";
@@ -215,7 +245,14 @@ function parseHotelBlock(block: string[], index: number, referenceYear: number):
   }
 
   let endereco = "";
-  if (cursor < usefulLines.length && isAddressLine(usefulLines[cursor])) {
+  if (
+    cursor < usefulLines.length &&
+    !isRoomLine(usefulLines[cursor]) &&
+    !isRefundLine(usefulLines[cursor]) &&
+    !isOccupancyLine(usefulLines[cursor]) &&
+    extractMoneyValues(usefulLines[cursor]).length === 0 &&
+    isAddressLine(usefulLines[cursor])
+  ) {
     endereco = usefulLines[cursor];
     cursor += 1;
   }
