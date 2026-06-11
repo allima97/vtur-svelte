@@ -12,7 +12,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
-  import { FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { FieldCheckbox, FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { fetchImageAsDataUrl } from '$lib/utils/browser-images';
   import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw, Copy } from 'lucide-svelte';
@@ -144,6 +144,8 @@
     inclui_texto?: string | null;
     nao_inclui_texto?: string | null;
     informacoes_importantes?: string | null;
+    mostrar_pagamento_pdf?: boolean | null;
+    mostrar_informacoes_pdf?: boolean | null;
     dias?: RotDia[] | null;
     hoteis?: RotHotel[] | null;
     passeios?: RotPasseio[] | null;
@@ -206,6 +208,8 @@
   let incluiTexto = $state('');
   let naoIncluiTexto = $state('');
   let informacoesImportantes = $state('');
+  let mostrarPagamentoPdf = $state(true);
+  let mostrarInformacoesPdf = $state(true);
 
   function mergeCidadesVisitadas(inicio?: string | null, fim?: string | null): string {
     const origem = String(inicio || '').trim();
@@ -588,6 +592,8 @@
       incluiTexto = r.inclui_texto || '';
       naoIncluiTexto = r.nao_inclui_texto || '';
       informacoesImportantes = r.informacoes_importantes || '';
+      mostrarPagamentoPdf = r.mostrar_pagamento_pdf !== false;
+      mostrarInformacoesPdf = r.mostrar_informacoes_pdf !== false;
 
       dias = (r.dias || []).map((d) => ({
         ...newDia(d.ordem ?? 0),
@@ -651,6 +657,8 @@
         inclui_texto: incluiTexto || null,
         nao_inclui_texto: naoIncluiTexto || null,
         informacoes_importantes: informacoesImportantes || null,
+        mostrar_pagamento_pdf: mostrarPagamentoPdf,
+        mostrar_informacoes_pdf: mostrarInformacoesPdf,
         dias: dias.map((d, i) => ({ ...d, ordem: i })),
         hoteis: hoteis.map((h, i) => ({ ...h, ordem: i })),
         passeios: passeios.map((p, i) => ({ ...p, ordem: i })),
@@ -692,6 +700,8 @@
         inclui_texto: incluiTexto || null,
         nao_inclui_texto: naoIncluiTexto || null,
         informacoes_importantes: informacoesImportantes || null,
+        mostrar_pagamento_pdf: mostrarPagamentoPdf,
+        mostrar_informacoes_pdf: mostrarInformacoesPdf,
         dias: dias.map((d, i) => ({ ...d, ordem: i })),
         hoteis: hoteis.map((h, i) => ({ ...h, ordem: i })),
         passeios: passeios.map((p, i) => ({ ...p, ordem: i })),
@@ -1442,10 +1452,10 @@
             ${buildPreviewRawSection('Passeios e Serviços', passeiosHtml, 'preview-passeios-section')}
             ${buildPreviewRawSection('Passagem Aérea', transportesHtml, 'preview-airfare-section')}
             ${buildPreviewRawSection('Investimento', investimentoHtml, 'preview-investimento-section')}
-            ${buildPreviewSection('Pagamento', pagamentosHtml)}
+            ${mostrarPagamentoPdf ? buildPreviewSection('Pagamento', pagamentosHtml) : ''}
             ${buildPreviewListSection('O que está incluído', incluiTexto.split('\n'))}
             ${buildPreviewListSection('O que não está incluído', naoIncluiTexto.split('\n'))}
-            ${buildPreviewListSection('Informações Importantes', informacoesImportantes.split('\n'))}
+            ${mostrarInformacoesPdf ? buildPreviewListSection('Informações Importantes', informacoesImportantes.split('\n')) : ''}
             ${footerHtml}
           </div>
         </body>
@@ -2499,6 +2509,24 @@
           Total: <span class="text-clientes-700 font-bold">R$ {formatBRL(totalPagamento)}</span>
         </div>
       {/if}
+
+      <div class="mt-6 rounded-xl border border-dashed border-slate-300 p-4">
+        <p class="mb-3 text-sm font-medium text-slate-600">Exibição no PDF</p>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FieldCheckbox
+            label="Mostrar seção de Pagamento"
+            helper="Desmarque para omitir a seção de pagamento no PDF."
+            bind:checked={mostrarPagamentoPdf}
+            color="clientes"
+          />
+          <FieldCheckbox
+            label="Mostrar Informações importantes"
+            helper="Desmarque para omitir a seção de informações importantes no PDF."
+            bind:checked={mostrarInformacoesPdf}
+            color="clientes"
+          />
+        </div>
+      </div>
     </Card>
 
   <!-- ──────────────────── ABA: INCLUSÕES ───────────────────────────────── -->
