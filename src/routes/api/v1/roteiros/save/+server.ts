@@ -303,6 +303,7 @@ export async function POST(event: RequestEvent) {
 
     const mostrarPagamentoPdf = body.mostrar_pagamento_pdf === false ? false : true;
     const mostrarInformacoesPdf = body.mostrar_informacoes_pdf === false ? false : true;
+    const mostrarRodapePdf = body.mostrar_rodape_pdf === false ? false : true;
 
     // Upsert roteiro principal
     let roteiroId: string;
@@ -319,7 +320,8 @@ export async function POST(event: RequestEvent) {
         nao_inclui_texto: naoIncluiTexto,
         informacoes_importantes: informacoesImportantes,
         mostrar_pagamento_pdf: mostrarPagamentoPdf,
-        mostrar_informacoes_pdf: mostrarInformacoesPdf
+        mostrar_informacoes_pdf: mostrarInformacoesPdf,
+        mostrar_rodape_pdf: mostrarRodapePdf
       };
 
       const { data: roteiro, error: roteiroErr } = await client
@@ -351,6 +353,7 @@ export async function POST(event: RequestEvent) {
         informacoes_importantes: informacoesImportantes,
         mostrar_pagamento_pdf: mostrarPagamentoPdf,
         mostrar_informacoes_pdf: mostrarInformacoesPdf,
+        mostrar_rodape_pdf: mostrarRodapePdf,
         updated_at: new Date().toISOString()
       };
 

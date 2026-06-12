@@ -147,6 +147,7 @@
     informacoes_importantes?: string | null;
     mostrar_pagamento_pdf?: boolean | null;
     mostrar_informacoes_pdf?: boolean | null;
+    mostrar_rodape_pdf?: boolean | null;
     dias?: RotDia[] | null;
     hoteis?: RotHotel[] | null;
     passeios?: RotPasseio[] | null;
@@ -211,6 +212,7 @@
   let informacoesImportantes = $state('');
   let mostrarPagamentoPdf = $state(true);
   let mostrarInformacoesPdf = $state(true);
+  let mostrarRodapePdf = $state(true);
 
   function mergeCidadesVisitadas(inicio?: string | null, fim?: string | null): string {
     const origem = String(inicio || '').trim();
@@ -595,6 +597,7 @@
       informacoesImportantes = r.informacoes_importantes || '';
       mostrarPagamentoPdf = r.mostrar_pagamento_pdf !== false;
       mostrarInformacoesPdf = r.mostrar_informacoes_pdf !== false;
+      mostrarRodapePdf = r.mostrar_rodape_pdf !== false;
 
       dias = (r.dias || []).map((d) => ({
         ...newDia(d.ordem ?? 0),
@@ -660,6 +663,7 @@
         informacoes_importantes: informacoesImportantes || null,
         mostrar_pagamento_pdf: mostrarPagamentoPdf,
         mostrar_informacoes_pdf: mostrarInformacoesPdf,
+        mostrar_rodape_pdf: mostrarRodapePdf,
         dias: dias.map((d, i) => ({ ...d, ordem: i })),
         hoteis: hoteis.map((h, i) => ({ ...h, ordem: i })),
         passeios: passeios.map((p, i) => ({ ...p, ordem: i })),
@@ -703,6 +707,7 @@
         informacoes_importantes: informacoesImportantes || null,
         mostrar_pagamento_pdf: mostrarPagamentoPdf,
         mostrar_informacoes_pdf: mostrarInformacoesPdf,
+        mostrar_rodape_pdf: mostrarRodapePdf,
         dias: dias.map((d, i) => ({ ...d, ordem: i })),
         hoteis: hoteis.map((h, i) => ({ ...h, ordem: i })),
         passeios: passeios.map((p, i) => ({ ...p, ordem: i })),
@@ -1460,7 +1465,7 @@
             ${buildPreviewListSection('O que está incluído', incluiTexto.split('\n'))}
             ${buildPreviewListSection('O que não está incluído', naoIncluiTexto.split('\n'))}
             ${mostrarInformacoesPdf ? buildPreviewListSection('Informações Importantes', informacoesImportantes.split('\n')) : ''}
-            ${footerHtml}
+            ${mostrarRodapePdf ? footerHtml : ''}
           </div>
         </body>
       </html>`;
@@ -2535,6 +2540,12 @@
             label="Mostrar Informações importantes"
             helper="Desmarque para omitir a seção de informações importantes no PDF."
             bind:checked={mostrarInformacoesPdf}
+            color="clientes"
+          />
+          <FieldCheckbox
+            label="Mostrar rodapé de termos"
+            helper="Desmarque para omitir o rodapé com os termos e condições no PDF."
+            bind:checked={mostrarRodapePdf}
             color="clientes"
           />
         </div>
