@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { ComponentType } from "svelte";
+  import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
@@ -26,6 +27,7 @@
     AlertCircle,
     FileText,
     ChevronRight,
+    Copy,
   } from "lucide-svelte";
   import { toast } from "$lib/stores/ui";
   import Dialog from "$lib/components/ui/Dialog.svelte";
@@ -48,6 +50,7 @@
   let loadingEditorModal = false;
   let loadingPreviewModal = false;
   let assetsLoaded = false;
+  let duplicating = false;
   const contextGuard = createLoadGuard();
   const voucherGuard = createLoadGuard();
   const assetsGuard = createLoadGuard();
@@ -227,6 +230,70 @@
     }
   }
 
+  function buildDuplicateName(baseName: string): string {
+    const normalized = baseName.trim() || "Voucher";
+    return /\(c[oó]pia\)$/i.test(normalized) ? normalized : `${normalized} (Cópia)`;
+  }
+
+  async function duplicarVoucher() {
+    if (!voucher || duplicating) return;
+
+    if (browser && !window.confirm(`Deseja duplicar o voucher "${voucher.nome}"?`)) {
+      return;
+    }
+
+    duplicating = true;
+    try {
+      const payload = {
+        provider: voucher.provider,
+        nome: buildDuplicateName(voucher.nome),
+        codigo_systur: voucher.codigo_systur || null,
+        codigo_fornecedor: voucher.codigo_fornecedor || null,
+        reserva_online: voucher.reserva_online || null,
+        passageiros: voucher.passageiros || null,
+        tipo_acomodacao: voucher.tipo_acomodacao || null,
+        operador: voucher.operador || null,
+        resumo: voucher.resumo || null,
+        data_inicio: voucher.data_inicio || null,
+        data_fim: voucher.data_fim || null,
+        ativo: true,
+        extra_data: voucher.extra_data || {},
+        dias: (voucher.voucher_dias || []).map((dia, index) => ({
+          dia_numero: dia.dia_numero || index + 1,
+          titulo: dia.titulo || null,
+          descricao: dia.descricao || "",
+          data_referencia: dia.data_referencia || null,
+          cidade: dia.cidade || null,
+          ordem: index,
+        })),
+        hoteis: (voucher.voucher_hoteis || []).map((hotel, index) => ({
+          cidade: hotel.cidade || "",
+          hotel: hotel.hotel || "",
+          endereco: hotel.endereco || null,
+          data_inicio: hotel.data_inicio || null,
+          data_fim: hotel.data_fim || null,
+          noites: hotel.noites ?? null,
+          telefone: hotel.telefone || null,
+          contato: hotel.contato || null,
+          status: hotel.status || null,
+          observacao: hotel.observacao || null,
+          ordem: index,
+        })),
+      };
+
+      const response = await apiPost<{ item?: { id?: string } }>("/api/v1/vouchers", payload);
+      const newId = response?.item?.id;
+      if (!newId) throw new Error("Não foi possível obter o ID do voucher duplicado.");
+
+      toast.success("Voucher duplicado com sucesso!");
+      await goto(`/operacao/vouchers/${newId}`);
+    } catch (err) {
+      toast.error(toUserMessage(err, "Erro ao duplicar voucher"));
+    } finally {
+      duplicating = false;
+    }
+  }
+
   function formatDate(dateString: string | null | undefined): string {
     return formatDateValue(dateString);
   }
@@ -275,6 +342,12 @@
       href: "/operacao/vouchers",
       variant: "secondary",
       icon: ArrowLeft,
+    },
+    {
+      label: "Duplicar",
+      onClick: duplicarVoucher,
+      variant: "secondary",
+      icon: Copy,
     },
   ]}
 />

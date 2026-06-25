@@ -1,17 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { ComponentType } from 'svelte';
+  import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { Plus, Ticket, FileText, ExternalLink } from 'lucide-svelte';
+  import { Plus, Ticket, FileText, ExternalLink, Copy } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';
   import type { VoucherRecord, VoucherAssetRecord, VoucherProvider } from '$lib/vouchers/types';
-  import { apiDelete, apiGet, isCanceledApiError } from '$lib/services/api';
+  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
   import { createLoadGuard } from '$lib/utils/loadGuard';
 
@@ -26,6 +27,7 @@
   let VoucherPreviewModal: ComponentType | null = null;
   let loadingPreviewModal = false;
   let assetsLoaded = false;
+  let duplicating = false;
   const contextGuard = createLoadGuard();
   const dataGuard = createLoadGuard();
   const previewGuard = createLoadGuard();
@@ -213,6 +215,82 @@
     }
   }
 
+  function buildDuplicateName(baseName: string): string {
+    const normalized = baseName.trim() || 'Voucher';
+    return /\(c[oó]pia\)$/i.test(normalized) ? normalized : `${normalized} (Cópia)`;
+  }
+
+  function handleDuplicateFromPreview(event: CustomEvent) {
+    const row = event.detail as VoucherRecord | null;
+    if (!row) return;
+    duplicateVoucher(row);
+  }
+
+  async function duplicateVoucher(row: VoucherRecord) {
+    if (duplicating) return;
+
+    if (browser && !window.confirm(`Deseja duplicar o voucher "${row.nome}"?`)) {
+      return;
+    }
+
+    duplicating = true;
+    try {
+      const { item } = await apiGet<{ item: VoucherRecord }>(`/api/v1/vouchers/${row.id}`);
+      if (!item) throw new Error('Voucher não encontrado.');
+
+      const payload = {
+        provider: item.provider,
+        nome: buildDuplicateName(item.nome),
+        codigo_systur: item.codigo_systur || null,
+        codigo_fornecedor: item.codigo_fornecedor || null,
+        reserva_online: item.reserva_online || null,
+        passageiros: item.passageiros || null,
+        tipo_acomodacao: item.tipo_acomodacao || null,
+        operador: item.operador || null,
+        resumo: item.resumo || null,
+        data_inicio: item.data_inicio || null,
+        data_fim: item.data_fim || null,
+        ativo: true,
+        status: 'rascunho' as const,
+        extra_data: item.extra_data || {},
+        dias: (item.voucher_dias || []).map((dia, index) => ({
+          dia_numero: dia.dia_numero || index + 1,
+          titulo: dia.titulo || null,
+          descricao: dia.descricao || '',
+          data_referencia: dia.data_referencia || null,
+          cidade: dia.cidade || null,
+          ordem: index
+        })),
+        hoteis: (item.voucher_hoteis || []).map((hotel, index) => ({
+          cidade: hotel.cidade || '',
+          hotel: hotel.hotel || '',
+          endereco: hotel.endereco || null,
+          data_inicio: hotel.data_inicio || null,
+          data_fim: hotel.data_fim || null,
+          noites: hotel.noites ?? null,
+          telefone: hotel.telefone || null,
+          contato: hotel.contato || null,
+          status: hotel.status || null,
+          observacao: hotel.observacao || null,
+          ordem: index
+        }))
+      };
+
+      const response = await apiPost<{ item?: { id?: string } }>('/api/v1/vouchers', payload);
+      const newId = response?.item?.id;
+      if (!newId) throw new Error('Não foi possível obter o ID do voucher duplicado.');
+
+      toast.success('Voucher duplicado com sucesso!');
+      showPreview = false;
+      previewVoucher = null;
+      await goto(`/operacao/vouchers/${newId}`);
+    } catch (err) {
+      toast.error(toUserMessage(err, 'Erro ao duplicar voucher'));
+    } finally {
+      duplicating = false;
+    }
+  }
+
 </script>
 
 <svelte:head>
@@ -314,6 +392,7 @@
     {assets}
     on:edit={handleEditFromPreview}
     on:delete={handleDeleteFromPreview}
+    on:duplicate={handleDuplicateFromPreview}
   />
 {/if}
 
