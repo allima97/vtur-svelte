@@ -10,6 +10,7 @@
   import { descobrirModulo } from '$lib/config/modulos';
   import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { DEFAULT_HIDDEN_MENU_KEYS } from '$lib/config/menuDefaults';
   import { createLoadGuard } from '$lib/utils/loadGuard';
   import { Save, RefreshCw } from 'lucide-svelte';
 
@@ -258,14 +259,15 @@
   }
 
   async function resetPrefs() {
-    prefs = { hidden: [] };
-    localStorage.removeItem(MENU_PREFS_KEY);
+    const defaultHidden = [...DEFAULT_HIDDEN_MENU_KEYS];
+    prefs = { hidden: defaultHidden };
+    localStorage.setItem(MENU_PREFS_KEY, JSON.stringify({ hidden: defaultHidden }));
     window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
     try {
       await apiPost('/api/v1/menu/prefs', {
         prefs: {
           v: 1,
-          hidden: [],
+          hidden: defaultHidden,
           order: {},
           section: {}
         }

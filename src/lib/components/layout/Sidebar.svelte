@@ -8,6 +8,7 @@
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { descobrirModulo } from '$lib/config/modulos';
+  import { DEFAULT_HIDDEN_MENU_KEYS } from '$lib/config/menuDefaults';
   import {
     AlertCircle,
     Banknote,
@@ -234,7 +235,10 @@
     try {
       const raw = localStorage.getItem(MENU_PREFS_KEY);
       if (!raw) {
-        menuPrefsHidden = [];
+        // Nunca personalizou o menu neste navegador -- aplica o padrão
+        // "oculto por padrão" até que o usuário abra "Personalizar Menu"
+        // (que então grava a preferência real, explícita, do servidor).
+        menuPrefsHidden = [...DEFAULT_HIDDEN_MENU_KEYS];
         return;
       }
       const parsed = JSON.parse(raw) as MenuPrefs;

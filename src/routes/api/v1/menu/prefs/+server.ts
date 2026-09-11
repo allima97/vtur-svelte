@@ -3,6 +3,7 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { normalizeMenuPrefs, type MenuPrefsV1 } from '$lib/server/menuPrefs';
+import { DEFAULT_HIDDEN_MENU_KEYS } from '$lib/config/menuDefaults';
 import { safeJsonParse } from '$lib/utils/json';
 
 const JSON_NO_STORE_HEADERS = {
@@ -35,7 +36,14 @@ export async function GET(event: RequestEvent) {
       .maybeSingle();
     if (error) throw error;
 
-    const prefs = normalizeMenuPrefs(data?.prefs);
+    // `data` só é null quando o usuário nunca salvou preferências (nenhuma
+    // linha em menu_prefs) -- diferente de uma preferência explícita salva
+    // como `hidden: []`, que preserva `data` (com updated_at preenchido).
+    // Só aplicamos o padrão "oculto por padrão" nesse caso de "nunca salvou",
+    // para nunca sobrescrever uma escolha explícita do usuário.
+    const prefs = data
+      ? normalizeMenuPrefs(data.prefs)
+      : { ...normalizeMenuPrefs(undefined), hidden: [...DEFAULT_HIDDEN_MENU_KEYS] };
 
     return new Response(JSON.stringify({ prefs, updated_at: data?.updated_at ?? null }), {
       status: 200,
