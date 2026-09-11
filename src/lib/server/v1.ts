@@ -821,60 +821,20 @@ export async function resolveAccessibleClientIds(
     ttlMs: 120_000,
     staleTtlMs: 900_000,
     loader: async () => {
+      // Substitui o cruzamento de lotes em JS por uma única chamada RPC
+      // (função accessible_client_ids, ver supabase/migrations) que reproduz
+      // exatamente a mesma lógica de OR entre as três condições.
+      const { data, error } = await client.rpc("accessible_client_ids", {
+        p_company_ids: companyIds,
+        p_vendedor_ids: vendedorIds,
+      });
+
+      if (error) throw error;
+
       const clientIds = new Set<string>();
-      const hasVendedorScope = vendedorIds.length > 0;
-      const addClientIds = (rows?: Array<{ id?: string | null }> | null) => {
-        for (const row of rows || []) {
-          const id = String(row?.id || "").trim();
-          if (id) clientIds.add(id);
-        }
-      };
-
-      if (companyIds.length > 0 && !hasVendedorScope) {
-        for (const companyBatch of chunkArray(companyIds)) {
-          const { data } = await client
-            .from("clientes")
-            .select("id")
-            .in("company_id", companyBatch)
-            .limit(5000);
-          addClientIds(data);
-        }
-      }
-
-      if (vendedorIds.length > 0) {
-        for (const vendedorBatch of chunkArray(vendedorIds)) {
-          const { data, error: createdByError } = await client
-            .from("clientes")
-            .select("id")
-            .in("created_by", vendedorBatch)
-            .limit(5000);
-
-          // created_by pode não existir em todos os ambientes
-          if (!createdByError) addClientIds(data);
-        }
-      }
-
-      const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-      const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
-
-      for (const companyBatch of companyBatches) {
-        for (const vendedorBatch of vendedorBatches) {
-          let salesQuery = client
-            .from("vendas")
-            .select("cliente_id")
-            .eq("cancelada", false)
-            .not("cliente_id", "is", null);
-
-          if (companyBatch) salesQuery = salesQuery.in("company_id", companyBatch);
-          if (vendedorBatch) salesQuery = salesQuery.in("vendedor_id", vendedorBatch);
-
-          const { data: salesData } = await salesQuery.limit(5000);
-
-          for (const row of (salesData || []) as Array<{ cliente_id?: string | null }>) {
-            const id = String(row?.cliente_id || "").trim();
-            if (id) clientIds.add(id);
-          }
-        }
+      for (const row of (data || []) as Array<{ cliente_id?: string | null }>) {
+        const id = String(row?.cliente_id || "").trim();
+        if (id) clientIds.add(id);
       }
 
       return Array.from(clientIds);
