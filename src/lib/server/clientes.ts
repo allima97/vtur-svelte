@@ -23,14 +23,6 @@ export type ClienteScopedFilters = {
   accessibleClientIds: string[] | null;
 };
 
-type PassageiroViagemAccessRow = {
-  viagens?: {
-    vendas?: {
-      cancelada?: boolean | null;
-    } | null;
-  } | null;
-};
-
 export function canUseCompanyClienteScope(scope: UserScope, vendedorParam?: string | null) {
   const tipoNome = String(scope.tipoNome || '').toUpperCase();
 
@@ -287,74 +279,21 @@ export async function ensureClienteAccess(
   const scopedVendedorIds = vendedorIds.length > 0 ? vendedorIds : [scope.userId].filter(Boolean);
   filters.accessibleClientIds = [normalizedClienteId];
 
-  const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-  const vendedorBatches = scopedVendedorIds.length > 0 ? chunkArray(scopedVendedorIds) : [null];
-
-  for (const companyBatch of companyBatches) {
-    for (const vendedorBatch of vendedorBatches) {
-      let clienteCriadoQuery = client
-        .from('clientes')
-        .select('id')
-        .eq('id', normalizedClienteId)
-        .limit(1);
-
-      if (companyBatch) {
-        clienteCriadoQuery = clienteCriadoQuery.in('company_id', companyBatch);
-      }
-      if (vendedorBatch) {
-        clienteCriadoQuery = clienteCriadoQuery.in('created_by', vendedorBatch);
-      }
-
-      const { data: clienteCriado, error: clienteCriadoError } = await clienteCriadoQuery;
-      if (!clienteCriadoError && clienteCriado?.[0]?.id) {
-        return filters;
-      }
+  // Substitui as 3 rodadas de duplo loop empresa x vendedor (cliente
+  // criado/atribuido, venda do cliente, cliente como passageiro de viagem)
+  // por uma única chamada RPC (função can_access_cliente_by_vendedor_scope,
+  // ver supabase/migrations) que reproduz a mesma lógica de OR.
+  const { data: canAccess, error: canAccessError } = await client.rpc(
+    'can_access_cliente_by_vendedor_scope',
+    {
+      p_cliente_id: normalizedClienteId,
+      p_company_ids: companyIds,
+      p_vendedor_ids: scopedVendedorIds
     }
-  }
+  );
 
-  for (const companyBatch of companyBatches) {
-    for (const vendedorBatch of vendedorBatches) {
-      let vendaClienteQuery = client
-        .from('vendas')
-        .select('id')
-        .eq('cliente_id', normalizedClienteId)
-        .eq('cancelada', false)
-        .limit(1);
-
-      if (companyBatch) {
-        vendaClienteQuery = vendaClienteQuery.in('company_id', companyBatch);
-      }
-      if (vendedorBatch) {
-        vendaClienteQuery = vendaClienteQuery.in('vendedor_id', vendedorBatch);
-      }
-
-      const { data: vendaCliente, error: vendaClienteError } = await vendaClienteQuery;
-      if (!vendaClienteError && vendaCliente?.[0]?.id) {
-        return filters;
-      }
-    }
-  }
-
-  // Verifica se o cliente e passageiro de uma viagem do vendedor
-  // (importado como acompanhante/passageiro de outro cliente).
-  {
-    for (const companyBatch of companyBatches) {
-      for (const vendedorBatch of vendedorBatches) {
-        let passageiroQuery = client
-          .from('viagem_passageiros')
-          .select('viagem_id, viagens!inner(venda_id, vendas!inner(id, vendedor_id, company_id, cancelada))')
-          .eq('cliente_id', normalizedClienteId)
-          .limit(10);
-
-        if (companyBatch) passageiroQuery = passageiroQuery.in('viagens.vendas.company_id', companyBatch);
-        if (vendedorBatch) passageiroQuery = passageiroQuery.in('viagens.vendas.vendedor_id', vendedorBatch);
-
-        const { data: passRows } = await passageiroQuery;
-        const passageirosAtivos = (passRows || []) as PassageiroViagemAccessRow[];
-        if (passageirosAtivos.some((row) => row.viagens?.vendas?.cancelada === false)) return filters;
-      }
-    }
-  }
+  if (canAccessError) throw canAccessError;
+  if (canAccess) return filters;
 
   throw error(403, 'Sem permissao para acessar este cliente.');
 }
