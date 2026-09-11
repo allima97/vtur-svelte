@@ -13,6 +13,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { getCachedReadModelWithKv } from "$lib/server/kvInvalidation";
 import {
   currentMonthRangeISODate,
   toISODateLocal as formatISODateLocal,
@@ -808,7 +809,11 @@ export async function resolveAccessibleClientIds(
     return [];
   }
 
-  return getCachedReadModel({
+  // getCachedReadModelWithKv: além do cache local (por instância), reaproveita
+  // o valor entre instâncias via KV (cache L2) -- ver kvInvalidation.ts. O
+  // kvTtlSeconds usa o mesmo teto de 120s já aceito abaixo para o cache local
+  // (ttlMs), não introduz uma nova janela de desatualização.
+  return getCachedReadModelWithKv({
     key: buildReadModelCacheKey("accessible-client-ids", {
       companyIds,
       vendedorIds,
@@ -820,6 +825,7 @@ export async function resolveAccessibleClientIds(
     ],
     ttlMs: 120_000,
     staleTtlMs: 900_000,
+    kvTtlSeconds: 120,
     loader: async () => {
       // Substitui o cruzamento de lotes em JS por uma única chamada RPC
       // (função accessible_client_ids, ver supabase/migrations) que reproduz

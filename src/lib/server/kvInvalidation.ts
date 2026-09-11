@@ -25,7 +25,7 @@
  *   id = "60fa423718914712bec4f489d41c3dd6"
  */
 
-import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
+import { getCachedReadModel, invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
 import { logServerError } from '$lib/server/v1';
 
 const KV_EPOCH_KEY = 'invalidation:sales:epoch';
@@ -71,6 +71,32 @@ export function initKvNamespace(env: Record<string, unknown> | null | undefined)
  */
 export function isKvAvailable(): boolean {
   return kvNamespaceRef !== null;
+}
+
+/**
+ * Retorna a referência ao KV namespace (ou null se ainda não inicializado).
+ * Usado por readModelCache.ts para o cache L2 de valores (ver getCachedReadModel
+ * com a opção `kv`).
+ */
+export function getKvNamespace(): KVNamespace | null {
+  return kvNamespaceRef;
+}
+
+/**
+ * Retorna o epoch de invalidação conhecido por ESTA instância (atualizado por
+ * checkKvEpochAsync() a cada poll, ou imediatamente por publishKvInvalidationAsync()
+ * na própria instância que publicou). Começa em 0 numa instância fria que ainda
+ * não fez nenhum poll -- isso é seguro: instâncias frias compartilham o mesmo
+ * "epoch:0" até a primeira sincronização, e nenhuma dado real foi perdido porque
+ * epoch 0 nunca é publicado por publishKvInvalidationAsync (que usa Date.now()).
+ *
+ * Usado por readModelCache.ts para "particionar" as chaves do cache L2 em KV por
+ * epoch -- assim, quando um epoch novo é publicado, as entradas do epoch anterior
+ * ficam orfãs (nunca mais lidas) e somem sozinhas pelo próprio TTL, sem precisar
+ * de delete ativo por chave (KV não tem invalidação por tag/prefixo).
+ */
+export function getKnownEpoch(): number {
+  return localEpoch;
 }
 
 /**
@@ -151,5 +177,142 @@ export function publishKvInvalidationAsync(scope?: {
 
   Promise.all(writes).catch((err) => {
     logServerError('[kvInvalidation] falha ao publicar epoch no KV', err);
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// Cache L2 (valor real) compartilhado entre instâncias via KV.
+// ---------------------------------------------------------------------------
+//
+// getCachedReadModel() (readModelCache.ts) já resolve o cache LOCAL (por
+// instância) com TTL/stale-while-revalidate. O problema que ele não resolve
+// sozinho: uma instância FRIA (Map em memória vazio) sempre recomputa do zero
+// no Postgres, mesmo que outra instância tenha acabado de calcular o mesmo
+// valor há poucos segundos.
+//
+// getCachedReadModelWithKv() adiciona uma camada extra SÓ no caminho de
+// "cache miss local": antes de rodar o loader real (que bate no Postgres),
+// tenta ler um valor recente do KV; se achar, usa ele e evita a query. Quando
+// o loader real roda (por miss local E miss no KV), o resultado é gravado de
+// volta no KV (fire-and-forget) para a próxima instância fria reaproveitar.
+//
+// SEGURANÇA / CONSISTÊNCIA -- por que isso não piora o que já existe:
+//
+// 1. Particionamento por epoch: a chave no KV inclui o epoch de invalidação
+//    conhecido por ESTA instância (`e${localEpoch}`). Como KV não tem
+//    invalidação por tag/prefixo, usamos o próprio epoch como "geração" da
+//    chave -- quando um epoch novo é publicado (publishKvInvalidationAsync,
+//    chamado após toda mutação de vendas/recibos), as entradas do epoch
+//    anterior ficam orfãs (nenhuma instância que já sincronizou volta a lê-las)
+//    e somem sozinhas pelo próprio TTL da entrada, sem precisar de delete
+//    ativo por chave.
+//
+// 2. TTL da entrada no KV = kvTtlSeconds (default 30s, o MESMO teto já usado
+//    hoje para dados transacionais em memória -- TRANSACTIONAL_TTL_MS em
+//    readModelCache.ts). Isto é: uma instância fria não pode ficar mais
+//    desatualizada, na pior hipótese, do que uma instância já quente já fica
+//    hoje. Não é uma nova categoria de risco, é o MESMO teto de frescor já
+//    aceito no design atual, só estendido para cobrir instâncias frias (que
+//    hoje, paradoxalmente, são as ÚNICAS que sempre leem o dado mais fresco
+//    possível do Postgres -- o preço de sempre pagar o round-trip completo).
+//
+// 3. Pior caso de composição: se uma instância lê um valor do KV com quase
+//    kvTtlSeconds de idade e o cacheia localmente com um TTL cheio por cima,
+//    o teto passa a ser de até ~2x kvTtlSeconds (~60s). Isso ainda fica
+//    dentro do teto de "stale" já aceito hoje pelo próprio design do cache
+//    local (TRANSACTIONAL_STALE_TTL_MS = 120s, usado no padrão
+//    stale-while-revalidate já existente) -- não é um novo patamar de risco
+//    para o sistema.
+//
+// ADOÇÃO: opcional, por chamada -- só ative (`kv: true` em vez de chamar
+// getCachedReadModel diretamente) em read models cujo valor é serializável em
+// JSON e cuja janela de até ~60s de desatualização em cenário de pico seja
+// aceitável (o mesmo crivo que já se aplica hoje aos dados com tag
+// transacional). Ver resolveAccessibleClientIds (v1.ts) e
+// resolveCompanyClienteIds (clientes.ts) para os dois primeiros usos.
+
+const KV_READ_MODEL_PREFIX = 'read-model';
+// Mesmo teto do TTL transacional em memória (readModelCache.ts) -- ver
+// justificativa (2) acima.
+const DEFAULT_KV_TTL_SECONDS = 30;
+
+type KvReadModelOptions<T> = {
+  key: string;
+  tags?: string[];
+  ttlMs?: number;
+  staleTtlMs?: number;
+  /** TTL da entrada no KV, em segundos. Default: DEFAULT_KV_TTL_SECONDS (30s). */
+  kvTtlSeconds?: number;
+  loader: () => Promise<T>;
+};
+
+type KvReadModelEnvelope<T> = {
+  value: T;
+  writtenAt: number;
+};
+
+/**
+ * Igual a getCachedReadModel(), mas com um cache L2 compartilhado via KV no
+ * caminho de miss local. Ver comentário acima para as garantias de
+ * consistência. Uso: mesma assinatura de getCachedReadModel, só troca o nome
+ * da chamada e opcionalmente passa `kvTtlSeconds`.
+ */
+export async function getCachedReadModelWithKv<T>(
+  options: KvReadModelOptions<T>,
+): Promise<T> {
+  const kv = kvNamespaceRef;
+  const kvTtlSeconds = Math.max(1, options.kvTtlSeconds ?? DEFAULT_KV_TTL_SECONDS);
+  // Epoch capturado no momento da chamada -- ver nota sobre revalidação em
+  // background na documentação do módulo (race rara e inofensiva, na pior
+  // hipótese gera uma escrita perdida numa geração órfã).
+  const kvKey = `${KV_READ_MODEL_PREFIX}:e${localEpoch}:${options.key}`;
+
+  const loaderWithKv = async (): Promise<T> => {
+    if (kv) {
+      try {
+        const raw = await kv.get(kvKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Partial<KvReadModelEnvelope<T>>;
+          if (
+            parsed &&
+            typeof parsed.writtenAt === 'number' &&
+            Date.now() - parsed.writtenAt <= kvTtlSeconds * 1000
+          ) {
+            return parsed.value as T;
+          }
+        }
+      } catch (err) {
+        logServerError('[kvInvalidation] falha ao ler cache L2 do KV', err);
+      }
+    }
+
+    const fresh = await options.loader();
+
+    if (kv) {
+      try {
+        const envelope: KvReadModelEnvelope<T> = { value: fresh, writtenAt: Date.now() };
+        const serialized = JSON.stringify(envelope);
+        Promise.resolve(kv.put(kvKey, serialized, { expirationTtl: kvTtlSeconds })).catch(
+          (err) => {
+            logServerError('[kvInvalidation] falha ao escrever cache L2 no KV', err);
+          },
+        );
+      } catch (err) {
+        // Valor não serializável em JSON -- não usa o cache L2 para ele,
+        // mas o cache local (getCachedReadModel) continua funcionando normal.
+        logServerError('[kvInvalidation] valor não serializável para cache L2', err);
+      }
+    }
+
+    return fresh;
+  };
+
+  return getCachedReadModel({
+    key: options.key,
+    tags: options.tags,
+    ttlMs: options.ttlMs,
+    staleTtlMs: options.staleTtlMs,
+    loader: loaderWithKv,
   });
 }

@@ -2,10 +2,10 @@ import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   buildReadModelCacheKey,
-  getCachedReadModel,
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { getCachedReadModelWithKv } from '$lib/server/kvInvalidation';
 import {
   ensureModuloAccess,
   normalizeText,
@@ -37,7 +37,11 @@ export async function resolveCompanyClienteIds(client: SupabaseClient, companyId
   const scopedCompanyIds = uniqueCleanStrings(companyIds || []).sort();
   if (scopedCompanyIds.length === 0) return [];
 
-  return getCachedReadModel({
+  // getCachedReadModelWithKv: além do cache local (por instância), reaproveita
+  // o valor entre instâncias via KV (cache L2) -- ver kvInvalidation.ts. O
+  // kvTtlSeconds usa o mesmo teto de 120s já aceito abaixo para o cache local
+  // (ttlMs), não introduz uma nova janela de desatualização.
+  return getCachedReadModelWithKv({
     key: buildReadModelCacheKey('clientes:company-client-ids', { companyIds: scopedCompanyIds }),
     tags: [
       READ_MODEL_TAGS.clients,
@@ -47,6 +51,7 @@ export async function resolveCompanyClienteIds(client: SupabaseClient, companyId
     ],
     ttlMs: 120_000,
     staleTtlMs: 900_000,
+    kvTtlSeconds: 120,
     loader: async () => {
       // Substitui o cruzamento de lotes em JS (4 rodadas sequenciais) por
       // uma única chamada RPC (função company_cliente_ids, ver
