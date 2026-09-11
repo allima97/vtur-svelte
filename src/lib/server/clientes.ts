@@ -56,63 +56,19 @@ export async function resolveCompanyClienteIds(client: SupabaseClient, companyId
     ttlMs: 120_000,
     staleTtlMs: 900_000,
     loader: async () => {
+      // Substitui o cruzamento de lotes em JS (4 rodadas sequenciais) por
+      // uma única chamada RPC (função company_cliente_ids, ver
+      // supabase/migrations) que reproduz a mesma lógica de OR.
+      const { data, error: rpcError } = await client.rpc('company_cliente_ids', {
+        p_company_ids: scopedCompanyIds
+      });
+
+      if (rpcError) throw rpcError;
+
       const clienteIds = new Set<string>();
-      const creatorIds = new Set<string>();
-      const scopedCompanySet = new Set(scopedCompanyIds);
-
-      const addClienteIds = (rows?: Array<{ id?: string | null; cliente_id?: string | null }> | null) => {
-        for (const row of rows || []) {
-          const id = String(row?.id || row?.cliente_id || '').trim();
-          if (id) clienteIds.add(id);
-        }
-      };
-
-      for (const companyBatch of chunkArray(scopedCompanyIds)) {
-        const { data } = await client
-          .from('clientes')
-          .select('id')
-          .in('company_id', companyBatch)
-          .limit(10000);
-        addClienteIds(data);
-      }
-
-      for (const companyBatch of chunkArray(scopedCompanyIds)) {
-        const { data } = await client
-          .from('users')
-          .select('id')
-          .in('company_id', companyBatch)
-          .limit(10000);
-        for (const row of data || []) {
-          const id = String(row?.id || '').trim();
-          if (id) creatorIds.add(id);
-        }
-      }
-
-      for (const creatorBatch of chunkArray(Array.from(creatorIds))) {
-        const { data, error: createdByError } = await client
-          .from('clientes')
-          .select('id, company_id')
-          .in('created_by', creatorBatch)
-          .limit(10000);
-        if (!createdByError) {
-          addClienteIds(
-            (data || []).filter((row: { company_id?: string | null }) => {
-              const rowCompanyId = String(row?.company_id || '').trim();
-              return !rowCompanyId || scopedCompanySet.has(rowCompanyId);
-            })
-          );
-        }
-      }
-
-      for (const companyBatch of chunkArray(scopedCompanyIds)) {
-        const { data } = await client
-          .from('vendas')
-          .select('cliente_id')
-          .in('company_id', companyBatch)
-          .eq('cancelada', false)
-          .not('cliente_id', 'is', null)
-          .limit(10000);
-        addClienteIds(data);
+      for (const row of (data || []) as Array<{ cliente_id?: string | null }>) {
+        const id = String(row?.cliente_id || '').trim();
+        if (id) clienteIds.add(id);
       }
 
       return Array.from(clienteIds);
