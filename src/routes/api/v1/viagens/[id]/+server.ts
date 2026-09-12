@@ -337,16 +337,17 @@ export async function GET(event) {
       recibo = reciboData;
     }
 
-    // Vouchers vinculados à company da viagem (sem filtro de venda_id — comportamento original mantido)
-    const { data: vouchers } = viagemComStatus.venda_id
-      ? await client
-          .from("vouchers")
-          .select(
-            "id, nome, provider, codigo_systur, codigo_fornecedor, data_inicio, data_fim, ativo",
-          )
-          .eq("company_id", viagemComStatus.company_id)
-          .limit(20)
-      : { data: [] };
+    // Vouchers vinculados especificamente a esta viagem (via vouchers.viagem_id).
+    // Antes o filtro era só por company_id, o que trazia até 20 vouchers de
+    // qualquer viagem da empresa — sem relação nenhuma com a viagem aberta.
+    const { data: vouchers } = await client
+      .from("vouchers")
+      .select(
+        "id, nome, provider, codigo_systur, codigo_fornecedor, data_inicio, data_fim, ativo",
+      )
+      .eq("viagem_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     const { data: passageiros } = await client
       .from("viagem_passageiros")

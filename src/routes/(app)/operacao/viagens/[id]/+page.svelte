@@ -87,13 +87,13 @@
 
   interface Voucher {
     id: string;
-    codigo: string;
-    tipo: string;
-    status: string;
-    fornecedor_id: string;
-    fornecedor_nome: string;
-    data_utilizacao: string;
-    valor: number;
+    nome: string;
+    provider: string;
+    codigo_systur: string | null;
+    codigo_fornecedor: string | null;
+    data_inicio: string | null;
+    data_fim: string | null;
+    ativo: boolean;
   }
 
   interface Passageiro {
@@ -203,23 +203,10 @@
     { value: "cancelada", label: "Cancelada", color: "red", icon: AlertCircle },
   ];
 
-  const tipoVoucherLabels: Record<string, string> = {
-    hotel: "Hotel",
-    passagem: "Passagem",
-    passeio: "Passeio",
-    transfer: "Transfer",
-    seguro: "Seguro",
-    outro: "Outro",
-  };
-
-  const statusVoucherLabels: Record<
-    string,
-    { label: string; color: BadgeColor }
-  > = {
-    pendente: { label: "Pendente", color: "yellow" },
-    emitido: { label: "Emitido", color: "blue" },
-    utilizado: { label: "Utilizado", color: "green" },
-    cancelado: { label: "Cancelado", color: "red" },
+  const providerVoucherLabels: Record<string, string> = {
+    special_tours: "Special Tours",
+    europamundo: "Europamundo",
+    sato_tours: "Sato Tours",
   };
 
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat("pt-BR", {
@@ -705,28 +692,27 @@
                   </div>
                   <div>
                     <p class="font-medium text-slate-900">
-                      {tipoVoucherLabels[voucher.tipo] || voucher.tipo}
+                      {voucher.nome}
                     </p>
                     <p class="text-sm text-slate-500">
-                      {voucher.fornecedor_nome}
-                      {#if voucher.data_utilizacao}
-                        • {formatDate(voucher.data_utilizacao)}
+                      {providerVoucherLabels[voucher.provider] ||
+                        voucher.provider}
+                      {#if voucher.codigo_fornecedor}
+                        • {voucher.codigo_fornecedor}
+                      {/if}
+                      {#if voucher.data_inicio}
+                        • {formatDate(voucher.data_inicio)}
+                        {#if voucher.data_fim}
+                          – {formatDate(voucher.data_fim)}
+                        {/if}
                       {/if}
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-3">
-                  <Badge
-                    color={statusVoucherLabels[voucher.status]?.color ?? "gray"}
-                  >
-                    {statusVoucherLabels[voucher.status]?.label ||
-                      voucher.status}
+                  <Badge color={voucher.ativo ? "green" : "gray"}>
+                    {voucher.ativo ? "Ativo" : "Inativo"}
                   </Badge>
-                  {#if voucher.valor}
-                    <span class="font-medium text-slate-900">
-                      {formatCurrency(voucher.valor)}
-                    </span>
-                  {/if}
                 </div>
               </div>
             {/each}

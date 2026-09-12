@@ -56,6 +56,7 @@ type VoucherCreateBody = {
   data_inicio?: string | null;
   data_fim?: string | null;
   ativo?: boolean;
+  viagem_id?: string | null;
   dias?: VoucherDiaDraft[];
   hoteis?: VoucherHotelDraft[];
 };
@@ -141,11 +142,28 @@ export async function POST(event) {
         ? (bodyResult.data as VoucherCreateBody)
         : {};
 
+    // viagem_id é opcional (voucher avulso continua permitido); quando informado,
+    // validamos que a viagem existe e pertence à mesma empresa do voucher, para
+    // não linkar vouchers a viagens de outra empresa.
+    let viagemId: string | null = null;
+    const requestedViagemId = String(body.viagem_id || '').trim();
+    if (requestedViagemId && isUuid(requestedViagemId)) {
+      const { data: viagemScope } = await client
+        .from('viagens')
+        .select('id, company_id')
+        .eq('id', requestedViagemId)
+        .maybeSingle();
+      if (viagemScope && viagemScope.company_id === scope.companyId) {
+        viagemId = viagemScope.id;
+      }
+    }
+
     const { data: voucher, error: voucherError } = await client
       .from('vouchers')
       .insert([{
         company_id: scope.companyId,
         created_by: user.id,
+        viagem_id: viagemId,
         provider: body.provider || 'special_tours',
         nome: String(body.nome || '').trim(),
         codigo_systur: body.codigo_systur || null,

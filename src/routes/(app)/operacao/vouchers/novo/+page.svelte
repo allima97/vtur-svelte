@@ -67,7 +67,11 @@
   let loading = true;
   let saving = false;
   let companyId: string | null = null;
-  
+  // Quando o voucher é criado a partir da tela de detalhe de uma viagem
+  // (botão "Adicionar Voucher"), a viagem chega via query param e o voucher
+  // deve ser vinculado a ela (vouchers.viagem_id).
+  const viagemId: string | null = $page.url.searchParams.get('viagem_id') || null;
+
   // Textos de importação
   let travelPasteText = '';
   let circuitPasteText = '';
@@ -543,7 +547,8 @@
         status: finalizar ? 'finalizado' : 'rascunho',
         extra_data: form.extra_data,
         dias: form.dias,
-        hoteis: form.hoteis
+        hoteis: form.hoteis,
+        viagem_id: viagemId
       };
 
       await apiPost('/api/v1/vouchers', payload);
