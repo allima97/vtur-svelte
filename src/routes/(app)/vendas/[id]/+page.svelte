@@ -1146,7 +1146,10 @@
     </div>
 
     <div class="space-y-6">
+      {#if (venda.status !== 'cancelada' && canCancel) || canDelete}
       <Card header="Ações" color="vendas">
+        <!-- Editar/Voltar já ficam no cabeçalho da página; aqui só as ações
+             que não têm equivalente lá em cima (cancelar/excluir venda). -->
         <div class="space-y-3">
           {#if venda.status !== 'cancelada' && canCancel}
             <Button variant="danger" on:click={handleCancelar} loading={processando} class_name="w-full justify-center">
@@ -1154,20 +1157,6 @@
               Cancelar Venda
             </Button>
           {/if}
-
-          <div class="grid grid-cols-2 gap-3 pt-3 {venda.status !== 'cancelada' ? 'border-t border-slate-200' : ''}">
-            {#if canEdit}
-            <Button variant="primary" on:click={() => goto(`/vendas/${vendaId}/editar`)} class_name="w-full justify-center">
-              <Edit size={16} class="mr-2" />
-              Editar
-            </Button>
-            {/if}
-
-            <Button variant="secondary" on:click={() => goto('/vendas')} class_name="w-full justify-center">
-              <ArrowLeft size={16} class="mr-2" />
-              Voltar
-            </Button>
-          </div>
 
           {#if canDelete}
           <Button variant="danger" class_name="w-full justify-center" on:click={handleExcluir}>
@@ -1177,6 +1166,7 @@
           {/if}
         </div>
       </Card>
+      {/if}
 
       <Card header="Resumo Financeiro" color="vendas">
         <div class="space-y-4">
