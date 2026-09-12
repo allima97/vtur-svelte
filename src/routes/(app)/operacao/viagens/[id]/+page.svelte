@@ -37,7 +37,6 @@
     History,
     TrendingUp,
     MapPinned,
-    Luggage,
   } from "lucide-svelte";
   import { diffDaysISODate } from "$lib/date";
   import {
@@ -417,6 +416,12 @@
         onClick: () => (showStatusModal = true),
         variant: "secondary",
         icon: CheckCircle,
+      },
+      {
+        label: "Excluir",
+        onClick: () => (showDeleteDialog = true),
+        variant: "danger",
+        icon: Trash2,
       },
     ]}
   />
@@ -853,39 +858,9 @@
         </div>
       </Card>
 
-      <!-- Ações -->
-      <Card title="Ações" icon={Luggage} color="clientes">
-        <div class="space-y-3">
-          <Button
-            variant="primary"
-            color="clientes"
-            class_name="w-full justify-center"
-            on:click={() => (showStatusModal = true)}
-          >
-            <CheckCircle size={18} class="mr-2" />
-            Mudar Status
-          </Button>
-
-          <Button
-            variant="secondary"
-            class_name="w-full justify-center"
-            on:click={() =>
-              goto(`/operacao/vouchers/novo?viagem_id=${viagem?.id ?? ""}`)}
-          >
-            <Plus size={18} class="mr-2" />
-            Novo Voucher
-          </Button>
-
-          <Button
-            variant="ghost"
-            class_name="w-full justify-center text-red-600 hover:text-red-700 hover:bg-red-50"
-            on:click={() => (showDeleteDialog = true)}
-          >
-            <Trash2 size={18} class="mr-2" />
-            Excluir Viagem
-          </Button>
-        </div>
-      </Card>
+      <!-- Mudar Status, Novo Voucher e Excluir Viagem ficam concentrados no
+           cabeçalho da página e no card de Vouchers (Adicionar Voucher),
+           em vez de espalhados num card "Ações" à parte aqui embaixo. -->
     </div>
   </div>
 
