@@ -148,17 +148,14 @@ function buildSalesSelect(
     'tipo_pacote'
   ];
 
+  // Observação: `percentual_comissao_loja`, `faixa_comissao`, `valor_comissao_loja`,
+  // `valor_bruto_override`, `valor_liquido_override` e `valor_meta_override` NÃO existem
+  // na tabela `vendas_recibos` (confirmado via information_schema). Mantê-los aqui fazia
+  // essa query falhar com "column does not exist" e cair no fallback, gastando 2
+  // round-trips extras (e a mesma taxa de RLS) em toda chamada de relatório/comissões.
+  // Só os 2 campos abaixo existem de fato.
   const reciboConciliacaoCols = includeConciliacaoFields
-    ? [
-        'percentual_comissao_loja',
-        'faixa_comissao',
-        'valor_comissao_loja',
-        'cancelado_por_conciliacao_em',
-        'cancelado_por_conciliacao_observacao',
-        'valor_bruto_override',
-        'valor_liquido_override',
-        'valor_meta_override'
-      ]
+    ? ['cancelado_por_conciliacao_em', 'cancelado_por_conciliacao_observacao']
     : [];
 
   const reciboProdutoCols = includeAdvancedFields
