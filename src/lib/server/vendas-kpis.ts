@@ -1292,6 +1292,24 @@ export async function fetchVendasKpiReciboContributionsRaw(
       group.vendaRows.find((row) => toStr(row?.id) === vendaKey) ||
       group.vendaRows[0];
     const vendaPrincipalExtra = vendaPrincipal as VendaAggregateRowExtra;
+    // Linhas sinteticas (originadas de conciliacao sem venda vinculada) sempre
+    // carregam a propriedade `linked_venda_id` (mesmo que null) - ver
+    // buildSyntheticVenda em reciboContribuicoesReadModel.ts. Vendas reais do
+    // banco nunca tem essa propriedade. Sem essa distincao, `vendaKey` cai
+    // para o id do proprio registro de conciliacao, que nao existe na tabela
+    // `vendas` e quebra a FK `ranking_recibo_contribuicoes_venda_id_fkey`
+    // ao persistir o read model.
+    const isSyntheticVenda = Object.prototype.hasOwnProperty.call(
+      vendaPrincipalExtra,
+      "linked_venda_id",
+    );
+    const realVendaId = isSyntheticVenda
+      ? isUuid(vendaPrincipalExtra.linked_venda_id)
+        ? toStr(vendaPrincipalExtra.linked_venda_id)
+        : null
+      : isUuid(vendaKey)
+        ? vendaKey
+        : null;
 
     if (
       isStatusCancelado(
@@ -1461,7 +1479,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
         contributions.push({
           companyId: toStr(vendaPrincipalExtra.company_id),
           clienteId: toStr(vendaPrincipalExtra.cliente_id),
-          vendaId: isUuid(vendaKey) ? vendaKey : null,
+          vendaId: realVendaId,
           vendaKey,
           reciboId,
           reciboNumero: toStr(recibo?.numero_recibo),

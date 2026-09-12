@@ -178,7 +178,6 @@ type PersistentContributionRow = {
   company_id: string;
   mes: string;
   data_recibo: string;
-  data_venda: string;
   vendedor_id: string;
   cliente_id?: string | null;
   venda_id?: string | null;
@@ -347,7 +346,6 @@ function contributionToRow(
     company_id: companyId,
     mes,
     data_recibo: contribution.reciboDate || mes,
-    data_venda: contribution.vendaDate || mes,
     vendedor_id: contribution.vendedorId,
     cliente_id: toUuidOrNull(contribution.clienteId),
     venda_id: toUuidOrNull(contribution.vendaId),
@@ -380,7 +378,7 @@ function rowToContribution(
     reciboId: row.recibo_id || "",
     reciboNumero: row.recibo_numero || "",
     reciboDate: String(row.data_recibo || "").slice(0, 10),
-    vendaDate: String(row.data_venda || row.data_recibo || "").slice(0, 10),
+    vendaDate: String(row.data_recibo || "").slice(0, 10),
     vendedorId: row.vendedor_id,
     produtoId: row.produto_id || null,
     produtoNome: row.produto_nome || null,
@@ -753,11 +751,11 @@ async function readPersistentContributions(
       let query = client
         .from(TABLE_CONTRIBUICOES)
         .select(
-          "company_id, mes, data_recibo, data_venda, vendedor_id, cliente_id, venda_id, recibo_id, venda_key, recibo_numero, produto_id, produto_nome, destino_nome, valor_bruto, valor_taxas, valor_seguro, is_seguro, fator, source_bruto, source_taxas",
+          "company_id, mes, data_recibo, vendedor_id, cliente_id, venda_id, recibo_id, venda_key, recibo_numero, produto_id, produto_nome, destino_nome, valor_bruto, valor_taxas, valor_seguro, is_seguro, fator, source_bruto, source_taxas",
         )
-        .gte("data_venda", params.dataInicio)
-        .lte("data_venda", params.dataFim)
-        .order("data_venda", { ascending: true })
+        .gte("data_recibo", params.dataInicio)
+        .lte("data_recibo", params.dataFim)
+        .order("data_recibo", { ascending: true })
         .order("id", { ascending: true })
         .range(from, from + READ_PAGE_SIZE - 1);
 

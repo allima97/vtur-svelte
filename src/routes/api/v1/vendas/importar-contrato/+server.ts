@@ -307,37 +307,48 @@ function pickProdutoNome(contrato: ContratoDraft, fallbackDestino?: string | nul
 }
 
 function resolveTipoProdutoId(contrato: ContratoDraft, tipos: TipoProdutoLookup[]) {
-  const normalized = normalizeText(
-    [
-      contrato.produto_principal,
-      contrato.produto_tipo,
-      contrato.produto_detalhes,
-      contrato.tipo_pacote
-    ]
-      .filter(Boolean)
-      .join(' ')
-  );
-
   const matches = (patterns: string[]) =>
     tipos.find((tipo) => {
       const label = normalizeText(`${tipo.nome || ''} ${tipo.tipo || ''}`);
       return patterns.some((pattern) => label.includes(pattern));
     });
 
-  if (normalized.includes('seguro')) return matches(['seguro'])?.id || null;
-  if (normalized.includes('ingresso')) return matches(['ingresso'])?.id || null;
-  if (normalized.includes('aereo') || normalized.includes('passagem')) {
-    return matches(['aereo', 'passagem'])?.id || null;
-  }
-  if (normalized.includes('locacao') || normalized.includes('locadora') || normalized.includes('carro')) {
-    return matches(['carro', 'locacao', 'locadora'])?.id || null;
-  }
-  if (normalized.includes('traslado') || normalized.includes('transfer') || normalized.includes('transporte') || normalized.includes('passeio')) {
-    return matches(['servico', 'traslado', 'transfer', 'transporte', 'passeio'])?.id || null;
-  }
-  if (normalized.includes('hotel') || normalized.includes('hospedagem')) {
-    return matches(['hotel', 'hospedagem'])?.id || null;
-  }
+  const matchByKeywords = (normalized: string) => {
+    if (!normalized) return null;
+    if (normalized.includes('seguro')) return matches(['seguro'])?.id || null;
+    if (normalized.includes('ingresso')) return matches(['ingresso'])?.id || null;
+    if (normalized.includes('aereo') || normalized.includes('passagem')) {
+      return matches(['aereo', 'passagem'])?.id || null;
+    }
+    if (normalized.includes('locacao') || normalized.includes('locadora') || normalized.includes('carro')) {
+      return matches(['carro', 'locacao', 'locadora'])?.id || null;
+    }
+    if (normalized.includes('traslado') || normalized.includes('transfer') || normalized.includes('transporte') || normalized.includes('passeio')) {
+      return matches(['servico', 'traslado', 'transfer', 'transporte', 'passeio'])?.id || null;
+    }
+    if (normalized.includes('hotel') || normalized.includes('hospedagem')) {
+      return matches(['hotel', 'hospedagem'])?.id || null;
+    }
+    return null;
+  };
+
+  // 1) Confia primeiro no tipo já resolvido pelo parser (produto_tipo/tipo_pacote), que
+  //    reflete o produto PRINCIPAL do contrato. Isso evita que um item incluso/adicional
+  //    citado em produto_detalhes (ex.: "Seguro Viagem" dentro de um pacote de Hotel+Aéreo)
+  //    sobreponha a classificação correta do contrato.
+  const tipoPrincipalNormalizado = normalizeText(
+    [contrato.produto_tipo, contrato.tipo_pacote].filter(Boolean).join(' ')
+  );
+  const porTipoPrincipal = matchByKeywords(tipoPrincipalNormalizado);
+  if (porTipoPrincipal) return porTipoPrincipal;
+
+  // 2) Sem tipo principal definido pelo parser (formatos não mapeados): usa o texto bruto
+  //    (produto_principal/produto_detalhes) como último recurso, igual ao comportamento anterior.
+  const normalizedFallback = normalizeText(
+    [contrato.produto_principal, contrato.produto_detalhes].filter(Boolean).join(' ')
+  );
+  const porFallback = matchByKeywords(normalizedFallback);
+  if (porFallback) return porFallback;
 
   return tipos[0]?.id || null;
 }

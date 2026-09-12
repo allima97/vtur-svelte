@@ -2396,11 +2396,11 @@ function extractProdutoPrincipal(text: string): { nome: string | null; tipo: str
     return cleanServiceProductLine(lines[0] || "");
   })();
 
-  const hasSeguro = normalizedLines.some((line) => SEGURO_PRODUTO_KEYWORDS.some((k) => line.includes(k)));
-  if (hasSeguro) {
-    const seguroNome = firstServicoLine || lines.find((line) => normalizeText(line).includes("seguro")) || "Seguro Viagem";
-    return { nome: seguroNome, tipo: "Seguro viagem", detalhes };
-  }
+  // OBS: a checagem de seguro roda por último (ver abaixo, antes do fallback genérico).
+  // A maioria dos pacotes CVC inclui "Seguro Viagem" como item obrigatório dentro de
+  // SERVIÇOS INCLUSOS junto com hotel/aéreo/etc.; se checássemos seguro primeiro aqui,
+  // qualquer pacote com seguro incluso seria classificado inteiro como "Seguro viagem",
+  // mascarando o produto principal real (Hotel, Hotel + Aéreo, Pacote...).
 
   const ingressoLineIdx = normalizedLines.findIndex((line) => line.includes("ingresso"));
   if (ingressoLineIdx >= 0) {
@@ -2466,6 +2466,16 @@ function extractProdutoPrincipal(text: string): { nome: string | null; tipo: str
 
   if (hotelName) {
     return { nome: hotelName, tipo: hotelTipo, detalhes };
+  }
+
+  // Nenhum produto mais específico (hotel, aéreo, carro, ingresso, traslado/passeio) foi
+  // identificado: só então tratamos o contrato como seguro-viagem "puro", caso alguma linha
+  // cite um dos planos de seguro CVC. Isso evita que pacotes com seguro incluso sejam
+  // classificados como Seguro Viagem em vez do produto principal real.
+  const hasSeguro = normalizedLines.some((line) => SEGURO_PRODUTO_KEYWORDS.some((k) => line.includes(k)));
+  if (hasSeguro) {
+    const seguroNome = firstServicoLine || lines.find((line) => normalizeText(line).includes("seguro")) || "Seguro Viagem";
+    return { nome: seguroNome, tipo: "Seguro viagem", detalhes };
   }
 
   const firstLine = lines.find((line) => {
