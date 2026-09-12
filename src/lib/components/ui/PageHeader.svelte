@@ -17,6 +17,7 @@
     href?: string;
     variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
     icon?: IconComponent;
+    loading?: boolean;
   }
 
   export let title: string;
@@ -94,7 +95,7 @@
                 {action.label}
               </Button>
             {:else}
-              <Button on:click={(e) => action.onClick?.(e)} variant={action.variant || 'primary'} size="sm" class_name="min-h-[40px] sm:min-h-0">
+              <Button on:click={(e) => action.onClick?.(e)} variant={action.variant || 'primary'} size="sm" loading={action.loading || false} class_name="min-h-[40px] sm:min-h-0">
                 {#if action.icon}
                   <svelte:component this={action.icon} size={16} class="mr-1.5" />
                 {/if}

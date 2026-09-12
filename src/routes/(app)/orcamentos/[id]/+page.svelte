@@ -536,6 +536,12 @@
         href: "/orcamentos",
         variant: "secondary",
       },
+      {
+        label: "Excluir",
+        onClick: handleExcluir,
+        variant: "danger",
+        icon: Trash2,
+      },
     ]}
   />
 
@@ -1115,36 +1121,18 @@
               </select>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <Button
-                variant="primary"
-                on:click={() => goto(`/orcamentos/${orcamentoId}/editar`)}
-                class_name="w-full justify-center"
-              >
-                <Edit size={16} class="mr-2" />
-                Editar
-              </Button>
-
-              <Button
-                variant="secondary"
-                on:click={handleImprimir}
-                loading={previewingPdf}
-                class_name="w-full justify-center"
-              >
-                <Printer size={16} class="mr-2" />
-                {previewingPdf ? "Gerando..." : "Visualizar PDF"}
-              </Button>
-            </div>
+            <Button
+              variant="secondary"
+              on:click={handleImprimir}
+              loading={previewingPdf}
+              class_name="w-full justify-center"
+            >
+              <Printer size={16} class="mr-2" />
+              {previewingPdf ? "Gerando..." : "Visualizar PDF"}
+            </Button>
           </div>
-
-          <Button
-            variant="ghost"
-            class_name="w-full justify-center text-red-600 hover:text-red-700 hover:bg-red-50"
-            on:click={handleExcluir}
-          >
-            <Trash2 size={16} class="mr-2" />
-            Excluir Orçamento
-          </Button>
+          <!-- Editar e Excluir ficam no cabeçalho da página, junto com Voltar,
+               em vez de duplicados aqui embaixo. -->
         </div>
       </Card>
 

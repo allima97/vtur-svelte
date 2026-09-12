@@ -411,6 +411,10 @@
             <Edit size={18} class="mr-2" />
             Editar
           </Button>
+          <Button variant="danger" on:click={() => (showDeleteDialog = true)}>
+            <Trash2 size={18} class="mr-2" />
+            Excluir
+          </Button>
         </div>
       </div>
     </div>
@@ -849,43 +853,8 @@
 
       <!-- Coluna Lateral: Ações -->
       <div class="space-y-6">
-        <!-- Ações Rápidas -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 class="font-semibold text-slate-900 mb-4">Ações</h3>
-
-          <div class="space-y-3">
-            <Button
-              variant="primary"
-              class_name="w-full justify-center"
-              loading={loadingEditorModal}
-              on:click={openEditor}
-            >
-              <Edit size={18} class="mr-2" />
-              Editar Voucher
-            </Button>
-
-            <Button
-              variant="secondary"
-              class_name="w-full justify-center"
-              loading={loadingPreviewModal}
-              on:click={openPreview}
-            >
-              <FileText size={18} class="mr-2" />
-              Visualizar PDF
-            </Button>
-
-            <hr class="border-slate-200" />
-
-            <Button
-              variant="danger"
-              class_name="w-full justify-center"
-              on:click={() => (showDeleteDialog = true)}
-            >
-              <Trash2 size={18} class="mr-2" />
-              Excluir Voucher
-            </Button>
-          </div>
-        </div>
+        <!-- Editar/Visualizar/Excluir já ficam concentrados no topo da
+             página, ao lado do nome do voucher, em vez de duplicados aqui. -->
 
         <!-- Resumo -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">

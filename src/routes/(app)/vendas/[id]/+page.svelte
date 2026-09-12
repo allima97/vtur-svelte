@@ -790,7 +790,20 @@
         href: '/vendas',
         variant: 'secondary' as const,
         icon: ArrowLeft
-      }
+      },
+      ...(venda.status !== 'cancelada' && canCancel ? [{
+        label: 'Cancelar Venda',
+        onClick: handleCancelar,
+        variant: 'danger' as const,
+        icon: XCircle,
+        loading: processando
+      }] : []),
+      ...(canDelete ? [{
+        label: 'Excluir',
+        onClick: handleExcluir,
+        variant: 'danger' as const,
+        icon: Trash2
+      }] : [])
     ]}
   />
 
@@ -1146,28 +1159,8 @@
     </div>
 
     <div class="space-y-6">
-      {#if (venda.status !== 'cancelada' && canCancel) || canDelete}
-      <Card header="Ações" color="vendas">
-        <!-- Editar/Voltar já ficam no cabeçalho da página; aqui só as ações
-             que não têm equivalente lá em cima (cancelar/excluir venda). -->
-        <div class="space-y-3">
-          {#if venda.status !== 'cancelada' && canCancel}
-            <Button variant="danger" on:click={handleCancelar} loading={processando} class_name="w-full justify-center">
-              <XCircle size={16} class="mr-2" />
-              Cancelar Venda
-            </Button>
-          {/if}
-
-          {#if canDelete}
-          <Button variant="danger" class_name="w-full justify-center" on:click={handleExcluir}>
-            <Trash2 size={16} class="mr-2" />
-            Excluir Venda
-          </Button>
-          {/if}
-        </div>
-      </Card>
-      {/if}
-
+      <!-- Cancelar/Excluir venda agora ficam no cabeçalho da página, ao lado
+           de Editar/Mesclar/Voltar, em vez de num card isolado aqui embaixo. -->
       <Card header="Resumo Financeiro" color="vendas">
         <div class="space-y-4">
           <div class="flex justify-between items-center py-2 border-b border-slate-100">
