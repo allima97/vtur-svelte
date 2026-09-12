@@ -310,7 +310,7 @@
 />
 
 <!-- Resumo -->
-<div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-5">
+<div class="mb-6 vtur-kpi-grid vtur-kpi-grid-5">
   <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <Ticket size={20} />
