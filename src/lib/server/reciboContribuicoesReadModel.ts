@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "$lib/vendas/rateio";
 import { getAdminClient, logServerError } from "$lib/server/v1";
-import { buildReadModelCacheKey } from "$lib/server/readModelCache";
+import { buildReadModelCacheKey, registerSalesReadModelDirtyMarker } from "$lib/server/readModelCache";
 import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 import type {
@@ -635,6 +635,54 @@ async function upsertStatus(
   );
   if (error) throw error;
 }
+
+function currentMonthKeyLocal() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function previousMonthKeyLocal() {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+async function markMonthsDirty(companyIds: string[], monthKeys: string[]) {
+  const ids = normalizeIds(companyIds);
+  const keys = uniqueCleanStrings(monthKeys);
+  if (ids.length === 0 || keys.length === 0) return;
+  const client = getAdminClient();
+  await Promise.all(
+    ids.flatMap((companyId) =>
+      keys.map((monthKey) =>
+        upsertStatus(client, companyId, monthStartFromKey(monthKey), {
+          status: "dirty",
+          dirty_at: new Date().toISOString(),
+        }).catch((err) => {
+          logServerError(
+            "[reciboContribuicoesReadModel] falha ao marcar read model v4 como dirty",
+            err,
+          );
+        }),
+      ),
+    ),
+  );
+}
+
+// Liga invalidateSalesReadModels() (readModelCache.ts) a este modulo: como
+// nao existe trigger de banco que marque o modelo v4 como dirty (so existe
+// para o v1, usado pelo cron -- ver readModelRebuild.ts), toda invalidacao
+// de vendas com escopo de empresa tambem marca o mes atual e o anterior
+// como dirty aqui. O proximo dashboard/summary para essa empresa ja chama
+// scheduleReciboContribuicoesReadModelEnsure() (ver fetchVendasKpiDashboardSummary
+// em vendas-kpis.ts), que detecta o status dirty e reconstroi o read model
+// em vez de continuar servindo os dados persistidos desatualizados.
+registerSalesReadModelDirtyMarker((scope) => {
+  const companyIds = normalizeIds(scope?.companyIds);
+  if (companyIds.length === 0) return;
+  const monthKeys = [currentMonthKeyLocal(), previousMonthKeyLocal()];
+  void markMonthsDirty(companyIds, monthKeys);
+});
 
 async function rebuildMonth(
   client: SupabaseClient,

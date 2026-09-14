@@ -68,6 +68,28 @@ export function registerSalesInvalidationPublisher(fn: SalesInvalidationPublishe
   salesInvalidationPublisher = fn;
 }
 
+type SalesReadModelDirtyMarker = (scope?: { companyIds?: string[] | null }) => void;
+let salesReadModelDirtyMarker: SalesReadModelDirtyMarker | null = null;
+
+/**
+ * Registra o marcador de "dirty" do read model v4 persistido no Postgres
+ * (ranking_recibo_contribuicoes / ranking_read_model_status, modelo
+ * recibo_contribuicoes_v4 -- ver reciboContribuicoesReadModel.ts).
+ *
+ * Diferente do cache em memoria/KV (acima), esse read model so fica
+ * desatualizado enquanto ninguem marcar seu status como dirty -- e
+ * NAO EXISTE trigger de banco que faca isso para o modelo v4 (so existe
+ * para o v1, usado pelo cron, que grava numa tabela de status separada).
+ * Por isso toda invalidacao de vendas tambem marca o v4 como dirty aqui,
+ * o que faz o proximo carregamento do dashboard (via
+ * scheduleReciboContribuicoesReadModelEnsure, ja chamado em todo request
+ * de resumo do dashboard) reconstruir o read model em vez de continuar
+ * servindo os dados persistidos desatualizados indefinidamente.
+ */
+export function registerSalesReadModelDirtyMarker(fn: SalesReadModelDirtyMarker) {
+  salesReadModelDirtyMarker = fn;
+}
+
 export const READ_MODEL_TAGS = {
   sales: "data:sales",
   clients: "data:clients",
@@ -407,6 +429,11 @@ export function invalidateSalesReadModels(params?: {
   // isso, so a instancia que processou a mutacao teria seu cache local
   // limpo (ver registerSalesInvalidationPublisher acima).
   salesInvalidationPublisher?.(params ? { companyIds: params.companyIds } : undefined);
+  // Marca o read model persistido (Postgres) como dirty -- sem isso o
+  // dashboard pode continuar servindo dados persistidos desatualizados
+  // mesmo com os caches em memoria/KV corretamente invalidados (ver
+  // registerSalesReadModelDirtyMarker acima).
+  salesReadModelDirtyMarker?.(params ? { companyIds: params.companyIds } : undefined);
 }
 
 export function invalidateQuoteReadModels(params?: {

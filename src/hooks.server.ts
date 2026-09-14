@@ -22,6 +22,10 @@ import { resolveDashboardPathByUserType } from '$lib/server/dashboardRedirect';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
 import { initKvNamespace, checkKvEpochAsync } from '$lib/server/kvInvalidation';
+// Import so por efeito colateral -- garante que o registro de registerSalesReadModelDirtyMarker (ver reciboContribuicoesReadModel.ts)
+// rode na inicializacao fria desta instancia do Worker, mesmo que a primeira rota atendida nao seja o dashboard nem uma rota de vendas
+// (rotas +server.ts sao carregadas sob demanda; hooks.server.ts e sempre carregado antes de qualquer request).
+import '$lib/server/reciboContribuicoesReadModel';
 import { toUserMessage } from '$lib/utils/errors';
 
 const permLevel = (p?: string | null): number => {
