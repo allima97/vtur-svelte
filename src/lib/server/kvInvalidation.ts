@@ -25,7 +25,7 @@
  *   id = "60fa423718914712bec4f489d41c3dd6"
  */
 
-import { getCachedReadModel, invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
+import { getCachedReadModel, invalidateReadModelCache, READ_MODEL_TAGS, registerSalesInvalidationPublisher } from '$lib/server/readModelCache';
 import { logServerError } from '$lib/server/v1';
 
 const KV_EPOCH_KEY = 'invalidation:sales:epoch';
@@ -179,6 +179,13 @@ export function publishKvInvalidationAsync(scope?: {
     logServerError('[kvInvalidation] falha ao publicar epoch no KV', err);
   });
 }
+
+// Liga invalidateSalesReadModels() (readModelCache.ts) a publishKvInvalidationAsync
+// acima: garante que TODA invalidacao de vendas -- em qualquer endpoint,
+// presente ou futuro -- tambem propague o epoch via KV para as demais
+// instancias do Worker, sem depender de cada endpoint lembrar de chamar
+// publishKvInvalidationAsync() separadamente.
+registerSalesInvalidationPublisher(publishKvInvalidationAsync);
 
 
 // ---------------------------------------------------------------------------

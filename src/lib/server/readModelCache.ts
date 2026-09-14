@@ -49,6 +49,25 @@ const cache = new Map<string, CacheEntry<unknown>>();
 const inflight = new Map<string, Promise<unknown>>();
 let invalidationEpoch = 0;
 
+type SalesInvalidationPublisher = (scope?: { companyIds?: string[] | null }) => void;
+let salesInvalidationPublisher: SalesInvalidationPublisher | null = null;
+
+/**
+ * Registra o publisher de invalidacao cross-instance (KV) para vendas.
+ * kvInvalidation.ts chama isto na carga do modulo (ele ja importa deste
+ * arquivo, entao a ligacao e feita nesse sentido para evitar import
+ * circular). Com isso, TODA chamada a invalidateSalesReadModels() -- em
+ * qualquer endpoint, presente ou futuro -- tambem publica o epoch no KV
+ * automaticamente, sem depender de cada endpoint lembrar de chamar
+ * publishKvInvalidationAsync() separadamente. Essa era a causa do dashboard
+ * nao refletir vendas atualizadas: varias rotas so limpavam o cache em
+ * memoria da propria instancia do Worker, deixando as demais instancias
+ * servindo dados stale ate o TTL (ate TRANSACTIONAL_STALE_TTL_MS).
+ */
+export function registerSalesInvalidationPublisher(fn: SalesInvalidationPublisher) {
+  salesInvalidationPublisher = fn;
+}
+
 export const READ_MODEL_TAGS = {
   sales: "data:sales",
   clients: "data:clients",
@@ -384,6 +403,10 @@ export function invalidateSalesReadModels(params?: {
     ],
     scopeTags: scopedTags,
   });
+  // Propaga a invalidacao para as demais instancias do Worker via KV -- sem
+  // isso, so a instancia que processou a mutacao teria seu cache local
+  // limpo (ver registerSalesInvalidationPublisher acima).
+  salesInvalidationPublisher?.(params ? { companyIds: params.companyIds } : undefined);
 }
 
 export function invalidateQuoteReadModels(params?: {
