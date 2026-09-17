@@ -767,12 +767,28 @@ export async function POST(event) {
     const dataFimVenda = datasFim.length ? datasFim.sort().slice(-1)[0] : principal.data_retorno || null;
 
     const totalBruto = contratos.reduce((sum, c) => sum + parseMoney(c.total_bruto), 0);
-    const totalPago = contratos.reduce((sum, c) => sum + parseMoney(c.total_pago), 0);
+    // Soma o total pago por CONTRATO (não da venda como um todo), com fallback individual
+    // para o total_bruto do próprio contrato quando a quebra de forma de pagamento não foi
+    // reconhecida (total_pago/pagamentos vazios). Isso evita que uma falha de extração
+    // PARCIAL (ex.: 1 de 6 contratos com a seção "5. VALOR E FORMA DE PAGAMENTO" quebrada)
+    // fique mascarada: se o cálculo fosse feito só no agregado da venda, bastaria 1 contrato
+    // extrair corretamente para o agregado ficar "> 0" e nunca cair no fallback, mesmo com os
+    // demais contratos silenciosamente sem pagamento algum (caso real: venda com 6 contratos
+    // onde só 1 teve total_pago extraído, e os outros 5 - somando R$12.062,29 - sumiram do
+    // "Total Pago" da venda).
+    const totalPago = contratos.reduce((sum, c) => {
+      const totalPagoContrato = parseMoney(c.total_pago);
+      if (totalPagoContrato > 0) return sum + totalPagoContrato;
+      const pagamentosContrato = c.pagamentos || [];
+      const totalPorPagamentos = pagamentosContrato.length ? calcularTotalPagamentos(pagamentosContrato) : 0;
+      if (totalPorPagamentos > 0) return sum + totalPorPagamentos;
+      return sum + parseMoney(c.total_bruto);
+    }, 0);
     const totalTaxas = contratos.reduce((sum, c) => sum + parseMoney(c.taxas_embarque), 0);
     const totalRecibos = contratos.reduce((sum, c) => sum + getContratoValorTotalRecibo(c, tipoImportacao), 0);
     const descontoComercial = contratos.reduce((sum, c) => sum + parseMoney((c as ContratoImportRow).desconto_comercial), 0);
     const pagamentosDedup = dedupePagamentos(contratos.flatMap((c) => c.pagamentos || []));
-    const totalPagoFallback = pagamentosDedup.length ? calcularTotalPagamentos(pagamentosDedup) : 0;
+    const totalPagoFallback = pagamentosDedup.length ? calcularTotalPagamentos(pagamentosDedup) : totalBruto;
     const totalPagoFinal = totalPago > 0 ? totalPago : totalPagoFallback;
 
     const cidadeIds = Array.from(
@@ -896,6 +912,22 @@ export async function POST(event) {
 
       if (contrato.pagamentos?.length) {
         allPagamentos.push(...contrato.pagamentos);
+      } else {
+        // Este contrato não teve a quebra de "Forma de Pagamento" reconhecida (ex.: seção
+        // "5. VALOR E FORMA DE PAGAMENTO" com formatação fora do padrão no PDF), mas ainda
+        // assim tem um valor bruto/pago conhecido. Sem isso, o valor deste contrato some
+        // silenciosamente do "Total Pago" da venda e da tela de pagamentos, mesmo com o
+        // recibo e o valor bruto corretos (ver fix-importacao-cvc-seguro-viagem.md).
+        // Registra um pagamento genérico, sinalizado para revisão manual, em vez de perder
+        // o valor por completo.
+        const valorFallback = parseMoney(contrato.total_pago) || parseMoney(contrato.total_bruto);
+        if (valorFallback > 0) {
+          allPagamentos.push({
+            forma: 'Não identificado (revisar contrato)',
+            valor_bruto: valorFallback,
+            total: valorFallback
+          });
+        }
       }
 
       const statusViagem = calcularStatusPeriodo(contrato.data_saida || null, contrato.data_retorno || null);
