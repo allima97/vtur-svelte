@@ -306,6 +306,17 @@ function pickProdutoNome(contrato: ContratoDraft, fallbackDestino?: string | nul
   return String(candidates.find((value) => String(value || '').trim()) || 'Produto').trim();
 }
 
+// Nomes de lugares que contêm a palavra "seguro" e NÃO indicam Seguro Viagem.
+// Sem isso, hotel/traslado em Porto Seguro era classificado como Seguro Viagem
+// (ver fix-porto-seguro-classificado-como-seguro-viagem.md).
+const SEGURO_FALSOS_POSITIVOS = [/\bporto\s*-?\s*seguro\b/g];
+
+function mencionaSeguroViagem(normalized: string) {
+  let texto = normalized;
+  for (const pattern of SEGURO_FALSOS_POSITIVOS) texto = texto.replace(pattern, ' ');
+  return /\bseguro\b/.test(texto) || /\bassist(card|ance|encia)?\b/.test(texto);
+}
+
 function resolveTipoProdutoId(contrato: ContratoDraft, tipos: TipoProdutoLookup[]) {
   const matches = (patterns: string[]) =>
     tipos.find((tipo) => {
@@ -315,7 +326,7 @@ function resolveTipoProdutoId(contrato: ContratoDraft, tipos: TipoProdutoLookup[
 
   const matchByKeywords = (normalized: string) => {
     if (!normalized) return null;
-    if (normalized.includes('seguro')) return matches(['seguro'])?.id || null;
+    if (mencionaSeguroViagem(normalized)) return matches(['seguro'])?.id || null;
     if (normalized.includes('ingresso')) return matches(['ingresso'])?.id || null;
     if (normalized.includes('aereo') || normalized.includes('passagem')) {
       return matches(['aereo', 'passagem'])?.id || null;
