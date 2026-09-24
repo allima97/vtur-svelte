@@ -100,7 +100,16 @@ export async function GET(event: RequestEvent) {
     const cronSecret = String(privateEnv.CRON_SECRET || '').trim();
     const providedSecret = String(event.request.headers.get(CRON_SECRET_HEADER) || '').trim();
 
-    if (cronSecret && providedSecret !== cronSecret) {
+    // Sem CRON_SECRET configurado o endpoint ficava aberto para qualquer um
+    // disparar rebuild de todas as empresas. Agora exige o secret sempre.
+    if (!cronSecret) {
+      logServerError(
+        '[read-model/rebuild] CRON_SECRET não configurado no Worker — cron recusado',
+        new Error('CRON_SECRET ausente'),
+      );
+      return json({ error: 'Cron não configurado.' }, { status: 503, headers: NO_STORE_HEADERS });
+    }
+    if (providedSecret !== cronSecret) {
       return json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS });
     }
 

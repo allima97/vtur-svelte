@@ -5,7 +5,9 @@
  *
  * O banco de dados mantém a tabela ranking_read_model_status com os campos:
  *   status: 'dirty' | 'rebuilding' | 'ready' | 'error'
- *   dirty_at: quando foi marcado dirty (via trigger após INSERT/UPDATE/DELETE em vendas)
+ *   dirty_at: quando foi marcado dirty (via trigger no banco — vendas, vendas_recibos,
+ *             vendas_recibos_rateio, conciliacao_recibos, vendas_recibos_complementares —
+ *             e também pela aplicação em invalidateSalesReadModels)
  *   rebuilt_at: quando foi reconstruído com sucesso
  *
  * Este módulo:
@@ -20,7 +22,16 @@ import { getAdminClient, logServerError } from '$lib/server/v1';
 import { fetchVendasKpiReciboContributionsRaw } from '$lib/server/vendas-kpis';
 import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
-const MODEL_NAME = 'recibo_contribuicoes_v1';
+// Unificado com o dashboard (reciboContribuicoesReadModel.ts): os dois módulos
+// gravam as MESMAS linhas na MESMA tabela ranking_recibo_contribuicoes, a partir
+// da mesma função (fetchVendasKpiReciboContributionsRaw). Antes este módulo usava
+// o status 'recibo_contribuicoes_v1', que o dashboard nunca lê — por isso o cron
+// e o rebuild pós-venda não destravavam o dashboard. Agora ambos usam o v4, que
+// também é marcado dirty por trigger no banco (migration 20260924200100).
+const MODEL_NAME = 'recibo_contribuicoes_v4';
+// Linha em 'rebuilding' há mais que isso é considerada presa (Worker encerrado
+// no meio do rebuild) e volta a ser elegível para o cron.
+const STALE_REBUILDING_MS = 15 * 60 * 1000;
 const TABLE_STATUS = 'ranking_read_model_status';
 const TABLE_CONTRIBUICOES = 'ranking_recibo_contribuicoes';
 const INSERT_CHUNK_SIZE = 500;
@@ -167,7 +178,12 @@ async function fetchDirtyEntries(
     .from(TABLE_STATUS)
     .select('company_id, mes, status')
     .eq('modelo', MODEL_NAME)
-    .in('status', ['dirty', 'error']);
+    // dirty/error + 'rebuilding' preso (Worker encerrado no meio do rebuild)
+    .or(
+      `status.in.(dirty,error),and(status.eq.rebuilding,updated_at.lt.${new Date(
+        Date.now() - STALE_REBUILDING_MS,
+      ).toISOString()})`,
+    );
 
   if (companyIds.length > 0) query = query.in('company_id', companyIds);
 
@@ -187,6 +203,40 @@ async function fetchDirtyEntries(
     mes: String(row.mes).slice(0, 10),
     monthKey: monthKeyFromDate(String(row.mes).slice(0, 10)),
   }));
+}
+
+/**
+ * Marca o mês como 'ready' SOMENTE se ele ainda estiver em 'rebuilding'.
+ *
+ * Se durante o rebuild chegou uma escrita nova (trigger do banco ou
+ * invalidateSalesReadModels marcaram 'dirty'), o status não é sobrescrito —
+ * senão essa escrita seria perdida e o dashboard ficaria desatualizado até a
+ * próxima alteração. Nesse caso o mês continua 'dirty' e é reconstruído de novo
+ * no próximo acesso/cron.
+ */
+export async function finishRebuildIfUnchanged(
+  client: SupabaseClient,
+  modelo: string,
+  companyId: string,
+  mes: string,
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const { data, error } = await client
+    .from(TABLE_STATUS)
+    .update({
+      status: 'ready',
+      dirty_at: null,
+      rebuilt_at: now,
+      last_error: null,
+      updated_at: now,
+    })
+    .eq('modelo', modelo)
+    .eq('company_id', companyId)
+    .eq('mes', mes)
+    .eq('status', 'rebuilding')
+    .select('id');
+  if (error) throw error;
+  return Array.isArray(data) && data.length > 0;
 }
 
 async function upsertStatus(
@@ -292,12 +342,7 @@ async function rebuildOneMonth(
       if (upsertError) throw upsertError;
     }
 
-    await upsertStatus(client, companyId, mes, {
-      status: 'ready',
-      dirty_at: null,
-      rebuilt_at: new Date().toISOString(),
-      last_error: null,
-    });
+    await finishRebuildIfUnchanged(client, MODEL_NAME, companyId, mes);
 
     return { rebuilt: true, rows: rows.length };
   } catch (err) {

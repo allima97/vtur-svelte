@@ -802,7 +802,8 @@ export async function markRankingReadModelDirty(params: {
   const mes = `${dataVendaIso.slice(0, 7)}-01`;
   try {
     const statusPayload = {
-      modelo: "recibo_contribuicoes_v1",
+      // v4 = modelo que o dashboard le (ver reciboContribuicoesReadModel.ts)
+      modelo: "recibo_contribuicoes_v4",
       company_id: companyId,
       mes,
       status: "dirty",

@@ -1484,7 +1484,9 @@ export async function fetchVendasKpiReciboContributionsRaw(
           reciboId,
           reciboNumero: toStr(recibo?.numero_recibo),
           reciboDate: toDateKey(recibo?.data_venda) || vendaDate,
-          vendaDate: vendaDate || mes,
+          // `mes` nao existe neste escopo: quando a venda nao tinha data_venda
+          // isso lancava ReferenceError e derrubava o rebuild do mes inteiro.
+          vendaDate: vendaDate || toDateKey(recibo?.data_venda) || "",
           vendedorId: allocation.vendedorId,
           produtoId,
           produtoNome,

@@ -669,11 +669,12 @@ async function markMonthsDirty(companyIds: string[], monthKeys: string[]) {
   );
 }
 
-// Liga invalidateSalesReadModels() (readModelCache.ts) a este modulo: como
-// nao existe trigger de banco que marque o modelo v4 como dirty (so existe
-// para o v1, usado pelo cron -- ver readModelRebuild.ts), toda invalidacao
-// de vendas com escopo de empresa tambem marca o mes atual e o anterior
-// como dirty aqui. O proximo dashboard/summary para essa empresa ja chama
+// Liga invalidateSalesReadModels() (readModelCache.ts) a este modulo: toda
+// invalidacao de vendas com escopo de empresa tambem marca o mes atual e o
+// anterior como dirty aqui. Desde a migration 20260924200100 o banco tambem
+// marca o v4 como dirty por trigger (vendas, recibos, rateio, conciliacao),
+// entao esta marcacao pela aplicacao fica como reforco, nao como unica fonte.
+// O proximo dashboard/summary para essa empresa ja chama
 // scheduleReciboContribuicoesReadModelEnsure() (ver fetchVendasKpiDashboardSummary
 // em vendas-kpis.ts), que detecta o status dirty e reconstroi o read model
 // em vez de continuar servindo os dados persistidos desatualizados.
@@ -731,12 +732,24 @@ async function rebuildMonth(
       if (error) throw error;
     }
 
-    await upsertStatus(client, companyId, mes, {
-      status: "ready",
-      dirty_at: null,
-      rebuilt_at: new Date().toISOString(),
-      last_error: null,
-    });
+    // So marca 'ready' se ninguem marcou 'dirty' durante o rebuild (trigger do
+    // banco ou invalidateSalesReadModels). Caso contrario o mes continua
+    // 'dirty' e e reconstruido de novo no proximo acesso -- sem perder a escrita.
+    const nowIso = new Date().toISOString();
+    const { error: finishError } = await client
+      .from(TABLE_STATUS)
+      .update({
+        status: "ready",
+        dirty_at: null,
+        rebuilt_at: nowIso,
+        last_error: null,
+        updated_at: nowIso,
+      })
+      .eq("modelo", MODEL_NAME)
+      .eq("company_id", companyId)
+      .eq("mes", mes)
+      .eq("status", "rebuilding");
+    if (finishError) throw finishError;
   } catch (error) {
     const details = errorDetails(error);
     await upsertStatus(client, companyId, mes, {
