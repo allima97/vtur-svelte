@@ -676,12 +676,20 @@ export async function DELETE(event) {
       scope,
       event.url.searchParams.get("vendedor_id"),
     );
-    const saleScopeData = await fetchSaleForScope({ client, scope, saleId: id, companyIds, vendedorIds });
+    const saleScopeData = await fetchSaleForScope({
+      client,
+      scope,
+      saleId: id,
+      companyIds,
+      vendedorIds,
+      // campos extras so para o registro de auditoria (exclusao e definitiva)
+      extraSelect: "numero_venda, cliente_id, data_venda, valor_total_bruto",
+    });
     if (!saleScopeData?.id) throw error(404, "Venda não encontrada.");
 
     const { data: recibosData, error: recibosError } = await client
       .from("vendas_recibos")
-      .select("id")
+      .select("id, numero_recibo, valor_total")
       .eq("venda_id", id);
     if (recibosError) throw recibosError;
 
@@ -793,6 +801,30 @@ export async function DELETE(event) {
         ? [saleScopeData.vendedor_id]
         : [],
       userId: user.id,
+    });
+
+    // Auditoria: a exclusao e definitiva, entao guarda um resumo do que existia.
+    const saleSnapshot = saleScopeData as Record<string, unknown>;
+    registrarLog(event, {
+      userId: user.id,
+      modulo: "Vendas",
+      acao: "venda_excluida",
+      detalhes: {
+        id,
+        numero_venda: saleSnapshot.numero_venda ?? null,
+        company_id: saleSnapshot.company_id ?? null,
+        vendedor_id: saleSnapshot.vendedor_id ?? null,
+        cliente_id: saleSnapshot.cliente_id ?? null,
+        data_venda: saleSnapshot.data_venda ?? null,
+        valor_total_bruto: saleSnapshot.valor_total_bruto ?? null,
+        recibos: (recibosData || []).map(
+          (row: { id?: string | null; numero_recibo?: string | null; valor_total?: number | null }) => ({
+            id: row?.id ?? null,
+            numero_recibo: row?.numero_recibo ?? null,
+            valor_total: row?.valor_total ?? null,
+          }),
+        ),
+      },
     });
 
     return json({ ok: true, deleted: true }, { headers: NO_STORE_HEADERS });

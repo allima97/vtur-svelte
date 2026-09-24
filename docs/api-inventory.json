@@ -1,6 +1,6 @@
 {
   "generatedBy": "scripts/api-inventory.mjs",
-  "count": 257,
+  "count": 260,
   "endpoints": [
     {
       "route": "/api/auth/convite/activate",
@@ -1094,6 +1094,37 @@
       "lines": 60
     },
     {
+      "route": "/api/v1/admin/tipos-usuario/[id]/permissoes",
+      "file": "src/routes/api/v1/admin/tipos-usuario/[id]/permissoes/+server.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guards": {
+        "requireAuthenticatedUser": true,
+        "resolveUserScope": true,
+        "roles": [],
+        "rejectCrossOrigin": true,
+        "bodyLimit": true,
+        "cronSecret": false,
+        "turnstile": false,
+        "adminClient": true,
+        "debugOnly": false
+      },
+      "tables": {},
+      "rpcs": [],
+      "invalidations": [],
+      "imports": [
+        "$lib/admin/modules",
+        "$lib/server/admin",
+        "$lib/server/httpCache",
+        "$lib/server/requestGuards",
+        "$lib/server/v1"
+      ],
+      "mutates": false,
+      "lines": 93
+    },
+    {
       "route": "/api/v1/admin/usuarios",
       "file": "src/routes/api/v1/admin/usuarios/+server.ts",
       "methods": [
@@ -1777,6 +1808,44 @@
       ],
       "mutates": false,
       "lines": 103
+    },
+    {
+      "route": "/api/v1/clientes/[id]/acompanhantes/[acompanhanteId]",
+      "file": "src/routes/api/v1/clientes/[id]/acompanhantes/[acompanhanteId]/+server.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "guards": {
+        "requireAuthenticatedUser": true,
+        "resolveUserScope": true,
+        "roles": [],
+        "rejectCrossOrigin": true,
+        "bodyLimit": true,
+        "cronSecret": false,
+        "turnstile": false,
+        "adminClient": true,
+        "debugOnly": false
+      },
+      "tables": {
+        "cliente_acompanhantes": [
+          "delete",
+          "update"
+        ]
+      },
+      "rpcs": [],
+      "invalidations": [
+        "invalidateClientReadModels"
+      ],
+      "imports": [
+        "$lib/server/clientes",
+        "$lib/server/httpCache",
+        "$lib/server/readModelCache",
+        "$lib/server/requestGuards",
+        "$lib/server/v1"
+      ],
+      "mutates": true,
+      "lines": 111
     },
     {
       "route": "/api/v1/clientes/avisos/history",
@@ -4479,6 +4548,52 @@
       "lines": 344
     },
     {
+      "route": "/api/v1/financeiro/comissoes/regras/[id]",
+      "file": "src/routes/api/v1/financeiro/comissoes/regras/[id]/+server.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PUT"
+      ],
+      "guards": {
+        "requireAuthenticatedUser": true,
+        "resolveUserScope": true,
+        "roles": [
+          "isAdmin"
+        ],
+        "rejectCrossOrigin": true,
+        "bodyLimit": true,
+        "cronSecret": false,
+        "turnstile": false,
+        "adminClient": true,
+        "debugOnly": false
+      },
+      "tables": {
+        "commission_rule": [
+          "select",
+          "update"
+        ],
+        "commission_tier": [
+          "delete",
+          "insert"
+        ]
+      },
+      "rpcs": [],
+      "invalidations": [
+        "invalidateCommissionReadModels",
+        "invalidateCommissionRuleReadModels"
+      ],
+      "imports": [
+        "$lib/server/httpCache",
+        "$lib/server/readModelCache",
+        "$lib/server/requestGuards",
+        "$lib/server/v1",
+        "$lib/utils/array"
+      ],
+      "mutates": true,
+      "lines": 194
+    },
+    {
       "route": "/api/v1/financeiro/comissoes/vendedores",
       "file": "src/routes/api/v1/financeiro/comissoes/vendedores/+server.ts",
       "methods": [
@@ -7086,7 +7201,7 @@
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 120
+      "lines": 129
     },
     {
       "route": "/api/v1/relatorios/base",
@@ -8544,6 +8659,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -8555,7 +8671,7 @@
         "$lib/utils/errors"
       ],
       "mutates": true,
-      "lines": 794
+      "lines": 803
     },
     {
       "route": "/api/v1/vendas/[id]/ranking-recibos",
@@ -8690,6 +8806,7 @@
         "triggerRebuildAsync"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/kvInvalidation",
         "$lib/server/readModelCache",
@@ -8701,7 +8818,7 @@
         "$lib/utils/errors"
       ],
       "mutates": true,
-      "lines": 278
+      "lines": 287
     },
     {
       "route": "/api/v1/vendas/cancel",
@@ -8735,6 +8852,7 @@
         "triggerRebuildAsync"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/kvInvalidation",
         "$lib/server/readModelCache",
@@ -8745,7 +8863,7 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 96
+      "lines": 99
     },
     {
       "route": "/api/v1/vendas/cidades-busca",
@@ -8860,6 +8978,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -8869,7 +8988,7 @@
         "$lib/utils/errors"
       ],
       "mutates": true,
-      "lines": 244
+      "lines": 253
     },
     {
       "route": "/api/v1/vendas/gestor-equipe",
@@ -9159,6 +9278,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -9168,7 +9288,7 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 399
+      "lines": 410
     },
     {
       "route": "/api/v1/vendas/recibo-complementar-link",
@@ -9204,6 +9324,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -9212,7 +9333,7 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 168
+      "lines": 191
     },
     {
       "route": "/api/v1/vendas/recibo-complementar-remove",
@@ -9245,6 +9366,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -9253,7 +9375,7 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 94
+      "lines": 103
     },
     {
       "route": "/api/v1/vendas/recibo-delete",
@@ -9287,6 +9409,7 @@
         "triggerRebuildAsync"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/kvInvalidation",
         "$lib/server/readModelCache",
@@ -9297,7 +9420,7 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 84
+      "lines": 92
     },
     {
       "route": "/api/v1/vendas/recibo-edit",
@@ -9412,6 +9535,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -9420,7 +9544,7 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 102
+      "lines": 109
     },
     {
       "route": "/api/v1/vendas/status",

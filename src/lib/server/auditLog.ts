@@ -22,6 +22,9 @@ export type AuditAcaoVendas =
   | 'venda_criada'
   | 'venda_atualizada'
   | 'venda_cancelada'
+  // sem precedente no historico do vturapp original; criada em 24/09/2026 so
+  // para auditoria da exclusao definitiva (DELETE /api/v1/vendas/[id])
+  | 'venda_excluida'
   | 'vendas_mescladas'
   | 'recibo_excluido'
   | 'recibo_principal_atualizado'

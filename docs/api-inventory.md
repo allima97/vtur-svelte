@@ -2,7 +2,7 @@
 
 Gerado por `node scripts/api-inventory.mjs` — **não editar à mão**. JSON completo em `docs/api-inventory.json`.
 
-- Endpoints: **257** (126 gravam no banco)
+- Endpoints: **260** (128 gravam no banco)
 - Domínios: 50
 
 ## Pontos de atenção (detectados automaticamente)
@@ -24,7 +24,7 @@ Desde a migration 20260924184114 o read model v4 é marcado dirty por trigger; a
 
 Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope · **CSRF** = rejectCrossOriginRequest · **Body** = limite de tamanho do corpo
 
-### admin (24)
+### admin (25)
 
 | Rota | Métodos | Auth | Escopo | Perfis | CSRF | Body | Tabelas (operações) | RPC | Invalidação |
 |---|---|:-:|:-:|---|:-:|:-:|---|---|---|
@@ -50,6 +50,7 @@ Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope ·
 | `/v1/admin/system-modules` | GET POST | ✔ | ✔ | Admin | ✔ | ✔ | system_module_settings(R/UP) | — | — |
 | `/v1/admin/tipos-usuario` | GET POST | ✔ | ✔ | Admin | ✔ | ✔ | user_type_default_perms(R), user_types(D/U) | — | — |
 | `/v1/admin/tipos-usuario/[id]` | GET | ✔ | ✔ |  |  |  | users(R) | — | — |
+| `/v1/admin/tipos-usuario/[id]/permissoes` | GET POST | ✔ | ✔ |  | ✔ | ✔ | — | — | — |
 | `/v1/admin/usuarios` | GET POST | ✔ | ✔ | Admin Gestor | ✔ | ✔ | user_types(R), users(U/UP) | — | invalidateReadModelCache |
 | `/v1/admin/usuarios/[id]` | GET PATCH | ✔ | ✔ | Admin | ✔ | ✔ | users(U) | — | invalidateReadModelCache |
 
@@ -106,13 +107,14 @@ Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope ·
 |---|---|:-:|:-:|---|:-:|:-:|---|---|---|
 | `/v1/client-error` | POST |  |  |  | ✔ | ✔ | — | — | — |
 
-### clientes (13)
+### clientes (14)
 
 | Rota | Métodos | Auth | Escopo | Perfis | CSRF | Body | Tabelas (operações) | RPC | Invalidação |
 |---|---|:-:|:-:|---|:-:|:-:|---|---|---|
 | `/v1/clientes` | GET | ✔ | ✔ | Admin |  |  | clientes(R) | — | — |
 | `/v1/clientes/[id]` | DELETE GET PATCH | ✔ | ✔ |  | ✔ | ✔ | cliente_acompanhantes(R), clientes(D/R/U), quote(R), vendas(R) | — | invalidateClientReadModels |
 | `/v1/clientes/[id]/acompanhantes` | GET POST | ✔ | ✔ |  | ✔ | ✔ | cliente_acompanhantes(R), clientes(R) | — | invalidateClientReadModels |
+| `/v1/clientes/[id]/acompanhantes/[acompanhanteId]` | DELETE PATCH | ✔ | ✔ |  | ✔ | ✔ | cliente_acompanhantes(D/U) | — | invalidateClientReadModels |
 | `/v1/clientes/avisos/history` | GET | ✔ | ✔ | Admin |  |  | cliente_avisos_historico(R) | — | — |
 | `/v1/clientes/avisos/send` | GET POST | ✔ | ✔ | Admin | ✔ | ✔ | cliente_avisos_historico(C/R), clientes(R) | — | — |
 | `/v1/clientes/avisos/templates` | GET | ✔ | ✔ | Admin |  |  | master_empresas(R), user_message_templates(R) | — | — |
@@ -232,7 +234,7 @@ Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope ·
 |---|---|:-:|:-:|---|:-:|:-:|---|---|---|
 | `/v1/equipe/relacao` | POST | ✔ | ✔ | Admin Gestor Master | ✔ | ✔ | users(R) | set_gestor_vendedor_relacao | — |
 
-### financeiro (10)
+### financeiro (11)
 
 | Rota | Métodos | Auth | Escopo | Perfis | CSRF | Body | Tabelas (operações) | RPC | Invalidação |
 |---|---|:-:|:-:|---|:-:|:-:|---|---|---|
@@ -244,6 +246,7 @@ Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope ·
 | `/v1/financeiro/comissoes/calcular` | GET POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | — | — | — |
 | `/v1/financeiro/comissoes/pagamento` | DELETE POST PUT | ✔ | ✔ | Admin Financeiro | ✔ | ✔ | comissoes(U), vendas_recibos(R) | — | invalidateCommissionReadModels |
 | `/v1/financeiro/comissoes/regras` | DELETE GET POST PUT | ✔ | ✔ | Admin | ✔ | ✔ | commission_rule(C/R/U), commission_tier(D/C) | — | invalidateCommissionReadModels, invalidateCommissionRuleReadModels |
+| `/v1/financeiro/comissoes/regras/[id]` | DELETE GET PUT | ✔ | ✔ | Admin | ✔ | ✔ | commission_rule(R/U), commission_tier(D/C) | — | invalidateCommissionReadModels, invalidateCommissionRuleReadModels |
 | `/v1/financeiro/comissoes/vendedores` | GET POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ |  | — | — | — |
 | `/v1/financeiro/formas-pagamento` | DELETE GET PATCH POST | ✔ | ✔ | Admin | ✔ | ✔ | formas_pagamento(D/C/R/U), vendas_pagamentos(R) | — | invalidateReadModelCache |
 
