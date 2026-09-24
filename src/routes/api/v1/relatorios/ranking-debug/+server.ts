@@ -35,6 +35,7 @@ import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { chunkArray } from '$lib/utils/array';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 const MAX_DEBUG_CONTRIBUICOES = 2000;
@@ -897,6 +898,9 @@ export async function POST(event) {
         .eq('id', id)
         .select('id, documento, ranking_vendedor_id, ranking_assigned_by, ranking_assigned_at');
       if (error) throw error;
+      // Muda o vendedor do ranking: limpa cache em memoria/KV da empresa
+      // (o read model persistido ja e marcado dirty pelo trigger do banco).
+      invalidateSalesReadModels({ companyIds: companyIdRec ? [companyIdRec] : [] });
       return debugJson({ ok: true, updated: data });
 
     } else if (action === 'fix_valor') {
@@ -913,6 +917,7 @@ export async function POST(event) {
         .eq('id', id)
         .select('id, documento, valor_lancamentos, valor_venda_real');
       if (error) throw error;
+      invalidateSalesReadModels({ companyIds: companyIdRec ? [companyIdRec] : [] });
       return debugJson({ ok: true, updated: data });
 
     } else {

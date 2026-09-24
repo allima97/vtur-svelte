@@ -18,6 +18,7 @@ import {
   toNullableString
 } from '$lib/server/vendasSave';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { registrarLog } from '$lib/server/auditLog';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { getPlatformExecutionContext, triggerRebuildAsync } from '$lib/server/readModelRebuild';
@@ -264,6 +265,14 @@ export async function POST(event: RequestEvent) {
     // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
     publishKvInvalidationAsync({
       companyIds: invalidationCompanyIds,
+    });
+
+    // Auditoria (mesmo formato do vturapp original: {id, venda, recibos})
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Vendas',
+      acao: isEdit ? 'venda_atualizada' : 'venda_criada',
+      detalhes: { id: vendaIdFinal, venda, recibos },
     });
 
     return json({ ok: true, venda_id: vendaIdFinal }, { status: isEdit ? 200 : 201, headers: NO_STORE_HEADERS });

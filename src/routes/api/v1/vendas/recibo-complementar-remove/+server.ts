@@ -10,6 +10,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { registrarLog } from '$lib/server/auditLog';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { isSaleInScope } from '$lib/server/salesScope';
@@ -67,7 +68,7 @@ export async function POST(event: RequestEvent) {
     );
     const { data: links, error: linksError } = await client
       .from('vendas_recibos_complementares')
-      .select('id, venda:vendas!venda_id(id, company_id, vendedor_id)')
+      .select('id, venda_id, recibo_id, venda:vendas!venda_id(id, company_id, vendedor_id)')
       .in('id', ids);
     if (linksError) throw linksError;
 
@@ -86,6 +87,14 @@ export async function POST(event: RequestEvent) {
     if (error) throw error;
 
     invalidateSalesReadModels();
+    for (const link of (links || []) as Array<{ venda_id?: string | null; recibo_id?: string | null }>) {
+      registrarLog(event, {
+        userId: user.id,
+        modulo: 'Vendas',
+        acao: 'recibo_complementar_removido',
+        detalhes: { venda_id: link.venda_id ?? null, recibo_id: link.recibo_id ?? null },
+      });
+    }
     return json({ ok: true, removed: allowedIds.length }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao remover recibo complementar.');

@@ -19,6 +19,7 @@ import {
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { registrarLog } from '$lib/server/auditLog';
 import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { fetchSaleForScope, isSaleInScope } from "$lib/server/salesScope";
@@ -624,6 +625,14 @@ export async function PATCH(event) {
       companyIds: targetCompanyId ? [targetCompanyId] : companyIds,
       vendedorIds: [vendedorId],
       userId: user.id,
+    });
+
+    // Auditoria (mesmo formato do vturapp original: {id, venda, recibos})
+    registrarLog(event, {
+      userId: user.id,
+      modulo: "Vendas",
+      acao: "venda_atualizada",
+      detalhes: { id: data.id, venda, recibos },
     });
 
     return json({ ok: true, venda_id: data.id }, { headers: NO_STORE_HEADERS });

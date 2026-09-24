@@ -6,7 +6,7 @@
 -- Aplicar este arquivo em producao e um NO-OP: tudo usa IF NOT EXISTS /
 -- CREATE OR REPLACE com o mesmo corpo que esta no banco em 24/09/2026.
 -- Para registrar sem executar:
---   supabase migration repair --status applied 20260924200000
+--   supabase migration repair --status applied 20260924184000
 -- =============================================================================
 
 create table if not exists public.ranking_read_model_status (

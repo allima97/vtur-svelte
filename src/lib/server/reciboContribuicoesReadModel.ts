@@ -671,7 +671,7 @@ async function markMonthsDirty(companyIds: string[], monthKeys: string[]) {
 
 // Liga invalidateSalesReadModels() (readModelCache.ts) a este modulo: toda
 // invalidacao de vendas com escopo de empresa tambem marca o mes atual e o
-// anterior como dirty aqui. Desde a migration 20260924200100 o banco tambem
+// anterior como dirty aqui. Desde a migration 20260924184114 o banco tambem
 // marca o v4 como dirty por trigger (vendas, recibos, rateio, conciliacao),
 // entao esta marcacao pela aplicacao fica como reforco, nao como unica fonte.
 // O proximo dashboard/summary para essa empresa ja chama

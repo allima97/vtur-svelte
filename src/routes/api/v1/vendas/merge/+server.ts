@@ -10,6 +10,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { registrarLog } from '$lib/server/auditLog';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { isSaleInScope } from '$lib/server/salesScope';
@@ -386,6 +387,16 @@ export async function POST(event) {
     if (updateSaleError) throw updateSaleError;
 
     invalidateSalesReadModels();
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Vendas',
+      acao: 'vendas_mescladas',
+      detalhes: {
+        venda_principal_id: vendaId,
+        vendas_mescladas: mergeIds,
+        pagamentos_duplicados_removidos: duplicateIds.length,
+      },
+    });
     return json({
       ok: true,
       removed_pagamentos: duplicateIds.length,

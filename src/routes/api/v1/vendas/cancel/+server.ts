@@ -10,6 +10,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { registrarLog } from '$lib/server/auditLog';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { getPlatformExecutionContext, triggerRebuildAsync } from '$lib/server/readModelRebuild';
@@ -87,6 +88,8 @@ export async function POST(event) {
 
     // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
     publishKvInvalidationAsync({ companyIds: saleCompanyIds });
+
+    registrarLog(event, { userId: user.id, modulo: 'Vendas', acao: 'venda_cancelada', detalhes: { id: vendaId } });
 
     return json({ ok: true, cancelled: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {

@@ -17,6 +17,7 @@ import {
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { registrarLog } from '$lib/server/auditLog';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { resolveCompanyClienteIds } from "$lib/server/clientes";
@@ -234,6 +235,14 @@ export async function POST(event) {
       companyIds: [targetCompanyId],
       vendedorIds: [vendedorId],
       userId: user.id,
+    });
+
+    // Auditoria (mesmo formato do vturapp original: {id, venda, recibos})
+    registrarLog(event, {
+      userId: user.id,
+      modulo: "Vendas",
+      acao: "venda_criada",
+      detalhes: { id: insertedSale.id, venda, recibos },
     });
 
     return json({ ok: true, venda_id: insertedSale.id }, { headers: NO_STORE_HEADERS });

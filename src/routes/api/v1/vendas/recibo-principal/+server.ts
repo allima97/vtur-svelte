@@ -10,6 +10,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { registrarLog } from '$lib/server/auditLog';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { fetchSaleForScope } from '$lib/server/salesScope';
@@ -86,6 +87,12 @@ export async function POST(event: RequestEvent) {
     }
 
     invalidateSalesReadModels();
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Vendas',
+      acao: 'recibo_principal_atualizado',
+      detalhes: { venda_id: vendaId, recibo_id: reciboId, produto_resolvido_id: produtoResolvidoId },
+    });
     return json(
       {
         ok: true,

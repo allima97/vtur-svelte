@@ -27,7 +27,7 @@ import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 // da mesma função (fetchVendasKpiReciboContributionsRaw). Antes este módulo usava
 // o status 'recibo_contribuicoes_v1', que o dashboard nunca lê — por isso o cron
 // e o rebuild pós-venda não destravavam o dashboard. Agora ambos usam o v4, que
-// também é marcado dirty por trigger no banco (migration 20260924200100).
+// também é marcado dirty por trigger no banco (migration 20260924184114).
 const MODEL_NAME = 'recibo_contribuicoes_v4';
 // Linha em 'rebuilding' há mais que isso é considerada presa (Worker encerrado
 // no meio do rebuild) e volta a ser elegível para o cron.

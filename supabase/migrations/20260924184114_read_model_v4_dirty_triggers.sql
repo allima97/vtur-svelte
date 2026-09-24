@@ -16,6 +16,7 @@
 -- =============================================================================
 
 -- 1) Helper unico: marca (empresa, mes) do v4 como dirty ----------------------
+--    Se ja esta 'dirty' nao reescreve (evita N updates na mesma linha em lote).
 create or replace function public.fn_rm_v4_mark_dirty(p_company_id uuid, p_date date)
 returns void
 language plpgsql
@@ -38,7 +39,6 @@ begin
         dirty_at = now(),
         last_error = null,
         updated_at = now()
-    -- ja dirty: nao reescreve (evita N updates na mesma linha em importacoes em lote)
     where s.status is distinct from 'dirty';
 end;
 $$;

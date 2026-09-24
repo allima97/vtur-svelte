@@ -9,6 +9,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { registrarLog } from '$lib/server/auditLog';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { safeJsonParse } from '$lib/utils/json';
@@ -113,6 +114,14 @@ export async function POST(event: RequestEvent) {
       if (batchError) throw batchError;
 
       invalidateSalesReadModels();
+      for (const link of links) {
+        registrarLog(event, {
+          userId: user.id,
+          modulo: 'Vendas',
+          acao: 'recibo_complementar_vinculado',
+          detalhes: { venda_id: link.venda_id, recibo_id: link.recibo_id },
+        });
+      }
       return json({ ok: true, total: links.length }, { headers: NO_STORE_HEADERS });
     }
 
@@ -160,6 +169,20 @@ export async function POST(event: RequestEvent) {
     }
 
     invalidateSalesReadModels();
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Vendas',
+      acao: 'recibo_complementar_vinculado',
+      detalhes: { venda_id: vendaId, recibo_id: reciboId },
+    });
+    if (!cruzadoJaVinculado && vendaCruzadaId && reciboCruzadoId) {
+      registrarLog(event, {
+        userId: user.id,
+        modulo: 'Vendas',
+        acao: 'recibo_complementar_vinculado',
+        detalhes: { venda_id: vendaCruzadaId, recibo_id: reciboCruzadoId },
+      });
+    }
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao vincular recibo complementar.');
