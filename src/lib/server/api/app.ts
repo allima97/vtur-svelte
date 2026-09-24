@@ -18,6 +18,7 @@ import { handleApiError, handleNotFound, requestContext } from './middleware';
 import type { ApiEnv } from './types';
 import { healthRoutes } from './routes/health';
 import { vendasRoutes } from './routes/vendas';
+import { conciliacaoRoutes } from './routes/conciliacao';
 
 export function createApiApp() {
   const app = new Hono<ApiEnv>().basePath('/api/v1');
@@ -31,6 +32,7 @@ export function createApiApp() {
 
   app.route('/health', healthRoutes);
   app.route('/vendas', vendasRoutes);
+  app.route('/conciliacao', conciliacaoRoutes);
 
   return app;
 }
