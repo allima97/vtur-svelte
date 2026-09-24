@@ -1,7 +1,4 @@
-import { json } from '@sveltejs/kit';
-import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import type { RequestHandler } from './$types';
+// Migrado para Hono: implementação em src/lib/server/api/routes/health.ts
+import { apiHandler } from '$lib/server/api/sveltekit';
 
-export const GET: RequestHandler = async () => {
-  return json({ ok: true, ts: new Date().toISOString() }, { headers: NO_STORE_HEADERS });
-};
+export const GET = apiHandler;

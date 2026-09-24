@@ -37,13 +37,27 @@ function routeFromFile(file) {
 
 const uniqSorted = (arr) => Array.from(new Set(arr)).sort();
 
+// Rota migrada para Hono: o +server.ts só repassa (apiHandler). A análise de
+// tabelas/guardas passa a ler o módulo em src/lib/server/api/routes/<rota>.ts.
+function honoModuleFor(file) {
+  const rel = relative(API_DIR, file).split(sep).join('/').replace(/\/\+server\.(ts|js)$/, '');
+  const base = join(ROOT, 'src', 'lib', 'server', 'api', 'routes', ...rel.replace(/^v1\//, '').split('/'));
+  for (const candidate of [`${base}.ts`, join(base, 'index.ts')]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 function analyze(file) {
-  const src = readFileSync(file, 'utf-8');
+  const routeSrc = readFileSync(file, 'utf-8');
+  const isHono = /\bapiHandler\b/.test(routeSrc);
+  const honoModule = isHono ? honoModuleFor(file) : null;
+  const src = honoModule ? `${routeSrc}\n${readFileSync(honoModule, 'utf-8')}` : routeSrc;
   const methods = uniqSorted(
-    [...src.matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|fallback)\b/g)].map((m) => m[1]),
+    [...routeSrc.matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|fallback)\b/g)].map((m) => m[1]),
   );
   // re-exports: export { GET } from '...'  /  export { GET as POST }
-  for (const m of src.matchAll(/export\s*\{([^}]*)\}/g)) {
+  for (const m of routeSrc.matchAll(/export\s*\{([^}]*)\}/g)) {
     for (const part of m[1].split(',')) {
       const name = part.trim().split(/\s+as\s+/).pop()?.trim();
       if (name && /^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)$/.test(name)) methods.push(name);
@@ -84,6 +98,7 @@ function analyze(file) {
   return {
     route: routeFromFile(file),
     file: relative(ROOT, file).split(sep).join('/'),
+    hono: isHono ? relative(ROOT, honoModule || file).split(sep).join('/') : null,
     methods: uniqSorted(methods),
     guards: {
       // sessao validada: helper padrao, wrappers de escopo (_shared.ts) ou safeGetSession
@@ -149,7 +164,8 @@ const salesMutSemInvalid = mutating.filter(
 let md = `# Inventário de contrato das APIs\n\n`;
 md += `Gerado por \`node scripts/api-inventory.mjs\` — **não editar à mão**. JSON completo em \`docs/api-inventory.json\`.\n\n`;
 md += `- Endpoints: **${endpoints.length}** (${mutating.length} gravam no banco)\n`;
-md += `- Domínios: ${byDomain.size}\n\n`;
+md += `- Domínios: ${byDomain.size}\n`;
+md += `- Migrados para Hono: **${endpoints.filter((e) => e.hono).length}** (marcados com <sub>hono</sub>)\n\n`;
 
 md += `## Pontos de atenção (detectados automaticamente)\n\n`;
 md += `Heurística por análise de texto — confirmar manualmente antes de agir.\n\n`;
@@ -171,7 +187,7 @@ for (const [domain, list] of [...byDomain.entries()].sort(([a], [b]) => a.locale
     const tables = Object.entries(e.tables)
       .map(([t, ops]) => `${t}(${ops.map((o) => OP_LABEL[o] || o).join('/')})`)
       .join(', ');
-    const extra = [e.guards.cronSecret && 'cron-secret', e.guards.turnstile && 'turnstile', e.guards.debugOnly && 'debug-only']
+    const extra = [e.hono && 'hono', e.guards.cronSecret && 'cron-secret', e.guards.turnstile && 'turnstile', e.guards.debugOnly && 'debug-only']
       .filter(Boolean)
       .join(' ');
     md += `| \`${e.route.replace('/api', '')}\`${extra ? ` <sub>${extra}</sub>` : ''} | ${e.methods.join(' ')} | ${yes(e.guards.requireAuthenticatedUser)} | ${yes(e.guards.resolveUserScope)} | ${e.guards.roles.map((r) => r.replace(/^is/, '')).join(' ')} | ${yes(e.guards.rejectCrossOrigin)} | ${yes(e.guards.bodyLimit)} | ${tables || '—'} | ${e.rpcs.join(', ') || '—'} | ${e.invalidations.join(', ') || '—'} |\n`;
