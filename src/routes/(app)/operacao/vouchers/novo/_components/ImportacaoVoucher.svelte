@@ -41,7 +41,7 @@
 
   <div class="space-y-2">
     <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-      <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('viagem')}>
+      <Button type="button" variant="ghost" class_name="w-full justify-between! rounded-none! px-4! py-4!" on:click={() => toggleImportAccordion('viagem')}>
         <span>Colar dados da viagem</span>
         <ChevronDown size={16} class={importAccordion.includes('viagem') ? 'rotate-180 transition-transform' : 'transition-transform'} />
       </Button>
@@ -61,7 +61,7 @@
     </div>
 
     <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-      <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('itinerario')}>
+      <Button type="button" variant="ghost" class_name="w-full justify-between! rounded-none! px-4! py-4!" on:click={() => toggleImportAccordion('itinerario')}>
         <span>Colar itinerário</span>
         <ChevronDown size={16} class={importAccordion.includes('itinerario') ? 'rotate-180 transition-transform' : 'transition-transform'} />
       </Button>
@@ -81,7 +81,7 @@
     </div>
 
     <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-      <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('hoteis')}>
+      <Button type="button" variant="ghost" class_name="w-full justify-between! rounded-none! px-4! py-4!" on:click={() => toggleImportAccordion('hoteis')}>
         <span>Colar lista de hotéis</span>
         <ChevronDown size={16} class={importAccordion.includes('hoteis') ? 'rotate-180 transition-transform' : 'transition-transform'} />
       </Button>

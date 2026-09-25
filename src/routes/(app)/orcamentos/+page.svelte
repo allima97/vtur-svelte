@@ -381,7 +381,7 @@
 </div>
 
 {#if errorMessage}
-  <div role="alert" class="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+  <div role="alert" class="mb-6 rounded-vtur-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
     {errorMessage}
   </div>
 {/if}
@@ -469,7 +469,7 @@
   {/if}
 </div>
 
-<div class="mb-6 rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+<div class="mb-6 rounded-vtur-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-vtur-lg">
   A lista exibe os orçamentos <strong>mais recentes primeiro</strong>. Use os filtros rápidos para ver apenas críticos ou prontos para venda.
 </div>
 

@@ -124,7 +124,7 @@
 <OverlayModal bind:open position="center" zIndex="z-50" padding="p-4" onclose={onClose}>
     <div 
       bind:this={modalEl}
-      class="flex w-full {abaAtiva === 'concorrencia' ? 'max-w-[72rem]' : 'max-w-2xl'} max-h-[92vh] flex-col overflow-hidden rounded-xl bg-white shadow-xl will-change-transform"
+      class="flex w-full {abaAtiva === 'concorrencia' ? 'max-w-6xl' : 'max-w-2xl'} max-h-[92vh] flex-col overflow-hidden rounded-xl bg-white shadow-xl will-change-transform"
       class:ring-2={isDragging}
       class:ring-vendas-200={isDragging}
       style={`transform: translate3d(${position.x}px, ${position.y}px, 0);`}

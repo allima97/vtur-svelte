@@ -175,7 +175,7 @@
                     type="button"
                     variant="secondary"
                     size="sm"
-                    class_name={`flex-1 flex-col gap-1 py-2 text-xs ${novaInteracao.tipo === tipo.value ? 'border-clientes-300 bg-clientes-100 text-clientes-700 hover:!bg-clientes-100' : 'text-slate-600'}`}
+                    class_name={`flex-1 flex-col gap-1 py-2 text-xs ${novaInteracao.tipo === tipo.value ? 'border-clientes-300 bg-clientes-100 text-clientes-700 hover:bg-clientes-100!' : 'text-slate-600'}`}
                     on:click={() => {
                       novaInteracao.tipo = tipo.value as typeof novaInteracao.tipo;
                     }}
@@ -244,7 +244,7 @@
             <div class="space-y-3">
               {#each interacoes as interacao}
                 <div class="vtur-modal-list-item flex gap-3 p-3 bg-slate-50 rounded-lg">
-                  <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+                  <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
                     <svelte:component 
                       this={getTipoIcon(interacao.tipo)} 
                       size={18} 

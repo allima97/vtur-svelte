@@ -517,7 +517,7 @@
                     type="button"
                     variant="ghost"
                     size="xs"
-                    class_name={`!min-h-0 !rounded-none !px-0 !py-0 font-inherit text-inherit hover:!bg-transparent hover:!text-slate-900 ${column.headerClass || ""}`}
+                    class_name={`min-h-0! rounded-none! px-0! py-0! font-inherit text-inherit hover:bg-transparent! hover:text-slate-900! ${column.headerClass || ""}`}
                     ariaLabel={`Ordenar por ${column.label}`}
                     on:click={() => handleSort(column)}
                   >
@@ -554,7 +554,7 @@
                 {#if selectable}
                   <td class="px-4 py-2">
                     <div
-                      class="h-4 w-4 rounded border border-slate-200 bg-slate-100"
+                      class="h-4 w-4 rounded-sm border border-slate-200 bg-slate-100"
                     ></div>
                   </td>
                 {/if}
@@ -672,7 +672,7 @@
               disabled={currentPage === 1}
               variant="ghost"
               size="xs"
-              class_name="h-9 w-9 !p-0"
+              class_name="h-9 w-9 p-0!"
               ariaLabel="Primeira página"
             >
               <ChevronsLeft size={16} />
@@ -682,7 +682,7 @@
               disabled={currentPage === 1}
               variant="ghost"
               size="xs"
-              class_name="h-9 w-9 !p-0"
+              class_name="h-9 w-9 p-0!"
               ariaLabel="Página anterior"
             >
               <ChevronLeft size={16} />
@@ -695,7 +695,7 @@
               disabled={currentPage === totalPages}
               variant="ghost"
               size="xs"
-              class_name="h-9 w-9 !p-0"
+              class_name="h-9 w-9 p-0!"
               ariaLabel="Próxima página"
             >
               <ChevronRight size={16} />
@@ -705,7 +705,7 @@
               disabled={currentPage === totalPages}
               variant="ghost"
               size="xs"
-              class_name="h-9 w-9 !p-0"
+              class_name="h-9 w-9 p-0!"
               ariaLabel="Última página"
             >
               <ChevronsRight size={16} />

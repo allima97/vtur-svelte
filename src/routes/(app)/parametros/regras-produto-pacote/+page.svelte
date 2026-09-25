@@ -263,7 +263,7 @@
           event.stopPropagation();
           deleteItem(row.id);
         }}
-        class_name="min-w-0 !p-1.5 !text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+        class_name="min-w-0 p-1.5! text-slate-400! hover:bg-red-50! hover:text-red-600!"
         loading={deletingId === row.id}
       >
         <Trash2 size={15} />

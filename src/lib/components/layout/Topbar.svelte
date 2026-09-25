@@ -106,7 +106,7 @@
           type="button"
           variant="unstyled"
           size="sm"
-          class_name="vtur-icon-button !h-10 !w-10 !rounded-xl !p-0"
+          class_name="vtur-icon-button h-10! w-10! rounded-xl! p-0!"
           ariaLabel="Calculadora"
           on:click={openCalculator}
         >
@@ -120,7 +120,7 @@
           href="/operacao/agenda"
           variant="unstyled"
           size="sm"
-          class_name="vtur-icon-button !h-10 !w-10 !rounded-xl !p-0"
+          class_name="vtur-icon-button h-10! w-10! rounded-xl! p-0!"
           ariaLabel="Ir para Agenda"
         >
           <Calendar size={18} />
@@ -133,7 +133,7 @@
           type="button"
           variant="unstyled"
           size="sm"
-          class_name="vtur-icon-button relative !h-10 !w-10 !rounded-xl !p-0"
+          class_name="vtur-icon-button relative h-10! w-10! rounded-xl! p-0!"
           on:click={openRecadosInfo}
           ariaLabel="Recados"
         >
@@ -148,7 +148,7 @@
           id="user-menu-btn"
           type="button"
           variant="unstyled"
-          class_name="vtur-user-chip cursor-pointer transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-200"
+          class_name="vtur-user-chip cursor-pointer transition-all hover:shadow-md focus:outline-hidden focus:ring-2 focus:ring-blue-200"
           ariaLabel="Menu do usuário"
           ariaHaspopup="true"
           ariaExpanded={userDropdownOpen}
@@ -166,7 +166,7 @@
         <Dropdown
           triggeredBy="#user-menu-btn"
           bind:open={userDropdownOpen}
-          class_name="z-[1100] min-w-[200px]"
+          class_name="z-1100 min-w-[200px]"
         >
           <div class="px-4 py-3">
             <p class="truncate text-xs font-medium text-slate-800">{userDisplayName}</p>

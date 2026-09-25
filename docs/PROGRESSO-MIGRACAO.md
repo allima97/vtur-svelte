@@ -431,3 +431,45 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - `fakeSupabase` agora aceita `insert` e `delete`.
 - **Verificação:** 693 testes passando, `svelte-check` com 0 erros e 0 avisos, e os hashes de Mac e nuvem batem, ignorando CRLF.
 - **Arquivo auxiliar:** `tmp/audit_patch.py` foi o script que aplicou as mudanças. Pode ser apagado.
+
+## Fase 4: design system (Tailwind 4 + Flowbite)
+
+### 4.1 (25/09, 15:50): Tailwind 3.4 → 4.3, com o mesmo visual. Gravado no Mac, falta o commit
+- **O que mudou:**
+  - `@tailwindcss/vite` no `vite.config.ts`. O PostCSS ficou sem plugins e o `tailwind.config.js` foi removido.
+  - O tema foi para o `@theme` do `app.css`: cores, fonte, sombras e raios do antigo config.
+  - Os nomes de classe foram renomeados em 86 `.svelte`, pelo codemod oficial revisado à mão:
+    - `shadow-sm`→`shadow-xs`, `shadow`→`shadow-sm`;
+    - `rounded`→`rounded-sm`;
+    - `!x`→`x!`;
+    - `flex-shrink-0`→`shrink-0`;
+    - `outline-none`→`outline-hidden`;
+    - `rounded-[14px]`→`rounded-vtur-lg` etc.
+- **Erros do codemod que foram desfeitos:**
+  - Trocou a variante de botão `'outline'` por `'outline-solid'` em 10 lugares.
+  - Mudou uma conta dentro de `cards/_render.ts` (`blur * 4` → `blur-sm * 4`).
+  - Transformou as classes do `app.css` em `@utility`, o que muda a precedência.
+- **Precedência igual à do v3:** o preflight e os utilitários foram importados **sem cascade layer**, na mesma ordem do v3 (base → componentes → `@tailwind utilities` → utilitários próprios → resto). O corpo do `app.css` é o original, só sem os `@layer`.
+- **Compatibilidade com o v3, tudo no topo do `app.css`:**
+  - paleta hex do v3, porque o v4 usa oklch;
+  - altura de linha absoluta em `text-*`;
+  - cor padrão de borda `gray-200`;
+  - cor padrão de `ring`: azul 500 a 50%;
+  - placeholder `gray-400`;
+  - `cursor: pointer` em botões e `default` em `:disabled`;
+  - fundo e opacidade padrão do navegador nos campos;
+  - padding de `td`/`th` e dos campos de data;
+  - `<dialog>` centralizado;
+  - degradês em sRGB.
+- **Como foi provado que o visual é o mesmo:**
+  - Estilo computado no Chromium, comparando o CSS antigo com o novo.
+  - **1.864 classes**, cada uma sozinha, e **2.034 combinações de classes** tiradas dos `class=` dos `.svelte`, em 1600 px e 375 px.
+  - **DOM real de 143 telas e layouts**, renderizado no servidor, mais o Dialog e o ConfirmDialog abertos. Todos os elementos foram comparados em 1600, 800 e 375 px e com o sistema em modo escuro: box model, cores, fontes, bordas, sombras, flex/grid e a posição e o tamanho de cada elemento.
+  - **Tela de login** via `vite dev` nas duas versões: 0 pixel diferente, em desktop e celular.
+- **Diferenças que restaram (conscientes):**
+  - `space-x/y-*` e `divide-*`: o v4 põe a margem ou a borda **depois** de cada filho, e não antes. Em fluxo normal o espaçamento é o mesmo. Muda só quando o primeiro ou o último filho está oculto, e aí some um espaço sobrando: o cabeçalho no celular fica 14 px mais justo, e a lista de usuários fica 7 px mais baixa.
+  - `ml-13` em `cadastros/circuitos/novo`: não existia no v3 (a classe era ignorada) e agora recua a descrição do dia em 45 px, como o código pretendia.
+  - `outline-none` → `outline-hidden`: sem contorno nos dois casos.
+- **Verificação:** 693 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK, e `vite dev` sobe. Mac e nuvem estão idênticos, ignorando CRLF.
+- **Arquivos temporários:** `tmp/container-src*.md5` e `tmp/audit_patch.py` (entraram no commit "fase10") foram apagados.
+- **Próximo (4.2):** Flowbite-Svelte 0.48 → 1.x. A 1.x exige Tailwind 4, que já está no lugar, e o `Modal`/`Dropdown` mudaram de API. A troca fica isolada nos wrappers de `lib/components/ui/`.

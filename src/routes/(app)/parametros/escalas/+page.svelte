@@ -560,21 +560,21 @@
                   <Button
                     type="button"
                     variant="unstyled"
-                    class_name="flex h-8 w-full items-center justify-center rounded transition-colors hover:bg-orange-50 {selected ? 'bg-orange-100 ring-2 ring-orange-300' : ''}"
+                    class_name="flex h-8 w-full items-center justify-center rounded-sm transition-colors hover:bg-orange-50 {selected ? 'bg-orange-100 ring-2 ring-orange-300' : ''}"
                     on:click={() => handleCellClick(usuario, date)}
                     title={registro ? `${registro.tipo}${registro.hora_inicio ? ' ' + formatTimeRange(registro.hora_inicio, registro.hora_fim) : ''}` : feriadoTitle}
                   >
                     {#if registro?.tipo}
-                      <span class="inline-flex h-7 min-w-7 items-center justify-center rounded px-1 text-[10px] font-bold ring-1 {TIPO_COLOR[registro.tipo] || 'bg-slate-100 text-slate-600 ring-slate-200'}">
+                      <span class="inline-flex h-7 min-w-7 items-center justify-center rounded-sm px-1 text-[10px] font-bold ring-1 {TIPO_COLOR[registro.tipo] || 'bg-slate-100 text-slate-600 ring-slate-200'}">
                         {TIPO_CODIGO[registro.tipo] || '?'}
                         {#if registro.hora_inicio && registro.hora_fim}
                           <span class="ml-0.5 hidden text-[9px] font-semibold xl:inline">{formatTimeRange(registro.hora_inicio, registro.hora_fim)}</span>
                         {/if}
                       </span>
                     {:else if feriadosDia.length}
-                      <span class="inline-flex h-7 w-7 items-center justify-center rounded bg-red-100 text-[10px] font-bold text-red-600 ring-1 ring-red-200">H</span>
+                      <span class="inline-flex h-7 w-7 items-center justify-center rounded-sm bg-red-100 text-[10px] font-bold text-red-600 ring-1 ring-red-200">H</span>
                     {:else}
-                      <span class="inline-flex h-7 w-7 items-center justify-center rounded text-[12px] text-slate-300">·</span>
+                      <span class="inline-flex h-7 w-7 items-center justify-center rounded-sm text-[12px] text-slate-300">·</span>
                     {/if}
                   </Button>
                 </td>
@@ -590,7 +590,7 @@
     <div class="flex flex-wrap gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
       {#each TIPO_OPCOES.filter((t) => t.value) as opt}
         <span class="inline-flex items-center gap-1">
-          <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold {TIPO_COLOR[opt.value] || 'bg-slate-100'}">
+          <span class="inline-flex h-5 w-5 items-center justify-center rounded-sm text-[10px] font-bold {TIPO_COLOR[opt.value] || 'bg-slate-100'}">
             {TIPO_CODIGO[opt.value] || '?'}
           </span>
           {opt.label}

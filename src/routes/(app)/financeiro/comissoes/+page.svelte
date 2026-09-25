@@ -550,7 +550,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="!block !w-full !border-0 !bg-transparent !p-0 !shadow-none focus:!ring-0"
+      class_name="!block w-full! border-0! bg-transparent! p-0! shadow-none! focus:ring-0!"
       on:click={() => (somentePendentes = true)}
     >
       <KPICard title="Comissões pendentes" value={pendentes.length} color="financeiro" icon={Clock} />
@@ -559,7 +559,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="!block !w-full !border-0 !bg-transparent !p-0 !shadow-none focus:!ring-0"
+      class_name="!block w-full! border-0! bg-transparent! p-0! shadow-none! focus:ring-0!"
       on:click={() => (somentePendentes = false)}
     >
       <KPICard title="Total pago" value={formatCurrency(totalPago)} color="operacao" icon={CheckCircle} />
@@ -568,7 +568,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="!block !w-full !border-0 !bg-transparent !p-0 !shadow-none focus:!ring-0"
+      class_name="!block w-full! border-0! bg-transparent! p-0! shadow-none! focus:ring-0!"
       on:click={() => (somentePendentes = true)}
     >
       <KPICard title="Valor pendente" value={formatCurrency(totalPendente)} color="financeiro" icon={Wallet} />
@@ -577,7 +577,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="!block !w-full !border-0 !bg-transparent !p-0 !shadow-none focus:!ring-0"
+      class_name="!block w-full! border-0! bg-transparent! p-0! shadow-none! focus:ring-0!"
       on:click={() => goto('/financeiro/regras')}
     >
       <KPICard title="Vendedores na base" value={resumoVendedores.length} color="clientes" icon={Users} />
@@ -685,7 +685,7 @@
     <KPICard title="Recibos" value={comissoes.length} color="slate" icon={FileText} />
   </KPIGrid>
 
-  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  <div class="mb-6 rounded-vtur-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-vtur-lg">
     A tela de comissões agora funciona também como fila operacional: <strong>{pendentes.length}</strong> pendências de pagamento somando <strong>{formatCurrency(totalPendente)}</strong>.
     {#if !canManagePagamentos}
       <span class="mt-2 block text-slate-500">Seu perfil possui acesso somente para consulta. Pagamentos de comissão são exclusivos do usuário financeiro.</span>

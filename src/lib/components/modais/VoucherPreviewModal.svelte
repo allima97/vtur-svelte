@@ -122,13 +122,13 @@
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div
-    class="fixed z-[100] flex flex-col bg-slate-100 voucher-preview-area"
+    class="fixed z-100 flex flex-col bg-slate-100 voucher-preview-area"
     style="left: {contentLeft}; top: {$isMobile ? 'var(--vtur-topbar-height)' : 'var(--vtur-desktop-shell-top)'};"
     transition:fade={{ duration: 150 }}
   >
     <!-- Header fixo com ações - Responsivo -->
     <header 
-      class="voucher-preview__header bg-white border-b border-slate-200 shadow-sm shrink-0"
+      class="voucher-preview__header bg-white border-b border-slate-200 shadow-xs shrink-0"
     >
       <div class="voucher-preview__meta min-w-0">
         <h2 class="voucher-preview__title truncate">{voucher.nome}</h2>
@@ -142,23 +142,23 @@
       
       <div class="voucher-preview__actions shrink-0">
         <!-- Botões com ícones apenas no mobile, texto no desktop -->
-        <Button variant="primary" on:click={handleEdit} class_name="!px-2 md:!px-4">
+        <Button variant="primary" on:click={handleEdit} class_name="px-2! md:px-4!">
           <Edit size={18} />
           <span class="hidden md:inline ml-2">Editar</span>
         </Button>
-        <Button variant="secondary" on:click={handlePrint} class_name="!px-2 md:!px-4">
+        <Button variant="secondary" on:click={handlePrint} class_name="px-2! md:px-4!">
           <Printer size={18} />
           <span class="hidden md:inline ml-2">Imprimir</span>
         </Button>
-        <Button variant="primary" on:click={handleSavePdf} class_name="!px-2 md:!px-4">
+        <Button variant="primary" on:click={handleSavePdf} class_name="px-2! md:px-4!">
           <FileDown size={18} />
           <span class="hidden md:inline ml-2">Salvar PDF</span>
         </Button>
-        <Button variant="secondary" on:click={handleDuplicate} class_name="!px-2 md:!px-4">
+        <Button variant="secondary" on:click={handleDuplicate} class_name="px-2! md:px-4!">
           <Copy size={18} />
           <span class="hidden md:inline ml-2">Duplicar</span>
         </Button>
-        <Button variant="danger" on:click={handleDelete} class_name="!px-2 md:!px-4">
+        <Button variant="danger" on:click={handleDelete} class_name="px-2! md:px-4!">
           <Trash2 size={18} />
           <span class="hidden md:inline ml-2">Excluir voucher</span>
         </Button>

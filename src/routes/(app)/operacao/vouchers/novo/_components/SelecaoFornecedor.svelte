@@ -7,7 +7,7 @@
   export let setVoucherProvider: (provider: VoucherProvider) => void;
 </script>
 
-<section class="mb-6 rounded-xl border border-clientes-100 bg-white p-5 shadow-sm">
+<section class="mb-6 rounded-xl border border-clientes-100 bg-white p-5 shadow-xs">
   <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
     <div>
       <p class="text-sm font-medium text-clientes-600">Primeiro passo</p>
@@ -27,8 +27,8 @@
         type="button"
         variant={provider === providerOption.value ? 'primary' : 'outline'}
         size="lg"
-        class_name={`!min-h-[72px] !justify-start !rounded-xl !border-2 !px-5 !py-4 !text-left ${
-          provider === providerOption.value ? '!shadow-md' : '!bg-white hover:!bg-slate-50'
+        class_name={`min-h-[72px]! justify-start! rounded-xl! border-2! px-5! py-4! text-left! ${
+          provider === providerOption.value ? 'shadow-md!' : 'bg-white! hover:bg-slate-50!'
         }`}
         on:click={() => setVoucherProvider(providerOption.value)}
       >

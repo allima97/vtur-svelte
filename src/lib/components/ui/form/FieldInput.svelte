@@ -157,7 +157,7 @@
         type="button"
         variant="unstyled"
         size="xs"
-        class_name="absolute right-3 top-1/2 z-10 !-translate-y-1/2 !p-0 text-slate-400 transition-colors hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+        class_name="absolute right-3 top-1/2 z-10 -translate-y-1/2! p-0! text-slate-400 transition-colors hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
         ariaLabel={actionLabel ?? undefined}
         disabled={actionDisabled}
         on:click={() => onAction?.()}

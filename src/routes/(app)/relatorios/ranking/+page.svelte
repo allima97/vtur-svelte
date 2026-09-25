@@ -147,7 +147,7 @@
     return restante / diasRestantesNoMes;
   }
 
-  const ROW_CLASS_META_ATINGIDA = '!bg-emerald-200/70 hover:!bg-emerald-300/70';
+  const ROW_CLASS_META_ATINGIDA = 'bg-emerald-200/70! hover:bg-emerald-300/70!';
 
   function getRowClassMetaVendas(row: VendedorRanking) {
     return Number(row.alcance_meta || 0) >= 100 ? ROW_CLASS_META_ATINGIDA : '';
@@ -186,7 +186,7 @@
       label: 'Meta diária',
       sortable: false,
       align: 'right' as const,
-      headerClass: 'normal-case !tracking-normal',
+      headerClass: 'normal-case tracking-normal!',
       formatter: (_value: number, row: VendedorRanking) => formatCurrency(getValorDiario(row))
     },
     {
@@ -221,7 +221,7 @@
       label: 'Meta diária',
       sortable: false,
       align: 'right' as const,
-      headerClass: 'normal-case !tracking-normal',
+      headerClass: 'normal-case tracking-normal!',
       formatter: (_value: number, row: VendedorRanking) => formatCurrency(getMetaDiariaSeguro(row))
     },
     {

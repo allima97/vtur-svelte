@@ -204,7 +204,7 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div class="grid grid-cols-[1fr,112px] gap-2">
+    <div class="grid grid-cols-[1fr_112px] gap-2">
       <FieldSelect
         id="cambio-moeda"
         label="Moeda"

@@ -339,7 +339,7 @@
     </div>
   </div>
 
-  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  <div class="mb-6 rounded-vtur-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-vtur-lg">
     Este cliente reúne <strong>{historicoVendas.length}</strong> venda(s), <strong>{historicoOrcamentos.length}</strong> orçamento(s) e <strong>{cliente.acompanhantes_count}</strong> acompanhante(s), permitindo leitura rápida de recorrência, negociação e potencial de reativação.
   </div>
 
@@ -358,23 +358,23 @@
           </div>
 
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
               <span class={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadge(cliente.status)}`}>
                 {getStatusLabel(cliente.status)}
               </span>
             </div>
-            <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Classificacao</p>
               <p class="mt-2 font-medium text-slate-900">{cliente.classificacao || '-'}</p>
             </div>
-            <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Tipo</p>
               <p class="mt-2 font-medium text-slate-900">
                 {getTipoPessoaLabel(cliente.tipo_pessoa)} · {cliente.tipo_cliente || 'passageiro'}
               </p>
             </div>
-            <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Ultima compra</p>
               <p class="mt-2 font-medium text-slate-900">{formatDate(cliente.ultima_compra)}</p>
             </div>
@@ -492,7 +492,7 @@
             </table>
           </div>
         {:else}
-          <div class="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
+          <div class="rounded-vtur-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
             Nenhuma venda vinculada a este cliente.
           </div>
         {/if}
@@ -527,7 +527,7 @@
             </table>
           </div>
         {:else}
-          <div class="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
+          <div class="rounded-vtur-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
             Nenhum orcamento vinculado a este cliente.
           </div>
         {/if}

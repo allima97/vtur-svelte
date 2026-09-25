@@ -187,13 +187,13 @@
 
   <Card title="Próximos blocos" color="financeiro">
     <div class="grid gap-3 md:grid-cols-3">
-      <Button href="/parametros/empresa" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4" disabled>
+      <Button href="/parametros/empresa" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!" disabled>
         <Settings size={18} class="mr-3 text-orange-600" /> Parametrizar empresa
       </Button>
-      <Button href="/vendas" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4">
+      <Button href="/vendas" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!">
         <FileCheck2 size={18} class="mr-3 text-orange-600" /> Conferir vendas
       </Button>
-      <Button href="/financeiro/notas-fiscais" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4" disabled>
+      <Button href="/financeiro/notas-fiscais" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!" disabled>
         <PlugZap size={18} class="mr-3 text-orange-600" /> Conectar provedor
       </Button>
     </div>

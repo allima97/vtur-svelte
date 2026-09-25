@@ -341,7 +341,7 @@
                   <span>{formatCurrency(c.taxa_consultoria)}</span>
                 {/if}
                 {#if c.lembrete}
-                  <span class="rounded bg-slate-100 px-2 py-0.5 text-xs">Lembrete: {c.lembrete}</span>
+                  <span class="rounded-sm bg-slate-100 px-2 py-0.5 text-xs">Lembrete: {c.lembrete}</span>
                 {/if}
               </div>
               {#if c.notas}

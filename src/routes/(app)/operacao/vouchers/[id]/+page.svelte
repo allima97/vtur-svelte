@@ -365,7 +365,7 @@
 {:else if voucher}
   <div class="w-full space-y-6 pb-10" in:fade>
     <!-- Header Card -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
       <div
         class="flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
@@ -424,7 +424,7 @@
       <div class="lg:col-span-2 space-y-6">
         <!-- ETAPA 1: Dados da Viagem -->
         <div
-          class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+          class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden"
         >
           <div
             class="p-4 bg-gradient-to-r from-clientes-50 to-white border-b border-slate-200"
@@ -553,7 +553,7 @@
         <!-- ETAPA 2: Dia a Dia -->
         {#if voucher.voucher_dias && voucher.voucher_dias.length > 0}
           <div
-            class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+            class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden"
           >
             <div
               class="p-4 bg-gradient-to-r from-amber-50 to-white border-b border-slate-200"
@@ -614,7 +614,7 @@
         <!-- ETAPA 3: Hotéis -->
         {#if voucher.voucher_hoteis && voucher.voucher_hoteis.length > 0}
           <div
-            class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+            class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden"
           >
             <div
               class="p-4 bg-gradient-to-r from-amber-50 to-white border-b border-slate-200"
@@ -700,7 +700,7 @@
         <!-- ETAPA 4: Extra Data -->
         {#if voucher.extra_data && (voucher.extra_data.traslado_chegada?.detalhes || voucher.extra_data.traslado_saida?.detalhes || voucher.extra_data.informacoes_importantes || (voucher.extra_data.apps_recomendados && voucher.extra_data.apps_recomendados.length > 0) || voucher.extra_data.emergencia)}
           <div
-            class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+            class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden"
           >
             <div
               class="p-4 bg-gradient-to-r from-purple-50 to-white border-b border-slate-200"
@@ -857,7 +857,7 @@
              página, ao lado do nome do voucher, em vez de duplicados aqui. -->
 
         <!-- Resumo -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
           <h3 class="font-semibold text-slate-900 mb-4">Resumo</h3>
 
           <div class="space-y-3">
@@ -897,7 +897,7 @@
         </div>
 
         <!-- Datas -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
           <h3 class="font-semibold text-slate-900 mb-4">Datas</h3>
 
           <div class="space-y-3">

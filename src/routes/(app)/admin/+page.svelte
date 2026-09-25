@@ -244,7 +244,7 @@
 
             {#if item.countKey}
               {#if loading}
-                <div class="h-5 w-8 animate-pulse rounded bg-slate-200"></div>
+                <div class="h-5 w-8 animate-pulse rounded-sm bg-slate-200"></div>
               {:else}
                 <Badge color="yellow" size="sm">
                   {summary?.counts?.[item.countKey] ?? 0}

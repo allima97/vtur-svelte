@@ -310,7 +310,7 @@
               <button
                 type="button"
                 class="rounded-full border px-3 py-1 text-sm font-medium transition-all
-                  {ativo ? 'border-transparent text-white shadow-sm' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'}"
+                  {ativo ? 'border-transparent text-white shadow-xs' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'}"
                 style={ativo ? `background-color: ${ANO_COLORS[idx % ANO_COLORS.length].border}` : ''}
                 on:click={() => toggleAno(ano)}
               >{ano}</button>
@@ -364,8 +364,8 @@
         {#each [1,2,3,4] as _}
           <Card>
             <div class="animate-pulse space-y-3">
-              <div class="h-4 w-1/3 rounded bg-slate-200"></div>
-              <div class="h-52 rounded bg-slate-100"></div>
+              <div class="h-4 w-1/3 rounded-sm bg-slate-200"></div>
+              <div class="h-52 rounded-sm bg-slate-100"></div>
             </div>
           </Card>
         {/each}

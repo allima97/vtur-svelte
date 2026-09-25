@@ -386,8 +386,8 @@
 <svelte:window on:keydown={handleWindowKeydown} />
 
 <div class="mx-auto flex w-full max-w-md flex-col gap-3">
-  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
-    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-xs">
+    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
       <input
         bind:this={calcInput}
         type="text"
@@ -399,7 +399,7 @@
             evaluateCalc();
           }
         }}
-        class="w-full border-0 bg-transparent text-right text-[clamp(1.6rem,6vw,2.1rem)] font-semibold tracking-tight text-slate-900 outline-none"
+        class="w-full border-0 bg-transparent text-right text-[clamp(1.6rem,6vw,2.1rem)] font-semibold tracking-tight text-slate-900 outline-hidden"
         aria-label="Calculadora"
       />
     </div>
@@ -410,7 +410,7 @@
       </div>
     {/if}
 
-    <div class="mt-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
+    <div class="mt-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xs">
       <div
         class="grid gap-2 bg-transparent"
         style="grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(5, clamp(42px, 8vw, 52px));"
@@ -428,7 +428,7 @@
             type="button"
             variant="unstyled"
             on:click={() => handleCalculatorAction(key)}
-            class_name={`flex items-center justify-center rounded-xl border font-semibold shadow-sm transition-colors ${buttonClass}`}
+            class_name={`flex items-center justify-center rounded-xl border font-semibold shadow-xs transition-colors ${buttonClass}`}
             style={`grid-column: ${key.gridColumn}; grid-row: ${key.gridRow}; font-size: ${key.label.length > 2 ? 'clamp(0.76rem, 2.2vw, 0.88rem)' : 'clamp(0.95rem, 2.8vw, 1.05rem)'};`}
           >
             {key.label}
@@ -437,7 +437,7 @@
       </div>
     </div>
 
-    <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+    <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-xs">
       Use o teclado ou os botões. <code>Enter</code> calcula, <code>Backspace</code> apaga, <code>Delete</code> limpa e <code>F9</code> inverte o sinal.
     </div>
   </div>

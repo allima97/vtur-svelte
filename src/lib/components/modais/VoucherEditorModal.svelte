@@ -595,7 +595,7 @@
   }
 </script>
 
-<OverlayModal bind:open position="top" zIndex="z-[100]" padding="pt-4 pb-4 px-4" scroll onclose={close}>
+<OverlayModal bind:open position="top" zIndex="z-100" padding="pt-4 pb-4 px-4" scroll onclose={close}>
     <div 
       class="bg-white rounded-xl shadow-xl w-full max-w-6xl overflow-hidden flex flex-col"
       style="max-height: calc(100vh - 32px);"
@@ -625,7 +625,7 @@
           variant="ghost"
           size="xs"
           ariaLabel="Fechar editor de voucher"
-          class_name="vtur-modal-header__close min-w-0 !rounded-lg !p-2 !text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
+          class_name="vtur-modal-header__close min-w-0 rounded-lg! p-2! text-slate-400! hover:bg-slate-100! hover:text-slate-600!"
           on:click={close}
         >
           <X size={20} />
@@ -633,7 +633,7 @@
       </div>
 
       <!-- Wizard Steps -->
-      <div class="vtur-modal-tabs bg-slate-50 border-b border-slate-200 !p-0">
+      <div class="vtur-modal-tabs bg-slate-50 border-b border-slate-200 p-0!">
         <div class="flex overflow-x-auto scrollbar-dark">
           {#each steps as step, i}
             {@const status = getStepStatus(i)}
@@ -641,12 +641,12 @@
               type="button"
               variant="ghost"
               size="sm"
-              class_name={`min-w-[4.5rem] flex-1 !rounded-none !border-0 !py-3 md:!py-4 !px-2 !shadow-none flex flex-col items-center justify-center gap-1 text-xs md:text-sm font-medium transition-all relative ${
+              class_name={`min-w-18 flex-1 rounded-none! border-0! py-3! md:py-4! px-2! shadow-none! flex flex-col items-center justify-center gap-1 text-xs md:text-sm font-medium transition-all relative ${
                 status === 'current'
-                  ? '!bg-white !text-clientes-700 border-b-2 !border-clientes-500'
+                  ? 'bg-white! text-clientes-700! border-b-2 border-clientes-500!'
                   : status === 'completed'
-                    ? '!text-green-600 hover:!bg-green-50'
-                    : '!text-slate-400 hover:!text-slate-600 hover:!bg-slate-100'
+                    ? 'text-green-600! hover:bg-green-50!'
+                    : 'text-slate-400! hover:text-slate-600! hover:bg-slate-100!'
               }`}
               on:click={() => goToStep(i)}
             >
@@ -698,7 +698,7 @@
 
               <div class="space-y-2">
                 <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('viagem')}>
+                  <Button type="button" variant="ghost" class_name="w-full justify-between! rounded-none! px-4! py-4!" on:click={() => toggleImportAccordion('viagem')}>
                     <span>Colar dados da viagem</span>
                     <ChevronDown size={16} class={importAccordion.includes('viagem') ? 'rotate-180 transition-transform' : 'transition-transform'} />
                   </Button>
@@ -718,7 +718,7 @@
                 </div>
 
                 <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('itinerario')}>
+                  <Button type="button" variant="ghost" class_name="w-full justify-between! rounded-none! px-4! py-4!" on:click={() => toggleImportAccordion('itinerario')}>
                     <span>Colar itinerário</span>
                     <ChevronDown size={16} class={importAccordion.includes('itinerario') ? 'rotate-180 transition-transform' : 'transition-transform'} />
                   </Button>
@@ -738,7 +738,7 @@
                 </div>
 
                 <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('hoteis')}>
+                  <Button type="button" variant="ghost" class_name="w-full justify-between! rounded-none! px-4! py-4!" on:click={() => toggleImportAccordion('hoteis')}>
                     <span>Colar lista de hotéis</span>
                     <ChevronDown size={16} class={importAccordion.includes('hoteis') ? 'rotate-180 transition-transform' : 'transition-transform'} />
                   </Button>
@@ -768,7 +768,7 @@
             </div>
 
             <!-- Provider -->
-            <fieldset class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <fieldset class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <legend class="block text-sm font-medium text-slate-700 mb-3">Fornecedor</legend>
               {#if voucher}
                 <div class="py-2 px-4 rounded-lg border-2 border-clientes-500 bg-clientes-50 text-clientes-700 inline-block font-medium">
@@ -782,7 +782,7 @@
                       type="button"
                       variant={form.provider === p.value ? 'primary' : 'outline'}
                       size="md"
-                      class_name="flex-1 !justify-center !rounded-lg !border-2 !px-4 !py-3"
+                      class_name="flex-1 justify-center! rounded-lg! border-2! px-4! py-3!"
                       on:click={() => form.provider = p.value}
                     >
                       {p.label}
@@ -793,7 +793,7 @@
             </fieldset>
 
             <!-- Informações Principais -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <FileText size={20} class="text-clientes-500" />
                 Informações Principais
@@ -842,7 +842,7 @@
             </div>
 
             <!-- Datas -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Calendar size={20} class="text-clientes-500" />
                 Datas da Viagem
@@ -869,7 +869,7 @@
             </div>
 
             <!-- Acomodação e Operador -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FieldSelect
                   id="voucher-modal-tipo-acomodacao"
@@ -889,7 +889,7 @@
             </div>
 
             <!-- Passageiros -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
                   <Users size={20} class="text-clientes-500" />
@@ -969,7 +969,7 @@
             </div>
 
             <!-- Resumo -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <FieldTextarea
                 id="voucher-modal-resumo"
                 label="Resumo da Viagem"
@@ -984,7 +984,7 @@
         {:else if currentStep === 1}
           <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
             <!-- Days List -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-slate-900">Dias do Circuito</h3>
                 <Button variant="primary" size="sm" on:click={addDay}>
@@ -1008,7 +1008,7 @@
                           type="button"
                           variant="ghost"
                           size="sm"
-                          class_name="vtur-modal-accordion-trigger flex flex-1 !justify-start gap-4 !rounded-none !border-0 !bg-transparent !px-3 md:!px-4 !py-3 md:!py-4 !text-left !shadow-none hover:!from-slate-100 hover:!to-slate-50"
+                          class_name="vtur-modal-accordion-trigger flex flex-1 justify-start! gap-4 rounded-none! border-0! bg-transparent! px-3! md:px-4! py-3! md:py-4! text-left! shadow-none! hover:from-slate-100! hover:to-slate-50!"
                           on:click={() => toggleDayAccordion(i)}
                         >
                           <div class="vtur-modal-accordion-badge rounded-full bg-clientes-100 text-clientes-700 flex items-center justify-center font-bold">
@@ -1038,7 +1038,7 @@
                             ariaLabel={`Mover dia ${i + 1} para cima`}
                             on:click={() => moveDay(i, -1)}
                             disabled={i === 0}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-slate-400! hover:bg-slate-200! hover:text-slate-600!"
                           >
                             <MoveUp size={18} />
                           </Button>
@@ -1049,7 +1049,7 @@
                             ariaLabel={`Mover dia ${i + 1} para baixo`}
                             on:click={() => moveDay(i, 1)}
                             disabled={i === form.dias.length - 1}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-slate-400! hover:bg-slate-200! hover:text-slate-600!"
                           >
                             <MoveDown size={18} />
                           </Button>
@@ -1059,7 +1059,7 @@
                             size="xs"
                             ariaLabel={`Remover dia ${i + 1}`}
                             on:click={() => removeDay(i)}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-red-400 hover:!bg-red-50 hover:!text-red-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-red-400! hover:bg-red-50! hover:text-red-600!"
                           >
                             <Trash2 size={18} />
                           </Button>
@@ -1105,7 +1105,7 @@
         {:else if currentStep === 2}
           <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
             <!-- Hotels List -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-slate-900">Hotéis Confirmados</h3>
                 <Button variant="primary" size="sm" on:click={addHotel}>
@@ -1129,7 +1129,7 @@
                           type="button"
                           variant="ghost"
                           size="sm"
-                          class_name="vtur-modal-accordion-trigger flex flex-1 !justify-start gap-3 !rounded-none !border-0 !bg-transparent !px-3 md:!px-4 !py-3 md:!py-4 !text-left !shadow-none hover:!from-slate-100 hover:!to-slate-50"
+                          class_name="vtur-modal-accordion-trigger flex flex-1 justify-start! gap-3 rounded-none! border-0! bg-transparent! px-3! md:px-4! py-3! md:py-4! text-left! shadow-none! hover:from-slate-100! hover:to-slate-50!"
                           on:click={() => toggleHotelAccordion(i)}
                         >
                           <div class="vtur-modal-accordion-badge rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -1155,7 +1155,7 @@
                             ariaLabel={`Mover hotel ${i + 1} para cima`}
                             on:click={() => moveHotel(i, -1)}
                             disabled={i === 0}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-slate-400! hover:bg-slate-200! hover:text-slate-600!"
                           >
                             <MoveUp size={18} />
                           </Button>
@@ -1166,7 +1166,7 @@
                             ariaLabel={`Mover hotel ${i + 1} para baixo`}
                             on:click={() => moveHotel(i, 1)}
                             disabled={i === form.hoteis.length - 1}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-slate-400! hover:bg-slate-200! hover:text-slate-600!"
                           >
                             <MoveDown size={18} />
                           </Button>
@@ -1176,7 +1176,7 @@
                             size="xs"
                             ariaLabel={`Remover hotel ${i + 1}`}
                             on:click={() => removeHotel(i)}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-red-400 hover:!bg-red-50 hover:!text-red-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-red-400! hover:bg-red-50! hover:text-red-600!"
                           >
                             <Trash2 size={18} />
                           </Button>
@@ -1279,7 +1279,7 @@
           <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
             
             <!-- Traslados -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Plane size={20} class="text-clientes-500" />
                 Traslados
@@ -1399,7 +1399,7 @@
             </div>
 
             <!-- Informações Importantes -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <AlertCircle size={20} class="text-amber-500" />
                 Informações Importantes
@@ -1416,7 +1416,7 @@
             </div>
 
             <!-- Apps Recomendados -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
                   <Smartphone size={20} class="text-clientes-500" />
@@ -1475,7 +1475,7 @@
             </div>
 
             <!-- Emergência -->
-            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-xs border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Phone size={20} class="text-red-500" />
                 Contatos de Emergência

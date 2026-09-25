@@ -46,7 +46,7 @@
         type="button"
         variant="unstyled"
         size="xs"
-        class_name="-mr-1 ml-auto shrink-0 !rounded-lg !p-1 transition-colors hover:bg-black/10"
+        class_name="-mr-1 ml-auto shrink-0 rounded-lg! p-1! transition-colors hover:bg-black/10"
         ariaLabel="Fechar"
         on:click={() => (dismissed = true)}
       >

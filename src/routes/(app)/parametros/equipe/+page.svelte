@@ -171,7 +171,7 @@
   {#if loading}
     <LoadingState compact={true} />
   {:else if usuariosFiltrados.length === 0}
-    <div class="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
+    <div class="rounded-vtur-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
       Nenhum usuário encontrado.
     </div>
   {:else}

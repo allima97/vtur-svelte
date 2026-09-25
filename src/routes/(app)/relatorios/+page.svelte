@@ -68,7 +68,7 @@
 
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
     {#each relatorios as relatorio}
-      <Card color="financeiro" class="group h-full transition-all duration-200 hover:shadow-lg !p-4">
+      <Card color="financeiro" class="group h-full transition-all duration-200 hover:shadow-lg p-4!">
         <div class="mb-3 flex items-start justify-between gap-2">
           <div class="rounded-lg bg-financeiro-50 p-2.5">
             <svelte:component this={relatorio.icone} size={20} class="text-financeiro-600" />

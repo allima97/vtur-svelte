@@ -1421,13 +1421,13 @@
       {#if gerarClienteLoading}
         <p class="mt-1 text-xs text-slate-400">Buscando...</p>
       {:else if gerarClienteResults.length > 0}
-        <ul class="mt-1 rounded-lg border border-slate-200 bg-white shadow">
+        <ul class="mt-1 rounded-lg border border-slate-200 bg-white shadow-sm">
           {#each gerarClienteResults as cliente}
             <li>
               <Button
                 type="button"
                 variant="ghost"
-                class_name={`w-full justify-start rounded-none px-3 py-2 text-left text-sm hover:!bg-slate-50 ${gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700 hover:!bg-clientes-50' : ''}`}
+                class_name={`w-full justify-start rounded-none px-3 py-2 text-left text-sm hover:bg-slate-50! ${gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700 hover:bg-clientes-50!' : ''}`}
                 on:click={() => { gerarClienteSel = cliente; gerarClienteQ = cliente.nome; gerarClienteResults = []; }}
               >
                 {cliente.nome}
@@ -1448,7 +1448,7 @@
           type="button"
           variant="ghost"
           size="xs"
-          class_name="ml-2 !px-0 !py-0 text-xs text-slate-400 underline hover:!bg-transparent hover:!text-slate-500"
+          class_name="ml-2 px-0! py-0! text-xs text-slate-400 underline hover:bg-transparent! hover:text-slate-500!"
           on:click={() => { gerarClienteSel = null; gerarClienteQ = ''; }}
         >
           Remover
@@ -1498,7 +1498,7 @@
               type="button"
               variant="ghost"
               size="xs"
-              class_name="shrink-0 border border-clientes-200 bg-clientes-100 !px-2.5 !py-1 text-xs font-medium text-clientes-700 hover:!bg-clientes-200"
+              class_name="shrink-0 border border-clientes-200 bg-clientes-100 px-2.5! py-1! text-xs font-medium text-clientes-700 hover:!bg-clientes-200"
               on:click={() => addDiaBanco(dia)}
             >
               Usar
@@ -1541,6 +1541,7 @@
 </Dialog>
 
 <style lang="postcss">
+  @reference "tailwindcss";
   :global(.vtur-label) {
     @apply mb-1 block text-sm font-medium text-slate-700;
   }

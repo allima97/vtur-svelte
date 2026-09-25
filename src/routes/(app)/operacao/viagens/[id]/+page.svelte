@@ -841,7 +841,7 @@
           {#each historico as item}
             <div class="flex gap-3 p-3 bg-slate-50 rounded-lg">
               <div
-                class="w-8 h-8 rounded-full bg-clientes-100 flex items-center justify-center flex-shrink-0"
+                class="w-8 h-8 rounded-full bg-clientes-100 flex items-center justify-center shrink-0"
               >
                 <History size={14} class="text-clientes-600" />
               </div>

@@ -245,7 +245,7 @@
         variant="ghost"
         size="sm"
         color="financeiro"
-        class_name="mt-4 justify-start !px-0 text-financeiro-600 hover:!bg-transparent hover:!text-financeiro-700"
+        class_name="mt-4 justify-start px-0! text-financeiro-600 hover:bg-transparent! hover:text-financeiro-700!"
         on:click={addDestino}
       >
         <Plus size={18} />
@@ -308,7 +308,7 @@
         type="button"
         variant="outline"
         color="financeiro"
-        class_name="w-full justify-center border-2 border-dashed border-financeiro-300 py-3 text-financeiro-600 hover:!border-financeiro-500 hover:!bg-financeiro-50"
+        class_name="w-full justify-center border-2 border-dashed border-financeiro-300 py-3 text-financeiro-600 hover:border-financeiro-500! hover:bg-financeiro-50!"
         on:click={addDiaRoteiro}
       >
         <Plus size={20} />

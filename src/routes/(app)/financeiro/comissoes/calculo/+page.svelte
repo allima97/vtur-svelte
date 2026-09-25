@@ -690,11 +690,11 @@
 
 <!-- Lista de Comissões Pendentes -->
 <Card header={`Comissões do período - ${comissoesPendentes.length} registros`} color="financeiro">
-  <div class="mb-4 rounded-[18px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
+  <div class="mb-4 rounded-vtur-xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
     O painel agora mistura cálculo e persistência: ele mostra <strong>{quantidadePendentes}</strong> pendentes, <strong>{quantidadePagas}</strong> pagas e respeita o status salvo no módulo principal de comissões.
   </div>
   {#if !persistenciaDisponivel}
-    <div class="mb-4 flex items-start gap-3 rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+    <div class="mb-4 flex items-start gap-3 rounded-vtur-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
       <AlertCircle size={18} class="mt-0.5 shrink-0" />
       <div>
         <p class="font-medium">Persistência indisponível neste ambiente.</p>

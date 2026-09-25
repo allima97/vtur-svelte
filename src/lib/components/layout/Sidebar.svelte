@@ -651,7 +651,7 @@
             <Button
               type="button"
               variant="unstyled"
-              class_name="vtur-sidebar__section-toggle !px-1 !py-0 !rounded-none !border-0 !bg-transparent !shadow-none focus:!ring-0"
+              class_name="vtur-sidebar__section-toggle px-1! py-0! rounded-none! border-0! bg-transparent! shadow-none! focus:ring-0!"
               on:click={() => toggleSection(section.title)}
               ariaExpanded={!collapsed[section.title]}
               ariaControls={sectionDomId(section.title)}

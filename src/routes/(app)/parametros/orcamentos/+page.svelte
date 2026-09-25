@@ -303,13 +303,13 @@
               <img
                 src={logoPreview}
                 alt="Logo do orçamento"
-                class="max-h-20 max-w-full rounded border border-slate-200 bg-white object-contain p-1"
+                class="max-h-20 max-w-full rounded-sm border border-slate-200 bg-white object-contain p-1"
               />
               <Button
                 type="button"
                 variant="unstyled"
                 on:click={removeLogo}
-                class_name="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0 text-white shadow hover:bg-red-600"
+                class_name="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0 text-white shadow-sm hover:bg-red-600"
                 title="Remover logo"
                 ariaLabel="Remover logo"
               >
@@ -349,13 +349,13 @@
               <img
                 src={complementoPreview}
                 alt="Imagem complementar do orçamento"
-                class="max-h-28 max-w-full rounded border border-slate-200 bg-white object-contain p-1"
+                class="max-h-28 max-w-full rounded-sm border border-slate-200 bg-white object-contain p-1"
               />
               <Button
                 type="button"
                 variant="unstyled"
                 on:click={removeComplemento}
-                class_name="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0 text-white shadow hover:bg-red-600"
+                class_name="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0 text-white shadow-sm hover:bg-red-600"
                 title="Remover imagem"
                 ariaLabel="Remover imagem"
               >
@@ -394,7 +394,7 @@
         <FieldInput id="orc-telefone" label="Telefone" bind:value={settings.telefone} placeholder="(00) 0000-0000" mask="phone" class_name="w-full" />
         <div class="space-y-2">
           <p class="text-sm font-medium text-slate-700">WhatsApp</p>
-          <div class="grid grid-cols-[88px,1fr] gap-2">
+          <div class="grid grid-cols-[88px_1fr] gap-2">
             <FieldInput
               id="orc-whatsapp-codigo"
               label="DDI"

@@ -320,7 +320,7 @@
         {#if formData.client_id}
           <!-- Cliente selecionado -->
           <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-            <div class="w-10 h-10 rounded-full bg-orcamentos-100 flex items-center justify-center flex-shrink-0">
+            <div class="w-10 h-10 rounded-full bg-orcamentos-100 flex items-center justify-center shrink-0">
               <User size={20} class="text-orcamentos-600" />
             </div>
             <div class="flex-1 min-w-0">
@@ -402,7 +402,7 @@
               on:click={() => setValidadeDias(dias)}
               variant="secondary"
               size="sm"
-              class_name="!rounded-lg !px-3 !py-2 text-xs"
+              class_name="rounded-lg! px-3! py-2! text-xs"
             >
               {dias}d
             </Button>
@@ -501,7 +501,7 @@
               on:click={() => removeItem(index)}
               variant="ghost"
               size="sm"
-              class_name="mt-5 flex-shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+              class_name="mt-5 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
               ariaLabel="Remover item"
               title="Remover item"
             >

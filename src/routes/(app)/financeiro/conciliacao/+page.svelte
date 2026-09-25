@@ -1780,27 +1780,27 @@
 
 <Card color="financeiro" class="mb-4">
   <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] !flex-col !items-center !justify-center gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'visao_geral' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('visao_geral')}>
+    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'visao_geral' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('visao_geral')}>
       <p class="text-xs {activeKpiView === 'visao_geral' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Visão geral</p>
       <p class="text-lg font-semibold {activeKpiView === 'visao_geral' ? 'text-orange-700' : 'text-slate-900'}">{registros.length}</p>
     </Button>
-    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] !flex-col !items-center !justify-center gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'conciliados' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('conciliados')}>
+    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'conciliados' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('conciliados')}>
       <p class="text-xs {activeKpiView === 'conciliados' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Conciliados</p>
       <p class="text-lg font-semibold {activeKpiView === 'conciliados' ? 'text-orange-700' : 'text-slate-900'}">{summary.efetivados}</p>
     </Button>
-    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] !flex-col !items-center !justify-center gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes')}>
+    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes')}>
       <p class="text-xs {activeKpiView === 'pendentes' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Pendentes conciliação</p>
       <p class="text-lg font-semibold {activeKpiView === 'pendentes' ? 'text-orange-700' : 'text-slate-900'}">{summary.pendentes}</p>
     </Button>
-    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] !flex-col !items-center !justify-center gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes_ranking' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes_ranking')}>
+    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes_ranking' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes_ranking')}>
       <p class="text-xs {activeKpiView === 'pendentes_ranking' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Pendentes ranking</p>
       <p class="text-lg font-semibold {activeKpiView === 'pendentes_ranking' ? 'text-orange-700' : 'text-slate-900'}">{summary.semRanking}</p>
     </Button>
-    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] !flex-col !items-center !justify-center gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'baixa_rac' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('baixa_rac')}>
+    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'baixa_rac' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('baixa_rac')}>
       <p class="text-xs {activeKpiView === 'baixa_rac' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Baixa RAC</p>
       <p class="text-lg font-semibold {activeKpiView === 'baixa_rac' ? 'text-orange-700' : 'text-slate-900'}">{summary.baixaRac}</p>
     </Button>
-    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] !flex-col !items-center !justify-center gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'execucoes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('execucoes')}>
+    <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'execucoes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('execucoes')}>
       <p class="text-xs {activeKpiView === 'execucoes' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Execuções</p>
       <p class="text-lg font-semibold {activeKpiView === 'execucoes' ? 'text-orange-700' : 'text-slate-900'}">{executions.length}</p>
     </Button>
@@ -1817,15 +1817,15 @@
         on:change={handleEmpresaChange}
       />
     {/if}
-    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={abrirImportacao}>
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg px-3!" on:click={abrirImportacao}>
       <Upload size={14} class="mr-1.5" />
       Importar
     </Button>
-    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={exportRows}>
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg px-3!" on:click={exportRows}>
       <Download size={14} class="mr-1.5" />
       Exportar
     </Button>
-    <Button color="financeiro" size="sm" class_name="h-9 rounded-lg !px-3" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
+    <Button color="financeiro" size="sm" class_name="h-9 rounded-lg px-3!" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
       <RefreshCcw size={14} class="mr-1.5" />Conciliar pendentes
     </Button>
     <div class="flex items-center gap-1">
@@ -1838,19 +1838,19 @@
         class_name="w-[150px]"
       />
     </div>
-    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={cleanupDuplicateRows} disabled={running || !monthFilter} loading={running}>
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg px-3!" on:click={cleanupDuplicateRows} disabled={running || !monthFilter} loading={running}>
       <Database size={14} class="mr-1.5" />
       Sanear duplicados
     </Button>
-    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={forceRecalculateMonth} disabled={running || !monthFilter} loading={running}>
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg px-3!" on:click={forceRecalculateMonth} disabled={running || !monthFilter} loading={running}>
       <RefreshCcw size={14} class="mr-1.5" />
       Recalcular mês
     </Button>
-    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={() => runFixVinculosAudit()} disabled={running || fixingVinculos} loading={fixingVinculos} title="Audita vínculos entre registros de conciliação e recibos de venda">
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg px-3!" on:click={() => runFixVinculosAudit()} disabled={running || fixingVinculos} loading={fixingVinculos} title="Audita vínculos entre registros de conciliação e recibos de venda">
       <ShieldAlert size={14} class="mr-1.5" />
       Auditar vínculos
     </Button>
-    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={loadAll} disabled={loading} loading={loading}>
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg px-3!" on:click={loadAll} disabled={loading} loading={loading}>
       <RefreshCcw size={14} class="mr-1.5" />
       Atualizar
     </Button>
@@ -2072,7 +2072,7 @@
                     {formatDocumentoConciliacao(row)}
                     {#if row.tem_diferenca}
                       <span
-                        class="ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold {diffSeverity === 'critical' ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}"
+                        class="ml-1 inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-semibold {diffSeverity === 'critical' ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}"
                         title={diffSeverity === 'critical' ? 'Diferença de 10% ou mais entre importação e venda cadastrada' : 'Diferença menor que 10% entre importação e venda cadastrada'}
                       >!</span>
                     {/if}

@@ -241,22 +241,22 @@
   <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
     <Card title="Fila financeira" subtitle="Atalhos do fluxo operacional" color="financeiro">
       <div class="grid gap-3 md:grid-cols-2">
-        <Button href="/financeiro/conciliacao" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4">
+        <Button href="/financeiro/conciliacao" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!">
           <FileSpreadsheet size={18} class="mr-3 text-orange-600" /> Conciliação
         </Button>
-        <Button href="/financeiro/ajustes-vendas" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4">
+        <Button href="/financeiro/ajustes-vendas" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!">
           <Settings size={18} class="mr-3 text-orange-600" /> Ajustes de vendas
         </Button>
-        <Button href="/financeiro/comissoes" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4">
+        <Button href="/financeiro/comissoes" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!">
           <Wallet size={18} class="mr-3 text-orange-600" /> Comissionamento
         </Button>
-        <Button href="/vendas" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4">
+        <Button href="/vendas" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!">
           <ShoppingCart size={18} class="mr-3 text-orange-600" /> Vendas e pagamentos
         </Button>
-        <Button href="/financeiro/formas-pagamento" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4">
+        <Button href="/financeiro/formas-pagamento" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!">
           <CreditCard size={18} class="mr-3 text-orange-600" /> Formas de pagamento
         </Button>
-        <Button href="/financeiro/notas-fiscais" variant="outline" color="financeiro" class_name="!justify-start !rounded-xl !p-4">
+        <Button href="/financeiro/notas-fiscais" variant="outline" color="financeiro" class_name="justify-start! rounded-xl! p-4!">
           <ReceiptText size={18} class="mr-3 text-orange-600" /> Notas fiscais
         </Button>
       </div>

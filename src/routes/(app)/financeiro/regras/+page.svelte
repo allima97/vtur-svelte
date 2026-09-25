@@ -643,7 +643,7 @@
       {/if}
 
       {#if form.tipo === 'ESCALONAVEL'}
-        <div class="rounded-[18px] border border-financeiro-200 bg-financeiro-50/40 p-4">
+        <div class="rounded-vtur-xl border border-financeiro-200 bg-financeiro-50/40 p-4">
           <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 class="text-base font-semibold text-slate-900">Faixas escalonáveis</h3>
@@ -777,7 +777,7 @@
   {:else}
     <div class="space-y-4">
       {#each rules as rule}
-        <div class="rounded-[18px] border border-slate-200 bg-slate-50/60 p-4">
+        <div class="rounded-vtur-xl border border-slate-200 bg-slate-50/60 p-4">
           <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div class="min-w-0 flex-1 space-y-4">
               <div class="flex flex-wrap items-center gap-2">

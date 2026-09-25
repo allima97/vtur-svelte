@@ -26,7 +26,7 @@
 
   {#if compact}
     <div
-      class="mx-auto w-full max-w-xl animate-pulse rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm"
+      class="mx-auto w-full max-w-xl animate-pulse rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-xs"
     >
       <div class="flex items-center gap-3">
         <div class="h-10 w-10 shrink-0 rounded-xl bg-slate-100"></div>
@@ -38,7 +38,7 @@
     </div>
   {:else if variant === "table"}
     <div
-      class="w-full animate-pulse overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm"
+      class="w-full animate-pulse overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xs"
     >
       <div
         class="grid grid-cols-5 gap-4 border-b border-slate-100 bg-slate-50 px-5 py-3"
@@ -66,7 +66,7 @@
       class="grid w-full animate-pulse grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
     >
       {#each Array(skeletonRows) as _, index}
-        <div class="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div class="rounded-xl border border-slate-100 bg-white p-4 shadow-xs">
           <div class="mb-4 h-10 w-10 rounded-xl bg-slate-100"></div>
           <div class="space-y-2">
             <div
@@ -80,7 +80,7 @@
     </div>
   {:else if variant === "form"}
     <div
-      class="w-full animate-pulse rounded-xl border border-slate-100 bg-white p-5 shadow-sm"
+      class="w-full animate-pulse rounded-xl border border-slate-100 bg-white p-5 shadow-xs"
     >
       <div class="mb-6 h-5 w-48 rounded-full bg-slate-100"></div>
       <div class="grid gap-4 md:grid-cols-2">
@@ -99,7 +99,7 @@
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {#each Array(4) as _, index}
           <div
-            class="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
+            class="rounded-xl border border-slate-100 bg-white p-4 shadow-xs"
           >
             <div class="flex items-start gap-3">
               <div class="h-10 w-10 shrink-0 rounded-xl bg-slate-100"></div>
@@ -115,7 +115,7 @@
         {/each}
       </div>
 
-      <div class="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+      <div class="rounded-xl border border-slate-100 bg-white p-5 shadow-xs">
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div class="h-5 w-44 rounded-full bg-slate-100"></div>
           <div class="h-9 w-36 rounded-lg bg-slate-100"></div>

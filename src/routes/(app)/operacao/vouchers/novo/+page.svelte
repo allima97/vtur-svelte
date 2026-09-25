@@ -573,7 +573,7 @@
     <WizardEtapas {steps} {goToStep} {getStepStatus} />
 
     <!-- Conteúdo do Wizard -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6 md:p-8">
       
       <!-- ETAPA 1: DADOS DA VIAGEM -->
       {#if currentStep === 0}
@@ -703,7 +703,7 @@
               {#if form.extra_data.passageiros_detalhes?.length}
                 <div class="space-y-3">
                   {#each form.extra_data.passageiros_detalhes as passenger, i}
-                    <div class="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    <div class="p-4 bg-white rounded-lg border border-slate-200 shadow-xs">
                       <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-medium text-slate-700">Passageiro {i + 1}</span>
                         <Button
@@ -814,13 +814,13 @@
               {:else}
                 <div class="space-y-3">
                   {#each form.dias as dia, i}
-                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
                       <div class="flex items-stretch justify-between bg-slate-50 transition-colors">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          class_name="flex flex-1 !justify-start gap-4 !rounded-none !border-0 !bg-transparent !px-4 !py-4 !text-left !shadow-none hover:!bg-slate-100"
+                          class_name="flex flex-1 justify-start! gap-4 rounded-none! border-0! bg-transparent! px-4! py-4! text-left! shadow-none! hover:bg-slate-100!"
                           on:click={() => toggleDayAccordion(i)}
                         >
                           <div class="w-10 h-10 rounded-full bg-clientes-500 text-white flex items-center justify-center font-bold">
@@ -846,7 +846,7 @@
                             ariaLabel={`Mover dia ${i + 1} para cima`}
                             on:click={() => moveDay(i, -1)}
                             disabled={i === 0}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-slate-400! hover:bg-slate-200! hover:text-slate-600!"
                           >
                             <MoveUp size={18} />
                           </Button>
@@ -857,7 +857,7 @@
                             ariaLabel={`Mover dia ${i + 1} para baixo`}
                             on:click={() => moveDay(i, 1)}
                             disabled={i === form.dias.length - 1}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-slate-400! hover:bg-slate-200! hover:text-slate-600!"
                           >
                             <MoveDown size={18} />
                           </Button>
@@ -867,7 +867,7 @@
                             size="xs"
                             ariaLabel={`Remover dia ${i + 1}`}
                             on:click={() => removeDay(i)}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-red-400 hover:!bg-red-50 hover:!text-red-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-red-400! hover:bg-red-50! hover:text-red-600!"
                           >
                             <Trash2 size={18} />
                           </Button>
@@ -944,13 +944,13 @@
               {:else}
                 <div class="space-y-3">
                   {#each form.hoteis as hotel, i}
-                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
                       <div class="flex items-stretch justify-between bg-slate-50 transition-colors">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          class_name="flex flex-1 !justify-start gap-4 !rounded-none !border-0 !bg-transparent !px-4 !py-4 !text-left !shadow-none hover:!bg-slate-100"
+                          class_name="flex flex-1 justify-start! gap-4 rounded-none! border-0! bg-transparent! px-4! py-4! text-left! shadow-none! hover:bg-slate-100!"
                           on:click={() => toggleHotelAccordion(i)}
                         >
                           <div class="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center">
@@ -974,7 +974,7 @@
                             ariaLabel={`Mover hotel ${i + 1} para cima`}
                             on:click={() => moveHotel(i, -1)}
                             disabled={i === 0}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-slate-400! hover:bg-slate-200! hover:text-slate-600!"
                           >
                             <MoveUp size={18} />
                           </Button>
@@ -985,7 +985,7 @@
                             ariaLabel={`Mover hotel ${i + 1} para baixo`}
                             on:click={() => moveHotel(i, 1)}
                             disabled={i === form.hoteis.length - 1}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-slate-400! hover:bg-slate-200! hover:text-slate-600!"
                           >
                             <MoveDown size={18} />
                           </Button>
@@ -995,7 +995,7 @@
                             size="xs"
                             ariaLabel={`Remover hotel ${i + 1}`}
                             on:click={() => removeHotel(i)}
-                            class_name="min-w-0 !rounded-lg !p-1.5 !text-red-400 hover:!bg-red-50 hover:!text-red-600"
+                            class_name="min-w-0 rounded-lg! p-1.5! text-red-400! hover:bg-red-50! hover:text-red-600!"
                           >
                             <Trash2 size={18} />
                           </Button>
@@ -1260,7 +1260,7 @@
               {#if form.extra_data.apps_recomendados?.length}
                 <div class="space-y-3">
                   {#each form.extra_data.apps_recomendados as app, i}
-                    <div class="p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
+                    <div class="p-4 bg-white rounded-lg border border-blue-200 shadow-xs">
                       <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-medium text-slate-700">App {i + 1}</span>
                         <Button

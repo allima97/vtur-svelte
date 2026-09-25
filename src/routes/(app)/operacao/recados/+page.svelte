@@ -534,7 +534,7 @@
                 variant="ghost"
                 size="xs"
                 ariaLabel="Voltar para a lista"
-                class_name="mural-wa-back !h-8 !w-8 !p-0"
+                class_name="mural-wa-back h-8! w-8! p-0!"
                 on:click={() => (mobileScreen = 'list')}
               >
                 <ArrowLeft size={16} />
@@ -597,7 +597,7 @@
                           type="button"
                           variant="ghost"
                           size="xs"
-                          class_name="chat-inline-btn !px-0 !py-0 text-red-600 hover:!bg-transparent hover:!text-red-700"
+                          class_name="chat-inline-btn px-0! py-0! text-red-600 hover:bg-transparent! hover:text-red-700!"
                           on:click={() => (deleteTarget = recado)}
                         >
                           Excluir
@@ -755,7 +755,7 @@
                           type="button"
                           variant="ghost"
                           size="xs"
-                          class_name="chat-inline-btn !px-0 !py-0 text-red-600 hover:!bg-transparent hover:!text-red-700"
+                          class_name="chat-inline-btn px-0! py-0! text-red-600 hover:bg-transparent! hover:text-red-700!"
                           on:click={() => (deleteTarget = recado)}
                         >
                           <Trash2 size={13} class="mr-1" />

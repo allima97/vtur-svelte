@@ -315,7 +315,7 @@
   </div>
 </div>
 
-<div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+<div class="mb-6 rounded-vtur-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-vtur-lg">
   A tela agora ajuda a revisar rapidamente formas <strong>ativas</strong>, <strong>inativas</strong>, sem comissão e com política de desconto.
 </div>
 

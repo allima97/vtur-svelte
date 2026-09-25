@@ -301,7 +301,7 @@
     </p>
   </Card>
 {:else}
-  <div class="grid gap-6 xl:grid-cols-[360px,minmax(0,1fr)]">
+  <div class="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
     <Card color="operacao" title={form.id ? 'Editar asset' : 'Novo asset'}>
       <div class="space-y-4">
         <FieldSelect
