@@ -16,6 +16,7 @@ const spy = vi.hoisted(
   },
 );
 
+vi.mock('./tipos-usuario-id-permissoes', () => ({ handleAdminTiposUsuarioIdPermissoesGet: spy('handleAdminTiposUsuarioIdPermissoesGet'), handleAdminTiposUsuarioIdPermissoesPost: spy('handleAdminTiposUsuarioIdPermissoesPost') }));
 vi.mock('./auth-mfa-status', () => ({ handleAdminAuthMfaStatusPost: spy('handleAdminAuthMfaStatusPost') }));
 vi.mock('./auth-reset-mfa', () => ({ handleAdminAuthResetMfaPost: spy('handleAdminAuthResetMfaPost') }));
 vi.mock('./auth-set-password', () => ({ handleAdminAuthSetPasswordPost: spy('handleAdminAuthSetPasswordPost') }));
@@ -45,6 +46,8 @@ import { apiApp } from '../../app';
 import * as catchAll from '../../../../../routes/api/v1/[...path]/+server';
 
 const CASES: Array<[string, string, string, Record<string, string>]> = [
+  ['GET', '/api/v1/admin/tipos-usuario/id-123/permissoes', 'handleAdminTiposUsuarioIdPermissoesGet', {"id": "id-123"}],
+  ['POST', '/api/v1/admin/tipos-usuario/id-123/permissoes', 'handleAdminTiposUsuarioIdPermissoesPost', {"id": "id-123"}],
   ['POST', '/api/v1/admin/auth/mfa-status', 'handleAdminAuthMfaStatusPost', {}],
   ['POST', '/api/v1/admin/auth/reset-mfa', 'handleAdminAuthResetMfaPost', {}],
   ['POST', '/api/v1/admin/auth/set-password', 'handleAdminAuthSetPasswordPost', {}],

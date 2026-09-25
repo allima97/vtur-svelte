@@ -16,6 +16,7 @@ const spy = vi.hoisted(
   },
 );
 
+vi.mock('./id-acompanhantes-acompanhanteId', () => ({ handleClientesIdAcompanhantesAcompanhanteIdPatch: spy('handleClientesIdAcompanhantesAcompanhanteIdPatch'), handleClientesIdAcompanhantesAcompanhanteIdDelete: spy('handleClientesIdAcompanhantesAcompanhanteIdDelete') }));
 vi.mock('./root', () => ({ handleClientesGet: spy('handleClientesGet') }));
 vi.mock('./id', () => ({ handleClientesIdGet: spy('handleClientesIdGet'), handleClientesIdPatch: spy('handleClientesIdPatch'), handleClientesIdDelete: spy('handleClientesIdDelete') }));
 vi.mock('./id-acompanhantes', () => ({ handleClientesIdAcompanhantesGet: spy('handleClientesIdAcompanhantesGet'), handleClientesIdAcompanhantesPost: spy('handleClientesIdAcompanhantesPost') }));
@@ -34,6 +35,8 @@ import { apiApp } from '../../app';
 import * as catchAll from '../../../../../routes/api/v1/[...path]/+server';
 
 const CASES: Array<[string, string, string, Record<string, string>]> = [
+  ['PATCH', '/api/v1/clientes/id-123/acompanhantes/ac-9', 'handleClientesIdAcompanhantesAcompanhanteIdPatch', {"id": "id-123", "acompanhanteId": "ac-9"}],
+  ['DELETE', '/api/v1/clientes/id-123/acompanhantes/ac-9', 'handleClientesIdAcompanhantesAcompanhanteIdDelete', {"id": "id-123", "acompanhanteId": "ac-9"}],
   ['GET', '/api/v1/clientes', 'handleClientesGet', {}],
   ['GET', '/api/v1/clientes/id-123', 'handleClientesIdGet', {"id": "id-123"}],
   ['PATCH', '/api/v1/clientes/id-123', 'handleClientesIdPatch', {"id": "id-123"}],

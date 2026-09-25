@@ -42,17 +42,24 @@ for dom in DOMAINS:
             return f'export const handle{prefix}{MC[m.group(1)]} = async ({arg}) => {{'
         new=re.sub(r'export const (GET|POST|PUT|PATCH|DELETE): RequestHandler = async \((event|\{[^)]*\})\) => \{',repl_const,new)
         assert methods, fp
-        rh_line=None
+        rh_line=None; rh_kit=None
         m=re.search(r"import type \{ RequestHandler \} from (['\"])\./\$types\1;\n",new)
         if m:
             rh_line=m.group(0)
-            assert new.count('RequestHandler')==1, fp
-            new=new.replace(rh_line,'',1)
+            if new.count('RequestHandler')==1:
+                new=new.replace(rh_line,'',1)
+            else:
+                # RequestHandler usado em outro ponto (ex.: Parameters<RequestHandler>[0]):
+                # './$types' não existe fora de src/routes, então usa o tipo genérico do kit (só tipo).
+                kit_line=rh_line.replace("'./$types'","'@sveltejs/kit'").replace('"./$types"',"'@sveltejs/kit'")
+                new=new.replace(rh_line,kit_line,1)
+                rh_kit=(rh_line,kit_line)
+                rh_line=None
         added_import=not re.search(r'\bRequestEvent\b',s)
         if added_import:
             new="import type { RequestEvent } from '@sveltejs/kit';\n"+new
         # imports relativos
-        relfix=[]
+        relfix=[rh_kit] if rh_kit else []
         def fix_rel(m):
             q,path=m.group(1),m.group(2)
             target=os.path.normpath(os.path.join('src/routes/api/v1',dom,rel,path))

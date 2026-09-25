@@ -16,6 +16,7 @@ const spy = vi.hoisted(
   },
 );
 
+vi.mock('./comissoes-regras-id', () => ({ handleFinanceiroComissoesRegrasIdGet: spy('handleFinanceiroComissoesRegrasIdGet'), handleFinanceiroComissoesRegrasIdPut: spy('handleFinanceiroComissoesRegrasIdPut'), handleFinanceiroComissoesRegrasIdDelete: spy('handleFinanceiroComissoesRegrasIdDelete') }));
 vi.mock('./ajustes-vendas', () => ({ handleFinanceiroAjustesVendasGet: spy('handleFinanceiroAjustesVendasGet'), handleFinanceiroAjustesVendasPost: spy('handleFinanceiroAjustesVendasPost') }));
 vi.mock('./ajustes-vendas-list', () => ({ handleFinanceiroAjustesVendasListGet: spy('handleFinanceiroAjustesVendasListGet') }));
 vi.mock('./ajustes-vendas-save', () => ({ handleFinanceiroAjustesVendasSavePost: spy('handleFinanceiroAjustesVendasSavePost') }));
@@ -31,6 +32,9 @@ import { apiApp } from '../../app';
 import * as catchAll from '../../../../../routes/api/v1/[...path]/+server';
 
 const CASES: Array<[string, string, string, Record<string, string>]> = [
+  ['GET', '/api/v1/financeiro/comissoes/regras/id-123', 'handleFinanceiroComissoesRegrasIdGet', {"id": "id-123"}],
+  ['PUT', '/api/v1/financeiro/comissoes/regras/id-123', 'handleFinanceiroComissoesRegrasIdPut', {"id": "id-123"}],
+  ['DELETE', '/api/v1/financeiro/comissoes/regras/id-123', 'handleFinanceiroComissoesRegrasIdDelete', {"id": "id-123"}],
   ['GET', '/api/v1/financeiro/ajustes-vendas', 'handleFinanceiroAjustesVendasGet', {}],
   ['POST', '/api/v1/financeiro/ajustes-vendas', 'handleFinanceiroAjustesVendasPost', {}],
   ['GET', '/api/v1/financeiro/ajustes-vendas/list', 'handleFinanceiroAjustesVendasListGet', {}],

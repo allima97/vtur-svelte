@@ -25,6 +25,7 @@ import { handleAdminTiposUsuarioGet, handleAdminTiposUsuarioPost } from './tipos
 import { handleAdminTiposUsuarioIdGet } from './tipos-usuario-id';
 import { handleAdminUsuariosGet, handleAdminUsuariosPost } from './usuarios';
 import { handleAdminUsuariosIdGet, handleAdminUsuariosIdPatch } from './usuarios-id';
+import { handleAdminTiposUsuarioIdPermissoesGet, handleAdminTiposUsuarioIdPermissoesPost } from './tipos-usuario-id-permissoes';
 
 // /api/v1/admin/* atendido pelo Hono (gerado por migrate_domain.py). Estáticas antes de '/:param'.
 export const adminRoutes = new Hono<ApiEnv>()
@@ -62,6 +63,9 @@ export const adminRoutes = new Hono<ApiEnv>()
   .post('/tipos-usuario', (c) => handleAdminTiposUsuarioPost(c.env.event))
   .get('/usuarios', (c) => handleAdminUsuariosGet(c.env.event))
   .post('/usuarios', (c) => handleAdminUsuariosPost(c.env.event))
+  // rota profunda migrada no lote 3 (antes ficava no SvelteKit: +8 níveis de pasta no Windows)
+  .get('/tipos-usuario/:id/permissoes', (c) => handleAdminTiposUsuarioIdPermissoesGet(withRouteParams(c.env.event, c.req.param())))
+  .post('/tipos-usuario/:id/permissoes', (c) => handleAdminTiposUsuarioIdPermissoesPost(withRouteParams(c.env.event, c.req.param())))
   .get('/empresas/:id', (c) => handleAdminEmpresasIdGet(withRouteParams(c.env.event, c.req.param())))
   .patch('/empresas/:id', (c) => handleAdminEmpresasIdPatch(withRouteParams(c.env.event, c.req.param())))
   .get('/permissoes/:id', (c) => handleAdminPermissoesIdGet(withRouteParams(c.env.event, c.req.param())))

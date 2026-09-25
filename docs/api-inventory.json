@@ -315,7 +315,7 @@
     {
       "route": "/api/v1/admin/auth/mfa-status",
       "file": "src/routes/api/v1/admin/auth/mfa-status/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/auth-mfa-status.ts",
       "methods": [
         "POST"
       ],
@@ -335,17 +335,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 73
+      "lines": 81
     },
     {
       "route": "/api/v1/admin/auth/reset-mfa",
       "file": "src/routes/api/v1/admin/auth/reset-mfa/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/auth-reset-mfa.ts",
       "methods": [
         "POST"
       ],
@@ -365,18 +366,19 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 90
+      "lines": 98
     },
     {
       "route": "/api/v1/admin/auth/set-password",
       "file": "src/routes/api/v1/admin/auth/set-password/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/auth-set-password.ts",
       "methods": [
         "POST"
       ],
@@ -396,18 +398,19 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 91
+      "lines": 99
     },
     {
       "route": "/api/v1/admin/avisos",
       "file": "src/routes/api/v1/admin/avisos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/avisos.ts",
       "methods": [
         "GET",
         "POST"
@@ -437,17 +440,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 118
+      "lines": 127
     },
     {
       "route": "/api/v1/admin/avisos/send",
       "file": "src/routes/api/v1/admin/avisos/send/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/avisos-send.ts",
       "methods": [
         "POST"
       ],
@@ -471,6 +475,7 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/fetchWithTimeout",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
@@ -479,12 +484,12 @@
         "$lib/utils/html"
       ],
       "mutates": false,
-      "lines": 142
+      "lines": 150
     },
     {
       "route": "/api/v1/admin/crm",
       "file": "src/routes/api/v1/admin/crm/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/crm.ts",
       "methods": [
         "GET",
         "POST"
@@ -514,17 +519,18 @@
       "invalidations": [],
       "imports": [
         "$lib/cards/themeAssetMeta",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 140
+      "lines": 149
     },
     {
       "route": "/api/v1/admin/email",
       "file": "src/routes/api/v1/admin/email/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/email.ts",
       "methods": [
         "GET",
         "POST"
@@ -552,17 +558,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 152
+      "lines": 161
     },
     {
       "route": "/api/v1/admin/email/test",
       "file": "src/routes/api/v1/admin/email/test/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/email-test.ts",
       "methods": [
         "POST"
       ],
@@ -584,6 +591,7 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/fetchWithTimeout",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
@@ -591,12 +599,12 @@
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 195
+      "lines": 202
     },
     {
       "route": "/api/v1/admin/empresas",
       "file": "src/routes/api/v1/admin/empresas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/empresas.ts",
       "methods": [
         "GET",
         "POST"
@@ -631,18 +639,19 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 272
+      "lines": 280
     },
     {
       "route": "/api/v1/admin/empresas/[id]",
       "file": "src/routes/api/v1/admin/empresas/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/empresas-id.ts",
       "methods": [
         "GET",
         "PATCH"
@@ -676,18 +685,19 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 190
+      "lines": 198
     },
     {
       "route": "/api/v1/admin/fix-recibos",
       "file": "src/routes/api/v1/admin/fix-recibos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/fix-recibos.ts",
       "methods": [
         "GET",
         "POST"
@@ -727,6 +737,7 @@
       "imports": [
         "$lib/conciliacao/baixaRac",
         "$lib/conciliacao/business",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -734,12 +745,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 840
+      "lines": 848
     },
     {
       "route": "/api/v1/admin/logs",
       "file": "src/routes/api/v1/admin/logs/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/logs.ts",
       "methods": [
         "GET"
       ],
@@ -764,16 +775,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 47
+      "lines": 55
     },
     {
       "route": "/api/v1/admin/maintenance",
       "file": "src/routes/api/v1/admin/maintenance/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/maintenance.ts",
       "methods": [
         "GET",
         "POST"
@@ -800,18 +812,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/rateLimit",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 92
+      "lines": 101
     },
     {
       "route": "/api/v1/admin/master-empresas",
       "file": "src/routes/api/v1/admin/master-empresas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/master-empresas.ts",
       "methods": [
         "GET",
         "POST"
@@ -839,18 +852,19 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 171
+      "lines": 180
     },
     {
       "route": "/api/v1/admin/modulos-sistema",
       "file": "src/routes/api/v1/admin/modulos-sistema/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/modulos-sistema.ts",
       "methods": [
         "GET",
         "POST"
@@ -877,17 +891,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 149
+      "lines": 158
     },
     {
       "route": "/api/v1/admin/permissoes",
       "file": "src/routes/api/v1/admin/permissoes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/permissoes.ts",
       "methods": [
         "GET",
         "POST"
@@ -917,6 +932,7 @@
       "imports": [
         "$lib/admin/modules",
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -924,12 +940,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 167
+      "lines": 175
     },
     {
       "route": "/api/v1/admin/permissoes/[id]",
       "file": "src/routes/api/v1/admin/permissoes/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/permissoes-id.ts",
       "methods": [
         "GET",
         "POST"
@@ -953,18 +969,19 @@
       "imports": [
         "$lib/admin/modules",
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 126
+      "lines": 134
     },
     {
       "route": "/api/v1/admin/planos",
       "file": "src/routes/api/v1/admin/planos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/planos.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -993,17 +1010,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 129
+      "lines": 139
     },
     {
       "route": "/api/v1/admin/summary",
       "file": "src/routes/api/v1/admin/summary/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/summary.ts",
       "methods": [
         "GET"
       ],
@@ -1035,18 +1053,19 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 233
+      "lines": 240
     },
     {
       "route": "/api/v1/admin/system-modules",
       "file": "src/routes/api/v1/admin/system-modules/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/system-modules.ts",
       "methods": [
         "GET",
         "POST"
@@ -1073,17 +1092,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 227
+      "lines": 235
     },
     {
       "route": "/api/v1/admin/tipos-usuario",
       "file": "src/routes/api/v1/admin/tipos-usuario/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/tipos-usuario.ts",
       "methods": [
         "GET",
         "POST"
@@ -1114,18 +1134,19 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 172
+      "lines": 180
     },
     {
       "route": "/api/v1/admin/tipos-usuario/[id]",
       "file": "src/routes/api/v1/admin/tipos-usuario/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/tipos-usuario-id.ts",
       "methods": [
         "GET"
       ],
@@ -1149,16 +1170,17 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 60
+      "lines": 67
     },
     {
       "route": "/api/v1/admin/tipos-usuario/[id]/permissoes",
       "file": "src/routes/api/v1/admin/tipos-usuario/[id]/permissoes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/tipos-usuario-id-permissoes.ts",
       "methods": [
         "GET",
         "POST"
@@ -1180,17 +1202,18 @@
       "imports": [
         "$lib/admin/modules",
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 93
+      "lines": 102
     },
     {
       "route": "/api/v1/admin/usuarios",
       "file": "src/routes/api/v1/admin/usuarios/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/usuarios.ts",
       "methods": [
         "GET",
         "POST"
@@ -1224,18 +1247,19 @@
       ],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 317
+      "lines": 326
     },
     {
       "route": "/api/v1/admin/usuarios/[id]",
       "file": "src/routes/api/v1/admin/usuarios/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/admin/usuarios-id.ts",
       "methods": [
         "GET",
         "PATCH"
@@ -1264,18 +1288,19 @@
       ],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 245
+      "lines": 254
     },
     {
       "route": "/api/v1/agenda",
       "file": "src/routes/api/v1/agenda/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/agenda/root.ts",
       "methods": [
         "GET"
       ],
@@ -1299,16 +1324,17 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 45
+      "lines": 53
     },
     {
       "route": "/api/v1/agenda/create",
       "file": "src/routes/api/v1/agenda/create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/agenda/create.ts",
       "methods": [
         "POST"
       ],
@@ -1334,17 +1360,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 100
+      "lines": 108
     },
     {
       "route": "/api/v1/agenda/delete",
       "file": "src/routes/api/v1/agenda/delete/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/agenda/delete.ts",
       "methods": [
         "DELETE"
       ],
@@ -1371,17 +1398,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 45
+      "lines": 53
     },
     {
       "route": "/api/v1/agenda/range",
       "file": "src/routes/api/v1/agenda/range/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/agenda/range.ts",
       "methods": [
         "GET"
       ],
@@ -1410,17 +1438,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 137
+      "lines": 145
     },
     {
       "route": "/api/v1/agenda/update",
       "file": "src/routes/api/v1/agenda/update/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/agenda/update.ts",
       "methods": [
         "PATCH",
         "POST"
@@ -1448,17 +1477,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 121
+      "lines": 129
     },
     {
       "route": "/api/v1/cards/aniversario.svg",
       "file": "src/routes/api/v1/cards/aniversario.svg/+server.ts",
-      "hono": null,
+      "hono": "src/routes/api/v1/cards/aniversario.svg/+server.ts",
       "methods": [
         "GET"
       ],
@@ -1477,16 +1507,15 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/server/httpCache",
-        "$lib/server/persistentRateLimit"
+        "$lib/server/api/sveltekit"
       ],
       "mutates": false,
-      "lines": 126
+      "lines": 5
     },
     {
       "route": "/api/v1/cards/render.png",
       "file": "src/routes/api/v1/cards/render.png/+server.ts",
-      "hono": null,
+      "hono": "src/routes/api/v1/cards/render.png/+server.ts",
       "methods": [
         "GET"
       ],
@@ -1505,18 +1534,15 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/cards/svgToPng",
-        "$lib/server/httpCache",
-        "$lib/server/persistentRateLimit",
-        "$lib/server/v1"
+        "$lib/server/api/sveltekit"
       ],
       "mutates": false,
-      "lines": 80
+      "lines": 5
     },
     {
       "route": "/api/v1/cards/render.svg",
       "file": "src/routes/api/v1/cards/render.svg/+server.ts",
-      "hono": null,
+      "hono": "src/routes/api/v1/cards/render.svg/+server.ts",
       "methods": [
         "GET"
       ],
@@ -1535,17 +1561,15 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/server/httpCache",
-        "$lib/server/persistentRateLimit",
-        "$lib/server/v1"
+        "$lib/server/api/sveltekit"
       ],
       "mutates": false,
-      "lines": 56
+      "lines": 5
     },
     {
       "route": "/api/v1/cards/render",
       "file": "src/routes/api/v1/cards/render/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/cards/render.ts",
       "methods": [
         "GET"
       ],
@@ -1565,17 +1589,18 @@
       "invalidations": [],
       "imports": [
         "$lib/cards/svgToPng",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 94
+      "lines": 101
     },
     {
       "route": "/api/v1/cidades",
       "file": "src/routes/api/v1/cidades/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/cidades/root.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -1606,18 +1631,19 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 187
+      "lines": 197
     },
     {
       "route": "/api/v1/cidades/[id]",
       "file": "src/routes/api/v1/cidades/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/cidades/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -1648,18 +1674,19 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 140
+      "lines": 150
     },
     {
       "route": "/api/v1/circuitos",
       "file": "src/routes/api/v1/circuitos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/circuitos/root.ts",
       "methods": [
         "GET",
         "POST"
@@ -1686,17 +1713,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 109
+      "lines": 118
     },
     {
       "route": "/api/v1/circuitos/[id]",
       "file": "src/routes/api/v1/circuitos/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/circuitos/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -1725,17 +1753,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 122
+      "lines": 132
     },
     {
       "route": "/api/v1/client-error",
       "file": "src/routes/api/v1/client-error/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/client-error/root.ts",
       "methods": [
         "POST"
       ],
@@ -1754,18 +1783,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 76
+      "lines": 83
     },
     {
       "route": "/api/v1/clientes",
       "file": "src/routes/api/v1/clientes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/root.ts",
       "methods": [
         "GET"
       ],
@@ -1790,18 +1820,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 127
+      "lines": 135
     },
     {
       "route": "/api/v1/clientes/[id]",
       "file": "src/routes/api/v1/clientes/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -1840,6 +1871,7 @@
       ],
       "imports": [
         "$lib/features/clientes/form",
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -1848,12 +1880,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 337
+      "lines": 347
     },
     {
       "route": "/api/v1/clientes/[id]/acompanhantes",
       "file": "src/routes/api/v1/clientes/[id]/acompanhantes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/id-acompanhantes.ts",
       "methods": [
         "GET",
         "POST"
@@ -1882,6 +1914,7 @@
         "invalidateClientReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -1889,12 +1922,12 @@
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 103
+      "lines": 112
     },
     {
       "route": "/api/v1/clientes/[id]/acompanhantes/[acompanhanteId]",
       "file": "src/routes/api/v1/clientes/[id]/acompanhantes/[acompanhanteId]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/id-acompanhantes-acompanhanteId.ts",
       "methods": [
         "DELETE",
         "PATCH"
@@ -1921,6 +1954,7 @@
         "invalidateClientReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -1928,12 +1962,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 111
+      "lines": 120
     },
     {
       "route": "/api/v1/clientes/avisos/history",
       "file": "src/routes/api/v1/clientes/avisos/history/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/avisos-history.ts",
       "methods": [
         "GET"
       ],
@@ -1958,17 +1992,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 47
+      "lines": 55
     },
     {
       "route": "/api/v1/clientes/avisos/send",
       "file": "src/routes/api/v1/clientes/avisos/send/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/avisos-send.ts",
       "methods": [
         "GET",
         "POST"
@@ -1999,6 +2034,7 @@
       "invalidations": [],
       "imports": [
         "$lib/server/admin",
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/fetchWithTimeout",
         "$lib/server/httpCache",
@@ -2008,12 +2044,12 @@
         "$lib/utils/html"
       ],
       "mutates": true,
-      "lines": 267
+      "lines": 276
     },
     {
       "route": "/api/v1/clientes/avisos/templates",
       "file": "src/routes/api/v1/clientes/avisos/templates/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/avisos-templates.ts",
       "methods": [
         "GET"
       ],
@@ -2042,17 +2078,18 @@
       "invalidations": [],
       "imports": [
         "$lib/cards/officialLibrary",
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 157
+      "lines": 165
     },
     {
       "route": "/api/v1/clientes/create",
       "file": "src/routes/api/v1/clientes/create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/create.ts",
       "methods": [
         "POST"
       ],
@@ -2080,6 +2117,7 @@
       ],
       "imports": [
         "$lib/features/clientes/form",
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -2088,12 +2126,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 127
+      "lines": 135
     },
     {
       "route": "/api/v1/clientes/delete",
       "file": "src/routes/api/v1/clientes/delete/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/delete.ts",
       "methods": [
         "DELETE"
       ],
@@ -2112,16 +2150,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards"
       ],
       "mutates": false,
-      "lines": 12
+      "lines": 19
     },
     {
       "route": "/api/v1/clientes/historico",
       "file": "src/routes/api/v1/clientes/historico/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/historico.ts",
       "methods": [
         "GET"
       ],
@@ -2156,6 +2195,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -2163,12 +2203,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 376
+      "lines": 384
     },
     {
       "route": "/api/v1/clientes/list",
       "file": "src/routes/api/v1/clientes/list/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/list.ts",
       "methods": [
         "GET"
       ],
@@ -2202,6 +2242,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -2209,12 +2250,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 811
+      "lines": 819
     },
     {
       "route": "/api/v1/clientes/resolve-import",
       "file": "src/routes/api/v1/clientes/resolve-import/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/resolve-import.ts",
       "methods": [
         "POST"
       ],
@@ -2245,6 +2286,7 @@
       "imports": [
         "$lib/features/clientes/form",
         "$lib/normalizeText",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -2252,12 +2294,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 207
+      "lines": 215
     },
     {
       "route": "/api/v1/clientes/template-dispatches",
       "file": "src/routes/api/v1/clientes/template-dispatches/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/template-dispatches.ts",
       "methods": [
         "GET",
         "POST"
@@ -2293,18 +2335,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 195
+      "lines": 203
     },
     {
       "route": "/api/v1/clientes/templates/send",
       "file": "src/routes/api/v1/clientes/templates/send/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/clientes/templates-send.ts",
       "methods": [
         "POST"
       ],
@@ -2340,6 +2383,7 @@
       "invalidations": [],
       "imports": [
         "$lib/cards/themeAssetMeta",
+        "$lib/server/api/sveltekit",
         "$lib/server/fetchWithTimeout",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
@@ -2348,34 +2392,47 @@
         "$lib/utils/html"
       ],
       "mutates": false,
-      "lines": 561
+      "lines": 568
     },
     {
       "route": "/api/v1/conciliacao",
       "file": "src/routes/api/v1/conciliacao/+server.ts",
-      "hono": "src/lib/server/api/routes/conciliacao/index.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/root.ts",
       "methods": [
         "GET"
       ],
       "guards": {
-        "requireAuthenticatedUser": false,
-        "resolveUserScope": false,
-        "roles": [],
+        "requireAuthenticatedUser": true,
+        "resolveUserScope": true,
+        "roles": [
+          "isAdmin",
+          "isFinanceiro",
+          "isGestor",
+          "isMaster"
+        ],
         "rejectCrossOrigin": false,
         "bodyLimit": false,
         "cronSecret": false,
         "turnstile": false,
-        "adminClient": false,
+        "adminClient": true,
         "debugOnly": false
       },
-      "tables": {},
+      "tables": {
+        "conciliacao_recibos": [
+          "select"
+        ]
+      },
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/server/api/sveltekit"
+        "$lib/server/api/sveltekit",
+        "$lib/server/httpCache",
+        "$lib/server/readModelCache",
+        "$lib/server/v1",
+        "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 50
+      "lines": 237
     },
     {
       "route": "/api/v1/conciliacao/assign",
@@ -2736,9 +2793,6 @@
         "conciliacao_recibos": [
           "select"
         ],
-        "parametros_pagamentos_nao_comissionaveis": [
-          "select"
-        ],
         "users": [
           "select"
         ],
@@ -2758,12 +2812,13 @@
         "$lib/date",
         "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
+        "$lib/server/naoComissionavelTermos",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 574
+      "lines": 549
     },
     {
       "route": "/api/v1/conciliacao/lookup",
@@ -3140,7 +3195,7 @@
     {
       "route": "/api/v1/consultorias",
       "file": "src/routes/api/v1/consultorias/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/consultorias/root.ts",
       "methods": [
         "GET",
         "PATCH",
@@ -3173,18 +3228,19 @@
         "invalidateConsultoriaReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 295
+      "lines": 304
     },
     {
       "route": "/api/v1/consultorias/ics",
       "file": "src/routes/api/v1/consultorias/ics/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/consultorias/ics.ts",
       "methods": [
         "GET"
       ],
@@ -3208,16 +3264,17 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 108
+      "lines": 115
     },
     {
       "route": "/api/v1/convites/accept",
       "file": "src/routes/api/v1/convites/accept/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/convites/accept.ts",
       "methods": [
         "POST"
       ],
@@ -3246,17 +3303,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 206
+      "lines": 213
     },
     {
       "route": "/api/v1/convites/send",
       "file": "src/routes/api/v1/convites/send/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/convites/send.ts",
       "methods": [
         "POST"
       ],
@@ -3301,6 +3359,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/emailMarkdown",
         "$lib/server/emailSettings",
         "$lib/server/fetchWithTimeout",
@@ -3310,12 +3369,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 591
+      "lines": 598
     },
     {
       "route": "/api/v1/crm/library",
       "file": "src/routes/api/v1/crm/library/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/crm/library.ts",
       "methods": [
         "GET"
       ],
@@ -3357,17 +3416,18 @@
       "imports": [
         "$lib/cards/officialLibrary",
         "$lib/cards/themeAssetMeta",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/utils/errors"
       ],
       "mutates": false,
-      "lines": 511
+      "lines": 518
     },
     {
       "route": "/api/v1/crm/signature",
       "file": "src/routes/api/v1/crm/signature/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/crm/signature.ts",
       "methods": [
         "POST"
       ],
@@ -3390,17 +3450,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 91
+      "lines": 99
     },
     {
       "route": "/api/v1/cron/alerta-comissao",
       "file": "src/routes/api/v1/cron/alerta-comissao/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/cron/alerta-comissao.ts",
       "methods": [
         "GET",
         "POST"
@@ -3420,16 +3481,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards"
       ],
       "mutates": false,
-      "lines": 65
+      "lines": 73
     },
     {
       "route": "/api/v1/cron/lembretes-consultoria",
       "file": "src/routes/api/v1/cron/lembretes-consultoria/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/cron/lembretes-consultoria.ts",
       "methods": [
         "POST"
       ],
@@ -3448,16 +3510,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards"
       ],
       "mutates": false,
-      "lines": 61
+      "lines": 68
     },
     {
       "route": "/api/v1/dashboard/aniversariantes",
       "file": "src/routes/api/v1/dashboard/aniversariantes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/aniversariantes.ts",
       "methods": [
         "GET"
       ],
@@ -3490,18 +3553,19 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 301
+      "lines": 309
     },
     {
       "route": "/api/v1/dashboard/base",
       "file": "src/routes/api/v1/dashboard/base/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/base.ts",
       "methods": [
         "GET"
       ],
@@ -3532,18 +3596,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 202
+      "lines": 210
     },
     {
       "route": "/api/v1/dashboard/comparativo-empresas",
       "file": "src/routes/api/v1/dashboard/comparativo-empresas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/comparativo-empresas.ts",
       "methods": [
         "GET"
       ],
@@ -3575,6 +3640,8 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/routes/dashboard/comparativo-empresas",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/readModelRebuild",
@@ -3584,12 +3651,12 @@
         "$lib/utils/values"
       ],
       "mutates": false,
-      "lines": 342
+      "lines": 351
     },
     {
       "route": "/api/v1/dashboard/consultorias",
       "file": "src/routes/api/v1/dashboard/consultorias/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/consultorias.ts",
       "methods": [
         "GET"
       ],
@@ -3618,18 +3685,19 @@
       ],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 249
+      "lines": 256
     },
     {
       "route": "/api/v1/dashboard/debug-aggregates",
       "file": "src/routes/api/v1/dashboard/debug-aggregates/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/debug-aggregates.ts",
       "methods": [
         "GET"
       ],
@@ -3657,17 +3725,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/utils/values"
       ],
       "mutates": false,
-      "lines": 197
+      "lines": 204
     },
     {
       "route": "/api/v1/dashboard/evolucao-anual",
       "file": "src/routes/api/v1/dashboard/evolucao-anual/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/evolucao-anual.ts",
       "methods": [
         "GET"
       ],
@@ -3692,6 +3761,8 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/routes/dashboard/evolucao-anual",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
@@ -3700,12 +3771,12 @@
         "$lib/utils/values"
       ],
       "mutates": false,
-      "lines": 307
+      "lines": 316
     },
     {
       "route": "/api/v1/dashboard/follow-ups",
       "file": "src/routes/api/v1/dashboard/follow-ups/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/follow-ups.ts",
       "methods": [
         "GET"
       ],
@@ -3732,6 +3803,7 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/readModelRebuild",
@@ -3740,12 +3812,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 627
+      "lines": 635
     },
     {
       "route": "/api/v1/dashboard/summary",
       "file": "src/routes/api/v1/dashboard/summary/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/summary.ts",
       "methods": [
         "GET"
       ],
@@ -3782,6 +3854,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/reciboContribuicoesReadModel",
@@ -3791,12 +3864,12 @@
         "$lib/utils/values"
       ],
       "mutates": false,
-      "lines": 637
+      "lines": 645
     },
     {
       "route": "/api/v1/dashboard/ultimas-compras",
       "file": "src/routes/api/v1/dashboard/ultimas-compras/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/ultimas-compras.ts",
       "methods": [
         "GET"
       ],
@@ -3833,6 +3906,7 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/readModelRebuild",
@@ -3843,12 +3917,12 @@
         "$lib/utils/values"
       ],
       "mutates": false,
-      "lines": 543
+      "lines": 551
     },
     {
       "route": "/api/v1/dashboard/viagens",
       "file": "src/routes/api/v1/dashboard/viagens/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/viagens.ts",
       "methods": [
         "GET"
       ],
@@ -3883,6 +3957,7 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
@@ -3891,12 +3966,12 @@
         "$lib/viagens/status"
       ],
       "mutates": false,
-      "lines": 450
+      "lines": 458
     },
     {
       "route": "/api/v1/dashboard/widgets",
       "file": "src/routes/api/v1/dashboard/widgets/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/dashboard/widgets.ts",
       "methods": [
         "GET",
         "POST"
@@ -3924,6 +3999,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
@@ -3931,12 +4007,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 170
+      "lines": 178
     },
     {
       "route": "/api/v1/debug-comissao",
       "file": "src/routes/api/v1/debug-comissao/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/debug-comissao/root.ts",
       "methods": [
         "GET"
       ],
@@ -3959,18 +4035,19 @@
       "invalidations": [],
       "imports": [
         "$lib/conciliacao/source",
+        "$lib/server/api/sveltekit",
         "$lib/server/comissoes",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/utils/comissao"
       ],
       "mutates": false,
-      "lines": 206
+      "lines": 213
     },
     {
       "route": "/api/v1/debug/permissions",
       "file": "src/routes/api/v1/debug/permissions/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/debug/permissions.ts",
       "methods": [
         "GET"
       ],
@@ -4001,16 +4078,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 78
+      "lines": 86
     },
     {
       "route": "/api/v1/debug/vendas-recibos-diff",
       "file": "src/routes/api/v1/debug/vendas-recibos-diff/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/debug/vendas-recibos-diff.ts",
       "methods": [
         "GET"
       ],
@@ -4032,17 +4110,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/server/vendas-kpis"
       ],
       "mutates": false,
-      "lines": 98
+      "lines": 106
     },
     {
       "route": "/api/v1/documentacao",
       "file": "src/routes/api/v1/documentacao/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/documentacao/root.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -4074,18 +4153,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/errors"
       ],
       "mutates": true,
-      "lines": 231
+      "lines": 241
     },
     {
       "route": "/api/v1/documentos-viagens/create",
       "file": "src/routes/api/v1/documentos-viagens/create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/documentos-viagens/create.ts",
       "methods": [
         "POST"
       ],
@@ -4110,17 +4190,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 96
+      "lines": 103
     },
     {
       "route": "/api/v1/documentos-viagens/delete",
       "file": "src/routes/api/v1/documentos-viagens/delete/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/documentos-viagens/delete.ts",
       "methods": [
         "POST"
       ],
@@ -4146,18 +4227,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 73
+      "lines": 80
     },
     {
       "route": "/api/v1/documentos-viagens/list",
       "file": "src/routes/api/v1/documentos-viagens/list/+server.ts",
-      "hono": null,
+      "hono": "src/routes/api/v1/documentos-viagens/list/+server.ts",
       "methods": [
         "GET"
       ],
@@ -4175,14 +4257,16 @@
       "tables": {},
       "rpcs": [],
       "invalidations": [],
-      "imports": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
       "mutates": false,
-      "lines": 2
+      "lines": 5
     },
     {
       "route": "/api/v1/documentos-viagens/save-template",
       "file": "src/routes/api/v1/documentos-viagens/save-template/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/documentos-viagens/save-template.ts",
       "methods": [
         "POST"
       ],
@@ -4208,18 +4292,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 136
+      "lines": 143
     },
     {
       "route": "/api/v1/documentos-viagens/update",
       "file": "src/routes/api/v1/documentos-viagens/update/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/documentos-viagens/update.ts",
       "methods": [
         "POST"
       ],
@@ -4245,18 +4330,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 81
+      "lines": 88
     },
     {
       "route": "/api/v1/enderecos/cep",
       "file": "src/routes/api/v1/enderecos/cep/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/enderecos/cep.ts",
       "methods": [
         "GET"
       ],
@@ -4275,18 +4361,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/fetchWithTimeout",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 85
+      "lines": 92
     },
     {
       "route": "/api/v1/equipe/relacao",
       "file": "src/routes/api/v1/equipe/relacao/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/equipe/relacao.ts",
       "methods": [
         "POST"
       ],
@@ -4315,17 +4402,18 @@
       ],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 93
+      "lines": 100
     },
     {
       "route": "/api/v1/financeiro/ajustes-vendas",
       "file": "src/routes/api/v1/financeiro/ajustes-vendas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/ajustes-vendas.ts",
       "methods": [
         "GET",
         "POST"
@@ -4367,6 +4455,7 @@
         "invalidateReadModelCache"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -4374,12 +4463,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 511
+      "lines": 520
     },
     {
       "route": "/api/v1/financeiro/ajustes-vendas/list",
       "file": "src/routes/api/v1/financeiro/ajustes-vendas/list/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/ajustes-vendas-list.ts",
       "methods": [
         "GET"
       ],
@@ -4413,17 +4502,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 465
+      "lines": 472
     },
     {
       "route": "/api/v1/financeiro/ajustes-vendas/save",
       "file": "src/routes/api/v1/financeiro/ajustes-vendas/save/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/ajustes-vendas-save.ts",
       "methods": [
         "POST"
       ],
@@ -4466,6 +4556,7 @@
         "invalidateReadModelCache"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -4473,12 +4564,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 346
+      "lines": 354
     },
     {
       "route": "/api/v1/financeiro/caixa",
       "file": "src/routes/api/v1/financeiro/caixa/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/caixa.ts",
       "methods": [
         "GET",
         "POST"
@@ -4511,6 +4602,7 @@
       ],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -4518,12 +4610,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 316
+      "lines": 325
     },
     {
       "route": "/api/v1/financeiro/comissoes",
       "file": "src/routes/api/v1/financeiro/comissoes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/comissoes.ts",
       "methods": [
         "GET"
       ],
@@ -4548,6 +4640,7 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/comissoes",
         "$lib/server/comissoes-registro",
         "$lib/server/httpCache",
@@ -4558,12 +4651,12 @@
         "$lib/utils/values"
       ],
       "mutates": false,
-      "lines": 353
+      "lines": 361
     },
     {
       "route": "/api/v1/financeiro/comissoes/calcular",
       "file": "src/routes/api/v1/financeiro/comissoes/calcular/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/comissoes-calcular.ts",
       "methods": [
         "GET",
         "POST"
@@ -4589,6 +4682,7 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/comissoes",
         "$lib/server/comissoes-registro",
         "$lib/server/httpCache",
@@ -4600,12 +4694,12 @@
         "$lib/utils/values"
       ],
       "mutates": false,
-      "lines": 430
+      "lines": 439
     },
     {
       "route": "/api/v1/financeiro/comissoes/pagamento",
       "file": "src/routes/api/v1/financeiro/comissoes/pagamento/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/comissoes-pagamento.ts",
       "methods": [
         "DELETE",
         "POST",
@@ -4639,6 +4733,7 @@
       ],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/comissoes",
         "$lib/server/comissoes-registro",
         "$lib/server/httpCache",
@@ -4650,12 +4745,12 @@
         "$lib/utils/values"
       ],
       "mutates": true,
-      "lines": 448
+      "lines": 458
     },
     {
       "route": "/api/v1/financeiro/comissoes/regras",
       "file": "src/routes/api/v1/financeiro/comissoes/regras/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/comissoes-regras.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -4692,6 +4787,7 @@
         "invalidateCommissionRuleReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -4699,12 +4795,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 344
+      "lines": 355
     },
     {
       "route": "/api/v1/financeiro/comissoes/regras/[id]",
       "file": "src/routes/api/v1/financeiro/comissoes/regras/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/comissoes-regras-id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -4739,6 +4835,7 @@
         "invalidateCommissionRuleReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -4746,12 +4843,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 194
+      "lines": 204
     },
     {
       "route": "/api/v1/financeiro/comissoes/vendedores",
       "file": "src/routes/api/v1/financeiro/comissoes/vendedores/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/comissoes-vendedores.ts",
       "methods": [
         "GET",
         "POST"
@@ -4776,18 +4873,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/comissoes",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 122
+      "lines": 131
     },
     {
       "route": "/api/v1/financeiro/formas-pagamento",
       "file": "src/routes/api/v1/financeiro/formas-pagamento/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/financeiro/formas-pagamento.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -4823,6 +4921,7 @@
         "invalidateReadModelCache"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -4830,12 +4929,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 312
+      "lines": 323
     },
     {
       "route": "/api/v1/fornecedores",
       "file": "src/routes/api/v1/fornecedores/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/fornecedores/root.ts",
       "methods": [
         "GET"
       ],
@@ -4856,17 +4955,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/fornecedores",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 28
+      "lines": 36
     },
     {
       "route": "/api/v1/fornecedores/[id]",
       "file": "src/routes/api/v1/fornecedores/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/fornecedores/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -4898,6 +4998,7 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/fornecedores",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -4906,12 +5007,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 186
+      "lines": 196
     },
     {
       "route": "/api/v1/fornecedores/create",
       "file": "src/routes/api/v1/fornecedores/create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/fornecedores/create.ts",
       "methods": [
         "POST"
       ],
@@ -4938,6 +5039,7 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/fornecedores",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -4945,7 +5047,7 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 88
+      "lines": 96
     },
     {
       "route": "/api/v1/health",
@@ -4978,7 +5080,7 @@
     {
       "route": "/api/v1/importar-vendas",
       "file": "src/routes/api/v1/importar-vendas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/importar-vendas/root.ts",
       "methods": [
         "POST"
       ],
@@ -4997,16 +5099,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards"
       ],
       "mutates": false,
-      "lines": 18
+      "lines": 25
     },
     {
       "route": "/api/v1/menu/prefs",
       "file": "src/routes/api/v1/menu/prefs/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/menu/prefs.ts",
       "methods": [
         "GET",
         "POST"
@@ -5032,6 +5135,7 @@
       "invalidations": [],
       "imports": [
         "$lib/config/menuDefaults",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/menuPrefs",
         "$lib/server/requestGuards",
@@ -5039,12 +5143,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 99
+      "lines": 107
     },
     {
       "route": "/api/v1/mural/bootstrap",
       "file": "src/routes/api/v1/mural/bootstrap/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/mural/bootstrap.ts",
       "methods": [
         "GET"
       ],
@@ -5069,17 +5173,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 115
+      "lines": 122
     },
     {
       "route": "/api/v1/mural/company",
       "file": "src/routes/api/v1/mural/company/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/mural/company.ts",
       "methods": [
         "GET"
       ],
@@ -5098,16 +5203,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 61
+      "lines": 68
     },
     {
       "route": "/api/v1/mural/read",
       "file": "src/routes/api/v1/mural/read/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/mural/read.ts",
       "methods": [
         "POST"
       ],
@@ -5135,17 +5241,18 @@
         "invalidateMuralReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 76
+      "lines": 83
     },
     {
       "route": "/api/v1/mural/recados",
       "file": "src/routes/api/v1/mural/recados/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/mural/recados.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -5179,17 +5286,18 @@
         "invalidateMuralReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 222
+      "lines": 231
     },
     {
       "route": "/api/v1/operacao/campanhas",
       "file": "src/routes/api/v1/operacao/campanhas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/operacao/campanhas.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -5221,18 +5329,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 247
+      "lines": 257
     },
     {
       "route": "/api/v1/operacao/documentos-viagens",
       "file": "src/routes/api/v1/operacao/documentos-viagens/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/operacao/documentos-viagens.ts",
       "methods": [
         "DELETE",
         "GET"
@@ -5259,18 +5368,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 138
+      "lines": 147
     },
     {
       "route": "/api/v1/operacao/preferencias",
       "file": "src/routes/api/v1/operacao/preferencias/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/operacao/preferencias.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -5312,18 +5422,19 @@
         "invalidatePreferenceReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 340
+      "lines": 351
     },
     {
       "route": "/api/v1/operacao/recados",
       "file": "src/routes/api/v1/operacao/recados/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/operacao/recados.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -5355,18 +5466,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 252
+      "lines": 262
     },
     {
       "route": "/api/v1/operacao/sac",
       "file": "src/routes/api/v1/operacao/sac/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/operacao/sac.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -5395,18 +5507,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 178
+      "lines": 188
     },
     {
       "route": "/api/v1/orcamentos/[id]",
       "file": "src/routes/api/v1/orcamentos/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -5446,6 +5559,7 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/orcamentos",
         "$lib/server/readModelCache",
@@ -5453,12 +5567,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 326
+      "lines": 336
     },
     {
       "route": "/api/v1/orcamentos/[id]/resumo-venda",
       "file": "src/routes/api/v1/orcamentos/[id]/resumo-venda/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/id-resumo-venda.ts",
       "methods": [
         "GET"
       ],
@@ -5487,17 +5601,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/orcamentos",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 72
+      "lines": 80
     },
     {
       "route": "/api/v1/orcamentos/cidades-busca",
       "file": "src/routes/api/v1/orcamentos/cidades-busca/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/cidades-busca.ts",
       "methods": [
         "GET"
       ],
@@ -5525,17 +5640,18 @@
       ],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 93
+      "lines": 100
     },
     {
       "route": "/api/v1/orcamentos/cliente-create",
       "file": "src/routes/api/v1/orcamentos/cliente-create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/cliente-create.ts",
       "methods": [
         "POST"
       ],
@@ -5563,18 +5679,19 @@
       ],
       "imports": [
         "$lib/normalizeText",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 93
+      "lines": 100
     },
     {
       "route": "/api/v1/orcamentos/clientes",
       "file": "src/routes/api/v1/orcamentos/clientes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/clientes.ts",
       "methods": [
         "GET"
       ],
@@ -5599,6 +5716,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -5606,12 +5724,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 150
+      "lines": 157
     },
     {
       "route": "/api/v1/orcamentos/create",
       "file": "src/routes/api/v1/orcamentos/create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/create.ts",
       "methods": [
         "POST"
       ],
@@ -5644,18 +5762,19 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 192
+      "lines": 200
     },
     {
       "route": "/api/v1/orcamentos/delete",
       "file": "src/routes/api/v1/orcamentos/delete/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/delete.ts",
       "methods": [
         "POST"
       ],
@@ -5682,6 +5801,7 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/orcamentos",
         "$lib/server/readModelCache",
@@ -5689,12 +5809,12 @@
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 73
+      "lines": 80
     },
     {
       "route": "/api/v1/orcamentos/importar",
       "file": "src/routes/api/v1/orcamentos/importar/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/importar.ts",
       "methods": [
         "POST"
       ],
@@ -5735,18 +5855,19 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 283
+      "lines": 290
     },
     {
       "route": "/api/v1/orcamentos/interacao",
       "file": "src/routes/api/v1/orcamentos/interacao/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/interacao.ts",
       "methods": [
         "GET",
         "POST"
@@ -5775,6 +5896,7 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/orcamentos",
         "$lib/server/readModelCache",
@@ -5782,12 +5904,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 140
+      "lines": 149
     },
     {
       "route": "/api/v1/orcamentos/interaction",
       "file": "src/routes/api/v1/orcamentos/interaction/+server.ts",
-      "hono": null,
+      "hono": "src/routes/api/v1/orcamentos/interaction/+server.ts",
       "methods": [
         "GET",
         "POST"
@@ -5806,14 +5928,16 @@
       "tables": {},
       "rpcs": [],
       "invalidations": [],
-      "imports": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
       "mutates": false,
-      "lines": 2
+      "lines": 6
     },
     {
       "route": "/api/v1/orcamentos/list",
       "file": "src/routes/api/v1/orcamentos/list/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/list.ts",
       "methods": [
         "GET"
       ],
@@ -5848,6 +5972,7 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/orcamentos",
         "$lib/server/readModelCache",
@@ -5855,12 +5980,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 366
+      "lines": 374
     },
     {
       "route": "/api/v1/orcamentos/produtos",
       "file": "src/routes/api/v1/orcamentos/produtos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/produtos.ts",
       "methods": [
         "GET"
       ],
@@ -5885,17 +6010,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 55
+      "lines": 62
     },
     {
       "route": "/api/v1/orcamentos/save",
       "file": "src/routes/api/v1/orcamentos/save/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/save.ts",
       "methods": [
         "POST"
       ],
@@ -5941,6 +6067,7 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/orcamentos",
         "$lib/server/readModelCache",
@@ -5949,12 +6076,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 363
+      "lines": 370
     },
     {
       "route": "/api/v1/orcamentos/status",
       "file": "src/routes/api/v1/orcamentos/status/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/status.ts",
       "methods": [
         "PATCH"
       ],
@@ -5982,6 +6109,7 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/orcamentos",
         "$lib/server/readModelCache",
@@ -5989,12 +6117,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 98
+      "lines": 106
     },
     {
       "route": "/api/v1/orcamentos/tipos",
       "file": "src/routes/api/v1/orcamentos/tipos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/orcamentos/tipos.ts",
       "methods": [
         "GET"
       ],
@@ -6020,17 +6148,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 58
+      "lines": 65
     },
     {
       "route": "/api/v1/pagamentos",
       "file": "src/routes/api/v1/pagamentos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/pagamentos/root.ts",
       "methods": [
         "GET",
         "POST"
@@ -6063,6 +6192,7 @@
         "invalidateReadModelCache"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -6070,12 +6200,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 272
+      "lines": 281
     },
     {
       "route": "/api/v1/pagamentos/[id]",
       "file": "src/routes/api/v1/pagamentos/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/pagamentos/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6107,18 +6237,19 @@
         "invalidateReadModelCache"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 175
+      "lines": 185
     },
     {
       "route": "/api/v1/pagamentos/[id]/conciliar",
       "file": "src/routes/api/v1/pagamentos/[id]/conciliar/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/pagamentos/id-conciliar.ts",
       "methods": [
         "POST"
       ],
@@ -6147,18 +6278,19 @@
         "invalidateReadModelCache"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 101
+      "lines": 109
     },
     {
       "route": "/api/v1/pagamentos/upload",
       "file": "src/routes/api/v1/pagamentos/upload/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/pagamentos/upload.ts",
       "methods": [
         "POST"
       ],
@@ -6187,6 +6319,7 @@
         "invalidateReadModelCache"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -6194,12 +6327,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 131
+      "lines": 139
     },
     {
       "route": "/api/v1/paises",
       "file": "src/routes/api/v1/paises/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/paises/root.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6230,18 +6363,19 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 165
+      "lines": 175
     },
     {
       "route": "/api/v1/parametros/cambios",
       "file": "src/routes/api/v1/parametros/cambios/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/cambios.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6272,18 +6406,19 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 129
+      "lines": 139
     },
     {
       "route": "/api/v1/parametros/commission-rules",
       "file": "src/routes/api/v1/parametros/commission-rules/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/commission-rules.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6305,7 +6440,6 @@
       },
       "tables": {
         "commission_rule": [
-          "delete",
           "insert",
           "select",
           "update"
@@ -6320,6 +6454,7 @@
         "invalidateCommissionRuleReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -6328,12 +6463,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 531
+      "lines": 541
     },
     {
       "route": "/api/v1/parametros/empresa",
       "file": "src/routes/api/v1/parametros/empresa/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/empresa.ts",
       "methods": [
         "GET",
         "PATCH"
@@ -6362,18 +6497,19 @@
         "invalidateUserReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 117
+      "lines": 126
     },
     {
       "route": "/api/v1/parametros/equipe",
       "file": "src/routes/api/v1/parametros/equipe/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/equipe.ts",
       "methods": [
         "GET",
         "POST"
@@ -6397,9 +6533,6 @@
           "insert",
           "select"
         ],
-        "user_convites": [
-          "select"
-        ],
         "user_types": [
           "select"
         ],
@@ -6412,18 +6545,19 @@
         "invalidateUserReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 143
+      "lines": 152
     },
     {
       "route": "/api/v1/parametros/escalas",
       "file": "src/routes/api/v1/parametros/escalas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/escalas.ts",
       "methods": [
         "GET",
         "POST"
@@ -6473,6 +6607,7 @@
       ],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/fetchWithTimeout",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -6481,12 +6616,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 594
+      "lines": 603
     },
     {
       "route": "/api/v1/parametros/metas",
       "file": "src/routes/api/v1/parametros/metas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/metas.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6529,6 +6664,7 @@
       ],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -6536,12 +6672,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 713
+      "lines": 723
     },
     {
       "route": "/api/v1/parametros/nao-comissionaveis",
       "file": "src/routes/api/v1/parametros/nao-comissionaveis/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/nao-comissionaveis.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6572,18 +6708,19 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 131
+      "lines": 141
     },
     {
       "route": "/api/v1/parametros/orcamentos-pdf",
       "file": "src/routes/api/v1/parametros/orcamentos-pdf/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/orcamentos-pdf.ts",
       "methods": [
         "GET",
         "POST"
@@ -6614,18 +6751,19 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 132
+      "lines": 141
     },
     {
       "route": "/api/v1/parametros/regras-produto-pacote",
       "file": "src/routes/api/v1/parametros/regras-produto-pacote/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/regras-produto-pacote.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6656,18 +6794,19 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 170
+      "lines": 180
     },
     {
       "route": "/api/v1/parametros/regras-produto",
       "file": "src/routes/api/v1/parametros/regras-produto/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/regras-produto.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6698,18 +6837,19 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 162
+      "lines": 172
     },
     {
       "route": "/api/v1/parametros/sistema",
       "file": "src/routes/api/v1/parametros/sistema/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/sistema.ts",
       "methods": [
         "GET",
         "POST"
@@ -6741,6 +6881,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -6748,12 +6889,12 @@
         "$lib/utils/conciliacao"
       ],
       "mutates": true,
-      "lines": 457
+      "lines": 466
     },
     {
       "route": "/api/v1/parametros/tipo-pacotes",
       "file": "src/routes/api/v1/parametros/tipo-pacotes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/parametros/tipo-pacotes.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -6784,18 +6925,19 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 159
+      "lines": 169
     },
     {
       "route": "/api/v1/preferencias/base",
       "file": "src/routes/api/v1/preferencias/base/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/preferencias/base.ts",
       "methods": [
         "GET"
       ],
@@ -6814,15 +6956,16 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache"
       ],
       "mutates": false,
-      "lines": 42
+      "lines": 50
     },
     {
       "route": "/api/v1/preferencias/cidades-busca",
       "file": "src/routes/api/v1/preferencias/cidades-busca/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/preferencias/cidades-busca.ts",
       "methods": [
         "GET"
       ],
@@ -6847,15 +6990,16 @@
       ],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 56
+      "lines": 64
     },
     {
       "route": "/api/v1/preferencias/delete",
       "file": "src/routes/api/v1/preferencias/delete/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/preferencias/delete.ts",
       "methods": [
         "POST"
       ],
@@ -6882,17 +7026,18 @@
         "invalidatePreferenceReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 52
+      "lines": 60
     },
     {
       "route": "/api/v1/preferencias/list",
       "file": "src/routes/api/v1/preferencias/list/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/preferencias/list.ts",
       "methods": [
         "GET"
       ],
@@ -6918,15 +7063,16 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache"
       ],
       "mutates": false,
-      "lines": 193
+      "lines": 201
     },
     {
       "route": "/api/v1/preferencias/save",
       "file": "src/routes/api/v1/preferencias/save/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/preferencias/save.ts",
       "methods": [
         "POST"
       ],
@@ -6954,17 +7100,18 @@
         "invalidatePreferenceReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 106
+      "lines": 114
     },
     {
       "route": "/api/v1/preferencias/share-accept",
       "file": "src/routes/api/v1/preferencias/share-accept/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/preferencias/share-accept.ts",
       "methods": [
         "POST"
       ],
@@ -6989,17 +7136,18 @@
         "invalidatePreferenceReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 68
+      "lines": 76
     },
     {
       "route": "/api/v1/preferencias/share-revoke",
       "file": "src/routes/api/v1/preferencias/share-revoke/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/preferencias/share-revoke.ts",
       "methods": [
         "POST"
       ],
@@ -7024,17 +7172,18 @@
         "invalidatePreferenceReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 68
+      "lines": 76
     },
     {
       "route": "/api/v1/preferencias/share",
       "file": "src/routes/api/v1/preferencias/share/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/preferencias/share.ts",
       "methods": [
         "POST"
       ],
@@ -7067,17 +7216,18 @@
         "invalidatePreferenceReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 111
+      "lines": 119
     },
     {
       "route": "/api/v1/produtos",
       "file": "src/routes/api/v1/produtos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/produtos/root.ts",
       "methods": [
         "GET"
       ],
@@ -7098,17 +7248,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/cadastros-base",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 31
+      "lines": 39
     },
     {
       "route": "/api/v1/produtos/[id]",
       "file": "src/routes/api/v1/produtos/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/produtos/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -7140,6 +7291,7 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/cadastros-base",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -7147,12 +7299,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 132
+      "lines": 142
     },
     {
       "route": "/api/v1/produtos/base",
       "file": "src/routes/api/v1/produtos/base/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/produtos/base.ts",
       "methods": [
         "GET"
       ],
@@ -7173,17 +7325,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/cadastros-base",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 22
+      "lines": 30
     },
     {
       "route": "/api/v1/produtos/create",
       "file": "src/routes/api/v1/produtos/create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/produtos/create.ts",
       "methods": [
         "POST"
       ],
@@ -7210,6 +7363,7 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/cadastros-base",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -7217,12 +7371,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 66
+      "lines": 74
     },
     {
       "route": "/api/v1/produtos/tarifas",
       "file": "src/routes/api/v1/produtos/tarifas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/produtos/tarifas.ts",
       "methods": [
         "GET",
         "POST"
@@ -7250,6 +7404,7 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/cadastros-base",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -7257,12 +7412,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 70
+      "lines": 79
     },
     {
       "route": "/api/v1/profile/signature",
       "file": "src/routes/api/v1/profile/signature/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/profile/signature.ts",
       "methods": [
         "GET",
         "PATCH"
@@ -7288,18 +7443,19 @@
         "invalidateQuoteReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 112
+      "lines": 120
     },
     {
       "route": "/api/v1/push/subscribe",
       "file": "src/routes/api/v1/push/subscribe/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/push/subscribe.ts",
       "methods": [
         "POST"
       ],
@@ -7322,17 +7478,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 125
+      "lines": 132
     },
     {
       "route": "/api/v1/push/unsubscribe",
       "file": "src/routes/api/v1/push/unsubscribe/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/push/unsubscribe.ts",
       "methods": [
         "POST"
       ],
@@ -7355,17 +7512,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 73
+      "lines": 80
     },
     {
       "route": "/api/v1/qr",
       "file": "src/routes/api/v1/qr/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/qr/root.ts",
       "methods": [
         "GET"
       ],
@@ -7384,18 +7542,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/fetchWithTimeout",
         "$lib/server/httpCache",
         "$lib/server/persistentRateLimit",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 93
+      "lines": 100
     },
     {
       "route": "/api/v1/read-model/rebuild",
       "file": "src/routes/api/v1/read-model/rebuild/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/read-model/rebuild.ts",
       "methods": [
         "GET",
         "POST"
@@ -7419,17 +7578,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelRebuild",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 129
+      "lines": 137
     },
     {
       "route": "/api/v1/relatorios/base",
       "file": "src/routes/api/v1/relatorios/base/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/base.ts",
       "methods": [
         "GET"
       ],
@@ -7458,18 +7618,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 234
+      "lines": 242
     },
     {
       "route": "/api/v1/relatorios/cidades-busca",
       "file": "src/routes/api/v1/relatorios/cidades-busca/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/cidades-busca.ts",
       "methods": [
         "GET"
       ],
@@ -7492,17 +7653,18 @@
       ],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 60
+      "lines": 67
     },
     {
       "route": "/api/v1/relatorios/clientes",
       "file": "src/routes/api/v1/relatorios/clientes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/clientes.ts",
       "methods": [
         "GET"
       ],
@@ -7527,6 +7689,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/readModelRebuild",
@@ -7537,12 +7700,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 383
+      "lines": 391
     },
     {
       "route": "/api/v1/relatorios/destinos",
       "file": "src/routes/api/v1/relatorios/destinos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/destinos.ts",
       "methods": [
         "GET"
       ],
@@ -7563,6 +7726,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/readModelRebuild",
@@ -7572,12 +7736,12 @@
         "$lib/server/vendas-kpis"
       ],
       "mutates": false,
-      "lines": 299
+      "lines": 307
     },
     {
       "route": "/api/v1/relatorios/produtos-recibos",
       "file": "src/routes/api/v1/relatorios/produtos-recibos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/produtos-recibos.ts",
       "methods": [
         "GET"
       ],
@@ -7598,18 +7762,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/relatorios",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 177
+      "lines": 184
     },
     {
       "route": "/api/v1/relatorios/produtos",
       "file": "src/routes/api/v1/relatorios/produtos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/produtos.ts",
       "methods": [
         "GET"
       ],
@@ -7630,6 +7795,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/readModelRebuild",
@@ -7639,12 +7805,12 @@
         "$lib/server/vendas-kpis"
       ],
       "mutates": false,
-      "lines": 322
+      "lines": 330
     },
     {
       "route": "/api/v1/relatorios/ranking-debug",
       "file": "src/routes/api/v1/relatorios/ranking-debug/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/ranking-debug.ts",
       "methods": [
         "GET",
         "POST"
@@ -7683,6 +7849,7 @@
       "imports": [
         "$lib/conciliacao/baixaRac",
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -7691,12 +7858,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 933
+      "lines": 942
     },
     {
       "route": "/api/v1/relatorios/ranking-vendas",
       "file": "src/routes/api/v1/relatorios/ranking-vendas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/ranking-vendas.ts",
       "methods": [
         "GET"
       ],
@@ -7714,14 +7881,16 @@
       "tables": {},
       "rpcs": [],
       "invalidations": [],
-      "imports": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
       "mutates": false,
-      "lines": 8
+      "lines": 15
     },
     {
       "route": "/api/v1/relatorios/ranking",
       "file": "src/routes/api/v1/relatorios/ranking/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/ranking.ts",
       "methods": [
         "GET"
       ],
@@ -7756,6 +7925,7 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/readModelRebuild",
@@ -7764,12 +7934,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 896
+      "lines": 904
     },
     {
       "route": "/api/v1/relatorios/vendas-por-cliente",
       "file": "src/routes/api/v1/relatorios/vendas-por-cliente/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/vendas-por-cliente.ts",
       "methods": [
         "GET"
       ],
@@ -7787,14 +7957,16 @@
       "tables": {},
       "rpcs": [],
       "invalidations": [],
-      "imports": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
       "mutates": false,
-      "lines": 8
+      "lines": 15
     },
     {
       "route": "/api/v1/relatorios/vendas-por-destino",
       "file": "src/routes/api/v1/relatorios/vendas-por-destino/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/vendas-por-destino.ts",
       "methods": [
         "GET"
       ],
@@ -7812,14 +7984,16 @@
       "tables": {},
       "rpcs": [],
       "invalidations": [],
-      "imports": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
       "mutates": false,
-      "lines": 8
+      "lines": 15
     },
     {
       "route": "/api/v1/relatorios/vendas-por-produto",
       "file": "src/routes/api/v1/relatorios/vendas-por-produto/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/vendas-por-produto.ts",
       "methods": [
         "GET"
       ],
@@ -7837,14 +8011,16 @@
       "tables": {},
       "rpcs": [],
       "invalidations": [],
-      "imports": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
       "mutates": false,
-      "lines": 8
+      "lines": 15
     },
     {
       "route": "/api/v1/relatorios/vendas",
       "file": "src/routes/api/v1/relatorios/vendas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/relatorios/vendas.ts",
       "methods": [
         "GET"
       ],
@@ -7872,9 +8048,6 @@
         "parametros_comissao": [
           "select"
         ],
-        "parametros_pagamentos_nao_comissionaveis": [
-          "select"
-        ],
         "users": [
           "select"
         ],
@@ -7895,8 +8068,11 @@
         "$lib/conciliacao/receiptNumber",
         "$lib/conciliacao/source",
         "$lib/date",
+        "$lib/naoComissionavel",
+        "$lib/server/api/sveltekit",
         "$lib/server/comissoes",
         "$lib/server/httpCache",
+        "$lib/server/naoComissionavelTermos",
         "$lib/server/rankingComissionavel",
         "$lib/server/readModelCache",
         "$lib/server/relatorios",
@@ -7906,12 +8082,12 @@
         "$lib/vendas/rateio"
       ],
       "mutates": false,
-      "lines": 1904
+      "lines": 1860
     },
     {
       "route": "/api/v1/roteiros",
       "file": "src/routes/api/v1/roteiros/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/root.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -7956,17 +8132,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 369
+      "lines": 379
     },
     {
       "route": "/api/v1/roteiros/[id]",
       "file": "src/routes/api/v1/roteiros/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/id.ts",
       "methods": [
         "GET"
       ],
@@ -8002,16 +8179,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 84
+      "lines": 92
     },
     {
       "route": "/api/v1/roteiros/delete",
       "file": "src/routes/api/v1/roteiros/delete/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/delete.ts",
       "methods": [
         "DELETE"
       ],
@@ -8039,17 +8217,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 52
+      "lines": 59
     },
     {
       "route": "/api/v1/roteiros/dias-busca",
       "file": "src/routes/api/v1/roteiros/dias-busca/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/dias-busca.ts",
       "methods": [
         "GET"
       ],
@@ -8076,16 +8255,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 109
+      "lines": 116
     },
     {
       "route": "/api/v1/roteiros/gerar-orcamento",
       "file": "src/routes/api/v1/roteiros/gerar-orcamento/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/gerar-orcamento.ts",
       "methods": [
         "POST"
       ],
@@ -8122,18 +8302,19 @@
       ],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 186
+      "lines": 193
     },
     {
       "route": "/api/v1/roteiros/list",
       "file": "src/routes/api/v1/roteiros/list/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/list.ts",
       "methods": [
         "GET"
       ],
@@ -8160,16 +8341,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 50
+      "lines": 57
     },
     {
       "route": "/api/v1/roteiros/save",
       "file": "src/routes/api/v1/roteiros/save/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/save.ts",
       "methods": [
         "POST"
       ],
@@ -8218,17 +8400,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 722
+      "lines": 729
     },
     {
       "route": "/api/v1/roteiros/sugestoes-busca",
       "file": "src/routes/api/v1/roteiros/sugestoes-busca/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/sugestoes-busca.ts",
       "methods": [
         "GET"
       ],
@@ -8251,16 +8434,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 51
+      "lines": 58
     },
     {
       "route": "/api/v1/roteiros/sugestoes-remover",
       "file": "src/routes/api/v1/roteiros/sugestoes-remover/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/sugestoes-remover.ts",
       "methods": [
         "POST"
       ],
@@ -8283,17 +8467,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 69
+      "lines": 76
     },
     {
       "route": "/api/v1/roteiros/sugestoes-salvar",
       "file": "src/routes/api/v1/roteiros/sugestoes-salvar/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/roteiros/sugestoes-salvar.ts",
       "methods": [
         "POST"
       ],
@@ -8317,17 +8502,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 94
+      "lines": 101
     },
     {
       "route": "/api/v1/subdivisoes",
       "file": "src/routes/api/v1/subdivisoes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/subdivisoes/root.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -8358,18 +8544,19 @@
         "invalidateCatalogReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 198
+      "lines": 208
     },
     {
       "route": "/api/v1/tarefas",
       "file": "src/routes/api/v1/tarefas/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/tarefas/root.ts",
       "methods": [
         "GET"
       ],
@@ -8396,18 +8583,19 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 111
+      "lines": 119
     },
     {
       "route": "/api/v1/tarefas/clientes",
       "file": "src/routes/api/v1/tarefas/clientes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/tarefas/clientes.ts",
       "methods": [
         "GET"
       ],
@@ -8432,18 +8620,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 143
+      "lines": 151
     },
     {
       "route": "/api/v1/tarefas/usuarios",
       "file": "src/routes/api/v1/tarefas/usuarios/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/tarefas/usuarios.ts",
       "methods": [
         "GET"
       ],
@@ -8468,18 +8657,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 106
+      "lines": 114
     },
     {
       "route": "/api/v1/tipo-produtos",
       "file": "src/routes/api/v1/tipo-produtos/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/tipo-produtos/root.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -8509,17 +8699,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 226
+      "lines": 236
     },
     {
       "route": "/api/v1/todo/batch",
       "file": "src/routes/api/v1/todo/batch/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/todo/batch.ts",
       "methods": [
         "POST"
       ],
@@ -8548,6 +8739,7 @@
       ],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -8555,12 +8747,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 168
+      "lines": 176
     },
     {
       "route": "/api/v1/todo/board",
       "file": "src/routes/api/v1/todo/board/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/todo/board.ts",
       "methods": [
         "GET"
       ],
@@ -8584,17 +8776,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 79
+      "lines": 87
     },
     {
       "route": "/api/v1/todo/category",
       "file": "src/routes/api/v1/todo/category/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/todo/category.ts",
       "methods": [
         "DELETE",
         "POST"
@@ -8617,7 +8810,6 @@
           "select"
         ],
         "todo_categorias": [
-          "delete",
           "select",
           "update"
         ]
@@ -8628,18 +8820,19 @@
       ],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 170
+      "lines": 179
     },
     {
       "route": "/api/v1/todo/item",
       "file": "src/routes/api/v1/todo/item/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/todo/item.ts",
       "methods": [
         "DELETE",
         "PATCH",
@@ -8674,18 +8867,19 @@
       ],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 254
+      "lines": 264
     },
     {
       "route": "/api/v1/todo/item/[id]",
       "file": "src/routes/api/v1/todo/item/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/todo/item-id.ts",
       "methods": [
         "GET"
       ],
@@ -8714,17 +8908,18 @@
       "invalidations": [],
       "imports": [
         "$lib/server/agenda",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 92
+      "lines": 100
     },
     {
       "route": "/api/v1/user/context",
       "file": "src/routes/api/v1/user/context/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/user/context.ts",
       "methods": [
         "GET"
       ],
@@ -8753,18 +8948,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 107
+      "lines": 115
     },
     {
       "route": "/api/v1/user/profile",
       "file": "src/routes/api/v1/user/profile/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/user/profile.ts",
       "methods": [
         "GET",
         "PATCH"
@@ -8789,17 +8985,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 92
+      "lines": 101
     },
     {
       "route": "/api/v1/users/aniversariantes",
       "file": "src/routes/api/v1/users/aniversariantes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/users/aniversariantes.ts",
       "methods": [
         "GET"
       ],
@@ -8823,95 +9020,160 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 97
+      "lines": 105
     },
     {
       "route": "/api/v1/vendas",
       "file": "src/routes/api/v1/vendas/+server.ts",
-      "hono": "src/lib/server/api/routes/vendas/index.ts",
+      "hono": "src/lib/server/api/routes/vendas/root.ts",
       "methods": [
         "GET"
       ],
       "guards": {
-        "requireAuthenticatedUser": false,
-        "resolveUserScope": false,
-        "roles": [],
+        "requireAuthenticatedUser": true,
+        "resolveUserScope": true,
+        "roles": [
+          "isAdmin",
+          "isFinanceiro",
+          "isGestor",
+          "isMaster"
+        ],
         "rejectCrossOrigin": false,
         "bodyLimit": false,
         "cronSecret": false,
         "turnstile": false,
-        "adminClient": false,
+        "adminClient": true,
         "debugOnly": false
       },
-      "tables": {},
+      "tables": {
+        "vendas": [
+          "select"
+        ]
+      },
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/server/api/sveltekit"
+        "$lib/date",
+        "$lib/server/api/sveltekit",
+        "$lib/server/httpCache",
+        "$lib/server/readModelCache",
+        "$lib/server/v1",
+        "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 59
+      "lines": 199
     },
     {
       "route": "/api/v1/vendas/[id]",
       "file": "src/routes/api/v1/vendas/[id]/+server.ts",
-      "hono": "src/routes/api/v1/vendas/[id]/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/id.ts",
       "methods": [
         "DELETE",
         "GET",
         "PATCH"
       ],
       "guards": {
-        "requireAuthenticatedUser": false,
-        "resolveUserScope": false,
-        "roles": [],
-        "rejectCrossOrigin": false,
-        "bodyLimit": false,
+        "requireAuthenticatedUser": true,
+        "resolveUserScope": true,
+        "roles": [
+          "isAdmin",
+          "isMaster"
+        ],
+        "rejectCrossOrigin": true,
+        "bodyLimit": true,
         "cronSecret": false,
         "turnstile": false,
-        "adminClient": false,
+        "adminClient": true,
         "debugOnly": false
       },
-      "tables": {},
+      "tables": {
+        "conciliacao_recibos": [
+          "update"
+        ],
+        "vendas": [
+          "select",
+          "update"
+        ],
+        "vendas_recibos": [
+          "select"
+        ],
+        "vendas_recibos_complementares": [
+          "delete"
+        ],
+        "vendas_recibos_notas": [
+          "delete"
+        ],
+        "viagens": [
+          "update"
+        ]
+      },
       "rpcs": [],
-      "invalidations": [],
-      "imports": [
-        "$lib/server/api/sveltekit"
+      "invalidations": [
+        "invalidateSalesReadModels"
       ],
-      "mutates": false,
-      "lines": 7
+      "imports": [
+        "$lib/server/api/sveltekit",
+        "$lib/server/auditLog",
+        "$lib/server/clientes",
+        "$lib/server/httpCache",
+        "$lib/server/readModelCache",
+        "$lib/server/requestGuards",
+        "$lib/server/salesScope",
+        "$lib/server/v1",
+        "$lib/server/vendasSave",
+        "$lib/utils/array",
+        "$lib/utils/errors"
+      ],
+      "mutates": true,
+      "lines": 845
     },
     {
       "route": "/api/v1/vendas/[id]/ranking-recibos",
       "file": "src/routes/api/v1/vendas/[id]/ranking-recibos/+server.ts",
-      "hono": "src/routes/api/v1/vendas/[id]/ranking-recibos/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/id-ranking-recibos.ts",
       "methods": [
         "GET"
       ],
       "guards": {
-        "requireAuthenticatedUser": false,
-        "resolveUserScope": false,
-        "roles": [],
+        "requireAuthenticatedUser": true,
+        "resolveUserScope": true,
+        "roles": [
+          "isAdmin",
+          "isFinanceiro",
+          "isGestor",
+          "isMaster"
+        ],
         "rejectCrossOrigin": false,
         "bodyLimit": false,
         "cronSecret": false,
         "turnstile": false,
-        "adminClient": false,
+        "adminClient": true,
         "debugOnly": false
       },
-      "tables": {},
+      "tables": {
+        "vendas": [
+          "select"
+        ],
+        "vendas_recibos": [
+          "select"
+        ]
+      },
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/server/api/sveltekit"
+        "$lib/conciliacao/vendaRanking",
+        "$lib/server/api/sveltekit",
+        "$lib/server/httpCache",
+        "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 5
+      "lines": 128
     },
     {
       "route": "/api/v1/vendas/cadastro-base",
@@ -9277,9 +9539,6 @@
         "formas_pagamento": [
           "select"
         ],
-        "parametros_pagamentos_nao_comissionaveis": [
-          "select"
-        ],
         "produtos": [
           "insert",
           "select"
@@ -9309,9 +9568,11 @@
       "imports": [
         "$lib/date",
         "$lib/features/clientes/form",
+        "$lib/naoComissionavel",
         "$lib/normalizeText",
         "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
+        "$lib/server/naoComissionavelTermos",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
@@ -9321,7 +9582,7 @@
         "$lib/vendas/contratoCvcExtractor"
       ],
       "mutates": true,
-      "lines": 1144
+      "lines": 1105
     },
     {
       "route": "/api/v1/vendas/kpis",
@@ -9476,9 +9737,6 @@
         "debugOnly": false
       },
       "tables": {
-        "parametros_pagamentos_nao_comissionaveis": [
-          "select"
-        ],
         "vendas": [
           "select",
           "update"
@@ -9501,9 +9759,11 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/naoComissionavel",
         "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/httpCache",
+        "$lib/server/naoComissionavelTermos",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/salesScope",
@@ -9512,7 +9772,7 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 418
+      "lines": 372
     },
     {
       "route": "/api/v1/vendas/recibo-complementar-link",
@@ -9826,7 +10086,7 @@
     {
       "route": "/api/v1/viagens",
       "file": "src/routes/api/v1/viagens/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/root.ts",
       "methods": [
         "GET"
       ],
@@ -9865,6 +10125,7 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/readModelRebuild",
@@ -9874,12 +10135,12 @@
         "$lib/viagens/status"
       ],
       "mutates": false,
-      "lines": 543
+      "lines": 551
     },
     {
       "route": "/api/v1/viagens/[id]",
       "file": "src/routes/api/v1/viagens/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -9928,6 +10189,7 @@
         "invalidateTripReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -9937,12 +10199,12 @@
         "$lib/viagens/status"
       ],
       "mutates": true,
-      "lines": 598
+      "lines": 608
     },
     {
       "route": "/api/v1/viagens/cidades-busca",
       "file": "src/routes/api/v1/viagens/cidades-busca/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/cidades-busca.ts",
       "methods": [
         "GET"
       ],
@@ -9969,17 +10231,18 @@
       ],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 92
+      "lines": 99
     },
     {
       "route": "/api/v1/viagens/cliente/[id]",
       "file": "src/routes/api/v1/viagens/cliente/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/cliente-id.ts",
       "methods": [
         "GET"
       ],
@@ -10010,6 +10273,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -10019,12 +10283,12 @@
         "$lib/viagens/status"
       ],
       "mutates": false,
-      "lines": 245
+      "lines": 253
     },
     {
       "route": "/api/v1/viagens/clientes",
       "file": "src/routes/api/v1/viagens/clientes/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/clientes.ts",
       "methods": [
         "GET"
       ],
@@ -10049,6 +10313,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -10056,12 +10321,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 160
+      "lines": 167
     },
     {
       "route": "/api/v1/viagens/create",
       "file": "src/routes/api/v1/viagens/create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/create.ts",
       "methods": [
         "POST"
       ],
@@ -10091,6 +10356,7 @@
         "invalidateTripReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -10098,12 +10364,12 @@
         "$lib/viagens/status"
       ],
       "mutates": true,
-      "lines": 159
+      "lines": 166
     },
     {
       "route": "/api/v1/viagens/delete",
       "file": "src/routes/api/v1/viagens/delete/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/delete.ts",
       "methods": [
         "POST"
       ],
@@ -10132,6 +10398,7 @@
         "invalidateTripReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -10139,12 +10406,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 157
+      "lines": 164
     },
     {
       "route": "/api/v1/viagens/dossie-batch",
       "file": "src/routes/api/v1/viagens/dossie-batch/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/dossie-batch.ts",
       "methods": [
         "POST"
       ],
@@ -10168,7 +10435,6 @@
           "select"
         ],
         "viagem_acompanhantes": [
-          "delete",
           "update"
         ],
         "viagem_documentos": [
@@ -10187,6 +10453,7 @@
         "invalidateTripReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -10194,12 +10461,12 @@
         "$lib/server/viagensStatus"
       ],
       "mutates": true,
-      "lines": 405
+      "lines": 412
     },
     {
       "route": "/api/v1/viagens/dossie",
       "file": "src/routes/api/v1/viagens/dossie/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/viagens/dossie.ts",
       "methods": [
         "GET"
       ],
@@ -10228,17 +10495,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/server/viagensStatus"
       ],
       "mutates": false,
-      "lines": 112
+      "lines": 120
     },
     {
       "route": "/api/v1/viagens/list",
       "file": "src/routes/api/v1/viagens/list/+server.ts",
-      "hono": null,
+      "hono": "src/routes/api/v1/viagens/list/+server.ts",
       "methods": [
         "GET"
       ],
@@ -10256,14 +10524,16 @@
       "tables": {},
       "rpcs": [],
       "invalidations": [],
-      "imports": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
       "mutates": false,
-      "lines": 2
+      "lines": 5
     },
     {
       "route": "/api/v1/voucher-assets",
       "file": "src/routes/api/v1/voucher-assets/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/voucher-assets/root.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -10296,6 +10566,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/uploadValidation",
@@ -10303,12 +10574,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 435
+      "lines": 446
     },
     {
       "route": "/api/v1/vouchers",
       "file": "src/routes/api/v1/vouchers/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/vouchers/root.ts",
       "methods": [
         "GET",
         "POST"
@@ -10343,18 +10614,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 224
+      "lines": 233
     },
     {
       "route": "/api/v1/vouchers/[id]",
       "file": "src/routes/api/v1/vouchers/[id]/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/vouchers/id.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -10389,17 +10661,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 209
+      "lines": 219
     },
     {
       "route": "/api/v1/vouchers/create",
       "file": "src/routes/api/v1/vouchers/create/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/vouchers/create.ts",
       "methods": [
         "POST"
       ],
@@ -10424,17 +10697,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 58
+      "lines": 66
     },
     {
       "route": "/api/v1/vouchers/delete",
       "file": "src/routes/api/v1/vouchers/delete/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/vouchers/delete.ts",
       "methods": [
         "DELETE"
       ],
@@ -10459,17 +10733,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 39
+      "lines": 47
     },
     {
       "route": "/api/v1/welcome-email",
       "file": "src/routes/api/v1/welcome-email/+server.ts",
-      "hono": null,
+      "hono": "src/lib/server/api/routes/welcome-email/root.ts",
       "methods": [
         "POST"
       ],
@@ -10496,6 +10771,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/emailMarkdown",
         "$lib/server/emailSettings",
         "$lib/server/fetchWithTimeout",
@@ -10505,7 +10781,7 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 313
+      "lines": 320
     }
   ]
 }

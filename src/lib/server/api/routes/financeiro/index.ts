@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { ApiEnv } from '../../types';
+import { withRouteParams } from '../../params';
 import { handleFinanceiroAjustesVendasGet, handleFinanceiroAjustesVendasPost } from './ajustes-vendas';
 import { handleFinanceiroAjustesVendasListGet } from './ajustes-vendas-list';
 import { handleFinanceiroAjustesVendasSavePost } from './ajustes-vendas-save';
@@ -10,6 +11,7 @@ import { handleFinanceiroComissoesPagamentoPost, handleFinanceiroComissoesPagame
 import { handleFinanceiroComissoesRegrasGet, handleFinanceiroComissoesRegrasPost, handleFinanceiroComissoesRegrasPut, handleFinanceiroComissoesRegrasDelete } from './comissoes-regras';
 import { handleFinanceiroComissoesVendedoresGet, handleFinanceiroComissoesVendedoresPost } from './comissoes-vendedores';
 import { handleFinanceiroFormasPagamentoGet, handleFinanceiroFormasPagamentoPost, handleFinanceiroFormasPagamentoPatch, handleFinanceiroFormasPagamentoDelete } from './formas-pagamento';
+import { handleFinanceiroComissoesRegrasIdGet, handleFinanceiroComissoesRegrasIdPut, handleFinanceiroComissoesRegrasIdDelete } from './comissoes-regras-id';
 
 // /api/v1/financeiro/* atendido pelo Hono (gerado por migrate_domain.py). Estáticas antes de '/:param'.
 export const financeiroRoutes = new Hono<ApiEnv>()
@@ -34,4 +36,8 @@ export const financeiroRoutes = new Hono<ApiEnv>()
   .get('/formas-pagamento', (c) => handleFinanceiroFormasPagamentoGet(c.env.event))
   .post('/formas-pagamento', (c) => handleFinanceiroFormasPagamentoPost(c.env.event))
   .patch('/formas-pagamento', (c) => handleFinanceiroFormasPagamentoPatch(c.env.event))
-  .delete('/formas-pagamento', (c) => handleFinanceiroFormasPagamentoDelete(c.env.event));
+  .delete('/formas-pagamento', (c) => handleFinanceiroFormasPagamentoDelete(c.env.event))
+  // rota profunda migrada no lote 3 (antes ficava no SvelteKit: +8 níveis de pasta no Windows)
+  .get('/comissoes/regras/:id', (c) => handleFinanceiroComissoesRegrasIdGet(withRouteParams(c.env.event, c.req.param())))
+  .put('/comissoes/regras/:id', (c) => handleFinanceiroComissoesRegrasIdPut(withRouteParams(c.env.event, c.req.param())))
+  .delete('/comissoes/regras/:id', (c) => handleFinanceiroComissoesRegrasIdDelete(withRouteParams(c.env.event, c.req.param())));
