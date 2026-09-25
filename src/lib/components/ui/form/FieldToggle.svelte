@@ -42,6 +42,7 @@
   };
 
   $: fieldId = id || uniqueFieldId(label);
+  $: describedById = error || helper ? `${fieldId}-desc` : undefined;
   $: resolvedColor = colorAlias[color] || 'blue';
 </script>
 
@@ -55,9 +56,9 @@
       {/if}
 
       {#if error}
-        <Helper class="mt-1 text-red-600">{error}</Helper>
+        <Helper id={describedById} class="mt-1 text-red-600">{error}</Helper>
       {:else if helper}
-        <Helper class="mt-1 text-slate-500">{helper}</Helper>
+        <Helper id={describedById} class="mt-1 text-slate-500">{helper}</Helper>
       {/if}
     </div>
 
@@ -68,6 +69,8 @@
       {disabled}
       {size}
       color={resolvedColor}
+      aria-invalid={error ? 'true' : undefined}
+      aria-describedby={describedById}
       on:change
       on:blur
       on:focus

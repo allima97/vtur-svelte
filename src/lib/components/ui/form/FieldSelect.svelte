@@ -20,6 +20,7 @@
   export let class_name = '';
 
   $: fieldId = id || uniqueFieldId(label);
+  $: describedById = error || helper ? `${fieldId}-desc` : undefined;
   $: selectClasses = buildVturInputClasses(
     'text-sm',
     error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'
@@ -41,7 +42,7 @@
 <div class={class_name}>
   {#if label}
     <Label for={fieldId} class="{srLabel ? 'sr-only' : 'mb-1.5 block text-sm font-medium text-slate-700'}">
-      {label}{#if required}<span class="ml-0.5 text-red-500">*</span>{/if}
+      {label}{#if required}<span class="ml-0.5 text-red-500" aria-hidden="true">*</span>{/if}
     </Label>
   {/if}
 
@@ -52,6 +53,8 @@
     {disabled}
     {required}
     placeholder={selectPlaceholder}
+    aria-invalid={error ? 'true' : undefined}
+    aria-describedby={describedById}
     class={selectClasses}
     on:change
     on:blur
@@ -62,8 +65,8 @@
   </Select>
 
   {#if error}
-    <Helper class="mt-1 text-red-600">{error}</Helper>
+    <Helper id={describedById} class="mt-1 text-red-600">{error}</Helper>
   {:else if helper}
-    <Helper class="mt-1 text-slate-500">{helper}</Helper>
+    <Helper id={describedById} class="mt-1 text-slate-500">{helper}</Helper>
   {/if}
 </div>

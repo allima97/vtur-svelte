@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Component, ComponentType, SvelteComponent } from 'svelte';
+  import { tick } from 'svelte';
   import Button from './Button.svelte';
+  import { focusableTabIndex, nextTabIndex } from './tabsKeyboard';
 
   type IconProps = { class?: string; size?: number | string };
   type IconComponent = Component<IconProps> | ComponentType<SvelteComponent<IconProps>>;
@@ -21,16 +23,32 @@
     if (disabled) return;
     activeKey = key;
   }
+
+  let listEl: HTMLDivElement;
+  $: tabStop = focusableTabIndex(items, activeKey);
+
+  // Setas/Home/End movem entre as abas (padrão WAI-ARIA); o clique continua igual.
+  async function handleKeydown(event: KeyboardEvent) {
+    const current = items.findIndex((item) => item.key === activeKey);
+    const next = nextTabIndex(items, current, event.key);
+    if (next === null) return;
+    event.preventDefault();
+    selectTab(items[next].key, items[next].disabled);
+    await tick();
+    listEl?.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
+  }
 </script>
 
-<div class={`vtur-tabs ${className}`.trim()} role="tablist">
-  {#each items as item}
+<!-- svelte-ignore a11y_interactive_supports_focus -->
+<div class={`vtur-tabs ${className}`.trim()} role="tablist" bind:this={listEl} on:keydown={handleKeydown}>
+  {#each items as item, index}
     <Button
       type="button"
       variant="unstyled"
       size="sm"
       role="tab"
       ariaSelected={activeKey === item.key}
+      tabindex={index === tabStop ? 0 : -1}
       class_name={`vtur-tab ${activeKey === item.key ? 'vtur-tab--active' : ''}`.trim()}
       disabled={item.disabled}
       on:click={() => selectTab(item.key, item.disabled)}

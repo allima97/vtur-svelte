@@ -504,6 +504,13 @@
               <th
                 class={`px-6 py-3 text-left ${column.headerClass || ""}`}
                 style={column.width ? `width: ${column.width}` : ""}
+                aria-sort={column.sortable
+                  ? sortKey === column.key && sortDirection === "asc"
+                    ? "ascending"
+                    : sortKey === column.key && sortDirection === "desc"
+                      ? "descending"
+                      : "none"
+                  : undefined}
               >
                 {#if column.sortable}
                   <Button
@@ -579,7 +586,16 @@
               <tr
                 class={`transition-colors hover:bg-slate-50/90 ${rowClass?.(row) || ""}`}
                 class:cursor-pointer={onRowClick}
+                tabindex={onRowClick ? 0 : undefined}
                 on:click={() => onRowClick?.(row)}
+                on:keydown={(event) => {
+                  // Só a própria linha: Enter/Espaço em botões e campos internos seguem o comportamento deles.
+                  if (!onRowClick || event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onRowClick(row);
+                  }
+                }}
               >
                 {#if selectable}
                   <td class="px-4 py-3" on:click|stopPropagation>

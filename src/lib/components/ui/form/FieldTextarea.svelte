@@ -25,6 +25,7 @@
   };
 
   $: fieldId = id || uniqueFieldId(label);
+  $: describedById = error || helper ? `${fieldId}-desc` : undefined;
   $: textareaClasses = buildVturInputClasses(
     'text-sm',
     resizeClasses[resize],
@@ -36,7 +37,7 @@
 <div class={class_name}>
   {#if label}
     <Label for={fieldId} class="mb-1.5 block text-sm font-medium text-slate-700">
-      {label}{#if required}<span class="ml-0.5 text-red-500">*</span>{/if}
+      {label}{#if required}<span class="ml-0.5 text-red-500" aria-hidden="true">*</span>{/if}
     </Label>
   {/if}
 
@@ -49,6 +50,8 @@
     {required}
     {readonly}
     {rows}
+    aria-invalid={error ? 'true' : undefined}
+    aria-describedby={describedById}
     class={textareaClasses}
     on:input
     on:change
@@ -57,8 +60,8 @@
   />
 
   {#if error}
-    <Helper class="mt-1 text-red-600">{error}</Helper>
+    <Helper id={describedById} class="mt-1 text-red-600">{error}</Helper>
   {:else if helper}
-    <Helper class="mt-1 text-slate-500">{helper}</Helper>
+    <Helper id={describedById} class="mt-1 text-slate-500">{helper}</Helper>
   {/if}
 </div>

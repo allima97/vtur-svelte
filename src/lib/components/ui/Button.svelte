@@ -57,6 +57,8 @@
   export let role: string | null = null;
   export let ariaSelected: boolean | null = null;
   export let ariaPressed: boolean | null = null;
+  /** Opcional: controle de foco (ex.: abas com tabindex móvel). */
+  export let tabindex: number | null = null;
   export let style: string | null = null;
   export let class_name = '';
 
@@ -131,6 +133,8 @@
     role={role ?? undefined}
     aria-selected={ariaSelected ?? undefined}
     aria-pressed={ariaPressed ?? undefined}
+    aria-busy={loading ? 'true' : undefined}
+    tabindex={tabindex ?? undefined}
     style={style ?? undefined}
     disabled={disabled || loading}
     class={buttonClasses}
@@ -158,6 +162,8 @@
     role={role ?? undefined}
     aria-selected={ariaSelected ?? undefined}
     aria-pressed={ariaPressed ?? undefined}
+    aria-busy={loading ? 'true' : undefined}
+    tabindex={tabindex ?? undefined}
     style={style ?? undefined}
     disabled={disabled || loading}
     class={buttonClasses}

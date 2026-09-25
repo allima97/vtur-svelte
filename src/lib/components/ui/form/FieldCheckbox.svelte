@@ -44,6 +44,7 @@
   };
 
   $: fieldId = id || uniqueFieldId(label);
+  $: describedById = error || helper ? `${fieldId}-desc` : undefined;
   $: resolvedColor = colorAlias[color] || 'blue';
   $: containerAlignClass = align === 'center' ? 'items-center' : 'items-start';
   $: labelWrapperClass = align === 'center' ? 'min-w-0' : 'min-w-0 pt-0.5';
@@ -59,6 +60,8 @@
       {disabled}
       {required}
       color={resolvedColor}
+      aria-invalid={error ? 'true' : undefined}
+      aria-describedby={describedById}
       class={error ? 'text-red-600 focus:ring-red-200' : ''}
       on:change
       on:blur
@@ -74,9 +77,9 @@
       {/if}
 
       {#if error}
-        <Helper class="mt-1 text-red-600">{error}</Helper>
+        <Helper id={describedById} class="mt-1 text-red-600">{error}</Helper>
       {:else if helper}
-        <Helper class="mt-1 text-slate-500">{helper}</Helper>
+        <Helper id={describedById} class="mt-1 text-slate-500">{helper}</Helper>
       {/if}
     </div>
   </div>

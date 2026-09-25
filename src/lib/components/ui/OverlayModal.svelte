@@ -12,6 +12,18 @@
 
   const dispatch = createEventDispatcher<{ close: Event | undefined }>();
 
+  // Ao abrir, o foco vai para a janela (Esc funciona de imediato); ao fechar,
+  // volta para o elemento que estava focado antes.
+  function manageFocus(node: HTMLElement) {
+    const previous = document.activeElement as HTMLElement | null;
+    if (!node.contains(document.activeElement)) node.focus();
+    return {
+      destroy() {
+        if (previous && document.contains(previous)) previous.focus();
+      }
+    };
+  }
+
   function close(event?: Event) {
     open = false;
     onclose?.(event);
@@ -28,7 +40,8 @@
     style={overflowStyle}
     role="dialog"
     aria-modal="true"
-    tabindex="0"
+    tabindex="-1"
+    use:manageFocus
     on:click|self={close}
     on:keydown={(event) => event.key === 'Escape' && close(event)}
   >

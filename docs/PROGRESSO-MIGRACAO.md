@@ -3,19 +3,18 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 24/09/2026, 23:55. Trabalho feito no Mac (`~/Documents/GitHub/vturapp`)._
+_Última atualização: 25/09/2026, 00:15. Trabalho feito no Mac (`~/Documents/GitHub/vturapp`)._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
 - **Fase 2.6, lote 3, gravado no Mac e sem commit:** 34 rotas dos domínios pequenos, mais as 3 rotas profundas que tinham ficado no SvelteKit.
 - **Decisão do usuário (24/09/2026):** as rotas de login e autenticação em `src/routes/api/auth` (login, convite, set-session, turnstile e passkeys) **não serão migradas**. Elas continuam no SvelteKit, sem alteração.
-- **Fase 3.1 gravada no Mac, sem commit:**
-  - o "Dados atualizados há X" do dashboard passou a funcionar;
-  - o `svelte-check` agora não tem nenhum erro.
-- **Próximo passo:** Fase 3.2, com acessibilidade e consistência no kit de componentes `$lib/components/ui` (ver plano da Fase 3 abaixo).
+- **Fase 3.1:** com commit ("fase7"). O "Dados atualizados há X" do dashboard funciona, e o `svelte-check` está sem erros.
+- **Fase 3.2 gravada no Mac, sem commit:** acessibilidade no kit `$lib/components/ui`, que vale para todas as telas.
+- **Próximo passo:** Fase 3.3, navegação.
 
 ## Pendências do usuário
-1. No Mac: `npm test` (605 testes), depois commit/push do lote 3 e da Fase 3.1. O `docs/api-inventory.*` já foi atualizado.
+1. No Mac: `npm test` (618 testes), depois commit/push da Fase 3.2.
 2. Em produção, conferir:
    - Lote 3: cadastros de cidades, países, subdivisões, tipos de produto e circuitos; consultorias (inclusive o .ics); convites (enviar e aceitar); CRM (biblioteca e assinatura); perfil e assinatura; menu; CEP; equipe; QR; vouchers (assets); e-mail de boas-vindas; aniversariantes.
    - As 3 rotas profundas: permissões por tipo de usuário, regra de comissão por id e acompanhante de cliente.
@@ -36,8 +35,9 @@ _Última atualização: 24/09/2026, 23:55. Trabalho feito no Mac (`~/Documents/G
 | 2.5: dashboard, relatórios, clientes, financeiro | ✅ commit | 47 rotas. |
 | 2.6: demais domínios | ✅ lotes 1 e 2 com commit ("fase4", "fase5") · ⏳ lote 3 sem commit | 71 + 55 + 37 rotas. |
 | 2.7: `api/auth` | 🚫 não migrar (decisão do usuário) | Login, convite, sessão, turnstile e passkeys continuam no SvelteKit. |
-| 3.1: indicação de atualização + `svelte-check` sem erros | ⏳ sem commit | Ver seção Fase 3. |
-| 3.2 a 3.5: telas/UX | ⬜ | Ver plano abaixo. |
+| 3.1: indicação de atualização + `svelte-check` sem erros | ✅ commit | Ver seção Fase 3. |
+| 3.2: acessibilidade do kit `ui` | ⏳ sem commit | Ver seção Fase 3. |
+| 3.3 a 3.5 | ⬜ | Ver plano abaixo. |
 
 ## API no Hono
 Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os routers em `src/lib/server/api/routes/<dominio>/index.ts` e o registro em `src/lib/server/api/app.ts`.
@@ -69,13 +69,31 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - em `roteiroAereoImport.ts`, o `numero_voo` ficou fora do tipo intermediário. É só tipo: esse campo nunca era lido e a saída já usa `''`.
 - **Verificação:** 605 testes, build OK e `svelte-check` com 0 erros.
 
+**3.2 (feito):** só atributos `aria-*`, `tabindex` e foco. Nenhuma regra de negócio muda, e o visual continua o mesmo.
+- **Campos** (`FieldInput`, com e sem máscara, `FieldSelect`, `FieldTextarea`, `FieldCheckbox`, `FieldToggle`):
+  - a mensagem de erro ou de ajuda ganhou `id` e passa a ser anunciada junto com o campo (`aria-describedby`);
+  - com erro, o campo recebe `aria-invalid="true"`;
+  - o `*` de obrigatório fica `aria-hidden`, e o campo continua `required`.
+- **`FieldRadioGroup`:** o rótulo apontava (`for`) para um id que não existia. Agora o grupo tem `role="radiogroup"` e é nomeado pelo rótulo, com `aria-required`, `aria-invalid` e `aria-describedby`.
+- **`Tabs`:** tabindex móvel (só a aba ativa entra no Tab); setas esquerda e direita, Home e End navegam e ativam a aba, pulando as desabilitadas. A lógica fica em `tabsKeyboard.ts`, com teste. O clique continua igual.
+- **`Button`:** `aria-busy` enquanto carrega e prop opcional `tabindex`.
+- **`DataTable`:**
+  - `aria-sort` nas colunas ordenáveis;
+  - linhas clicáveis (`onRowClick`) passam a ser focáveis e abrem com Enter ou Espaço. Isso só vale quando o foco está na própria linha, então botões e campos dentro dela continuam com o comportamento de sempre.
+- **`ToastContainer`:** sucesso e informação usam `role="status"` (educado, não interrompe a leitura); erro e alerta continuam `role="alert"`. O botão de fechar ganhou nome ("Fechar aviso").
+- **`OverlayModal`:** ao abrir, o foco vai para a janela, então Esc funciona de imediato; ao fechar, o foco volta para onde estava.
+- **`AlertMessage`:** o ícone de fechar ficou `aria-hidden`.
+- **Verificação:**
+  - `src/lib/components/ui/a11y.test.ts` renderiza os componentes no servidor (`svelte/server`, sem dependência nova) e confere os atributos, com 13 testes;
+  - total de 618 testes passando;
+  - `svelte-check` com 0 erros e 0 avisos;
+  - build OK.
+
 **Plano (próximas etapas):**
-- **3.2 Kit `ui`:** acessibilidade e consistência:
-  - rótulos e `aria-*` em campos, Dialog, Dropdown, Tabs e DataTable;
-  - foco visível e navegação por teclado;
+- ~~3.2 Kit `ui`~~ (feito). Pendentes do kit, para depois:
+  - o `Dialog` (Flowbite `Modal`) não liga o título ao `role="dialog"`, porque o Flowbite não repassa atributos para esse elemento;
   - contraste no modo escuro;
-  - estados de carregando, vazio e erro padronizados.
-  - Validação: testes de componente e revisão visual.
+  - padronizar os estados de carregando, vazio e erro.
 - **3.3 Navegação:** menu lateral, breadcrumbs, voltar e atalhos. Os itens e as permissões do menu não mudam.
 - **3.4 Velocidade:** com o header `server-timing`, medir a API de cada tela e atacar as mais lentas (cache, chamadas em paralelo), sem mudar os resultados. Prova com testes de contrato.
 - **3.5 Telas gigantes:** dividir em componentes, sem mudar o comportamento. As maiores são `financeiro/conciliacao` (3113 linhas), `orcamentos/roteiros/[id]` (2764), `operacao/vouchers/novo` (1605) e `vendas/[id]/editar` (1388).

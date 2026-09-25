@@ -36,8 +36,8 @@
       class="pointer-events-auto relative flex min-w-[260px] max-w-xs items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg"
       in:fly={{ x: 60, duration: 220 }}
       out:fly={{ x: 60, duration: 180 }}
-      role="alert"
-      aria-live="assertive"
+      role={item.type === 'error' || item.type === 'warning' ? 'alert' : 'status'}
+      aria-live={item.type === 'error' || item.type === 'warning' ? 'assertive' : 'polite'}
     >
       <!-- Ícone colorido -->
       <svg class="h-5 w-5 shrink-0 {iconMap[item.type] ?? 'text-blue-500'}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -52,9 +52,10 @@
         variant="ghost"
         size="xs"
         title="Fechar"
+        ariaLabel="Fechar aviso"
         on:click={() => toast.remove(item.id)}
       >
-        <X size={14} />
+        <X size={14} aria-hidden="true" />
       </Button>
 
       <!-- Barra colorida de progresso no topo -->
