@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 19:00._
+_Última atualização: 25/09/2026, 19:30._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -509,11 +509,42 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 
 Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no celular, menu inferior no celular, ficha 360° do cliente, acessibilidade.
 - Já existem no sistema: dashboards por perfil (`/dashboard/admin|master|gestor|financeiro|vendedor`), menu inferior no celular (Sidebar) e tabelas em cartões no celular (`table-mobile-cards`).
-- Placar e ficha 360° são telas novas: só com aprovação.
+- Placar e ficha completa do cliente: aprovados pelo usuário em 25/09 (5.3 e 5.4).
 
-### 5.1 (25/09, 19:00): busca rápida no menu (Ctrl+K / ⌘K). Gravado no Mac, falta o commit
+### 5.1 (25/09, 19:00): busca rápida no menu (Ctrl+K / ⌘K). Com commit ("fase11")
 - **O que é:** botão "Buscar" no topo (no celular, só a lupa) e o atalho Ctrl+K (⌘K no Mac). Abre uma janela com as telas do menu; digitar filtra (sem acento, por nome ou seção); ↑/↓ escolhem, Enter abre, Esc fecha.
 - **Sem regra nova:** mostra **exatamente o que o menu lateral mostra** para o usuário. O `Sidebar` publica os itens já filtrados (permissões, papel, "Personalizar Menu") no store `$lib/stores/navegacao.ts`; a busca só lê. Não chama API.
 - **Acessibilidade:** padrão combobox + listbox (`aria-activedescendant`, `aria-selected`), foco no campo ao abrir, foco devolvido ao fechar; com outra janela aberta o atalho não abre uma segunda por cima.
 - **Arquivos:** `layout/CommandPalette.svelte`, `layout/commandPalette.ts` (+ teste), `stores/navegacao.ts`, `testing/dom/commandPalette.dom.test.ts`; `Sidebar.svelte` (publica os itens, 1 bloco) e `Topbar.svelte` (botão).
 - **Prova:** 704 testes (9 novos: filtro, atalho, abrir/filtrar/↓/Enter/Esc no jsdom), `svelte-check` 0/0, build OK. As 143 telas renderizadas no servidor só mudam no topo (o botão novo).
+
+### 5.2 (25/09, 19:30): acessibilidade das tabelas (DataTable) e varredura de acessibilidade. Gravado no Mac, falta o commit
+- **DataTable** (usada em ~50 telas), sem mudar dados, ordem, filtros ou visual:
+  - nome da tabela para leitor de tela (`<caption class="sr-only">` com o título) e `aria-busy` enquanto carrega;
+  - campo de busca com rótulo ("Buscar em <título>", invisível);
+  - botão "Filtros" com `aria-expanded`/`aria-controls` apontando para o painel; no celular, `aria-haspopup`;
+  - linha clicável com contorno de foco visível ao navegar por teclado (Enter/Espaço já abriam);
+  - aviso falado de "N registros encontrados" ao buscar/filtrar e da página atual ao paginar.
+- **Varredura automática (axe-core, WCAG 2 A/AA)** nas 143 telas renderizadas no servidor com o CSS real: de 56 problemas para **0**.
+  - nomes que faltavam: botões das seções do menu lateral (menu recolhido), botões só com ícone (remover destino/dia em circuitos, mês anterior/próximo em Minha Escala), radios (`aria-label` com o texto da opção no `FieldRadioGroup`), seletores e chaves sem rótulo (novas props `ariaLabel` em `FieldSelect` e `FieldToggle`, usadas em circuitos e em notificações);
+  - contraste: textos pequenos em cinza muito claro (`slate-400`/`slate-300` → `slate-500`), laranja/âmbar pequenos (`-600` → `-700`) e o prefixo/sufixo dos campos (ex.: "R$"). Só a cor do texto muda, um tom mais escuro.
+  - Limite: a varredura vê o que a tela mostra sem dados (renderização no servidor). Conteúdo que só aparece com dados carregados não entrou.
+- **Comparação de pixels** (antes × depois, 147 telas): mudaram só as telas com as cores acima, o botão "Placar" no ranking e os esqueletos animados de carregamento (a animação varia entre fotos).
+
+### 5.3 (25/09, 19:30): Placar de vendas da equipe (tela nova, aprovada). Gravado no Mac, falta o commit
+- **Onde:** `/relatorios/ranking/placar` (botão "Placar" no Ranking de vendas). Mesmo módulo de permissão do Ranking (a rota começa com `/relatorios/ranking`).
+- **Quem vê:** o mesmo público do pódio do Ranking (admin do sistema, master e gestor). Vendedor vê um aviso com link para o ranking.
+- **Sem regra nova:** usa a mesma API (`/api/v1/relatorios/ranking`), a mesma ordem (`posicao`), o mesmo percentual (`alcance_meta` e total/meta do resumo) e as mesmas cores de atingimento. As funções de cor/percentual saíram do Ranking para `$lib/features/ranking/atingimento.ts` sem alteração (com teste), e as duas telas usam o mesmo código.
+- **O que mostra:** totais da equipe (vendas e seguro com barra de meta, vendas no mês, quantos bateram a meta), pódio dos 3 primeiros e a lista da equipe com barra de meta e tendência.
+- **Uso em TV:** botão "Tela cheia" (só o placar), atualização sozinha a cada minuto enquanto a aba está visível, e "Atualizar" manual (busca sem cache).
+
+### 5.4 (25/09, 19:30): ficha completa do cliente (aprovada). Gravado no Mac, falta o commit
+- A tela do cliente (`/clientes/[id]`) já reunia cadastro, vendas, orçamentos e acompanhantes. Entraram:
+  - **Viagens** do cliente (API existente `/api/v1/viagens/cliente/:id`, mesmo escopo e mesmo status da tela de Viagens), com link para cada viagem. Quem não tem o módulo Viagens não vê o quadro (e a tela não vai para "acesso negado": `redirectOnForbidden: false`).
+  - **Contatos enviados**: últimos avisos (API existente `/api/v1/clientes/avisos/history`), recarregados depois de enviar um aviso pela própria ficha.
+  - **Atalhos de contato** no resumo: WhatsApp, Ligar e E-mail (só abrem o app; nada é gravado).
+- Arquivos novos: `components/clientes/ClienteViagensCard.svelte` e `ClienteContatosCard.svelte`.
+
+### Verificação 5.2–5.4
+- 719 testes (15 novos: DataTable, Placar, ficha do cliente, atingimento), `svelte-check` 0/0, build OK.
+- Achado durante os testes: qualquer resposta 403 de uma API manda a tela para "/negado" (regra existente do `apiFetch`); por isso os quadros novos da ficha pedem `redirectOnForbidden: false`.

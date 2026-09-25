@@ -180,7 +180,7 @@
         <p>2. Opcionalmente, selecione um <strong>estado/subdivisão</strong> para vincular os produtos a uma região.</p>
         <p>3. Cole a lista de produtos, <strong>um por linha</strong>.</p>
         <p>4. Clique em <strong>Importar produtos</strong>.</p>
-        <p class="text-amber-600">Produtos com o mesmo nome já existentes serão ignorados.</p>
+        <p class="text-amber-700">Produtos com o mesmo nome já existentes serão ignorados.</p>
       </div>
     </Card>
 

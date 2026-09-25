@@ -14,6 +14,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiFetch, isCanceledApiError } from '$lib/services/api';
   import { diffDaysISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { clamp, getAtingimentoColor } from '$lib/features/ranking/atingimento';
 
   interface VendedorRanking {
     posicao: number;
@@ -106,24 +107,6 @@
   let vendedoresSeguro: VendedorRanking[] = [];
   let showFilterSheet = false;
   let rankingAbortController: AbortController | null = null;
-
-  function clamp(value: number, min: number, max: number) {
-    return Math.min(max, Math.max(min, value));
-  }
-
-  function interpolateRgb(from: [number, number, number], to: [number, number, number], t: number) {
-    const ratio = clamp(t, 0, 1);
-    const r = Math.round(from[0] + (to[0] - from[0]) * ratio);
-    const g = Math.round(from[1] + (to[1] - from[1]) * ratio);
-    const b = Math.round(from[2] + (to[2] - from[2]) * ratio);
-    return `rgb(${r}, ${g}, ${b})`;
-  }
-
-  function getAtingimentoColor(percentual: number) {
-    const pct = clamp(percentual, 0, 100);
-    if (pct < 80) return interpolateRgb([239, 68, 68], [249, 115, 22], pct / 80);
-    return interpolateRgb([249, 115, 22], [34, 197, 94], (pct - 80) / 20);
-  }
 
   function getDiasRestantesNoMes() {
     const hoje = todayISODateLocal();
@@ -387,7 +370,12 @@
   title="Ranking de Vendas"
   subtitle="Comparativo por responsável com meta, conversão, comissão e tendência."
   color="financeiro"
-  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'secondary', icon: ArrowLeft }]}
+  actions={showRankingPodio
+    ? [
+        { label: 'Placar', href: '/relatorios/ranking/placar', variant: 'secondary', icon: Trophy },
+        { label: 'Voltar', href: '/relatorios', variant: 'secondary', icon: ArrowLeft }
+      ]
+    : [{ label: 'Voltar', href: '/relatorios', variant: 'secondary', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatórios', href: '/relatorios' },
     { label: 'Ranking de Vendas' }
@@ -467,10 +455,10 @@
               style={`width:${atingimentoVendasPctClamped.toFixed(1)}%;background:${atingimentoVendasColor};`}
             ></div>
           </div>
-          <p class="mt-0.5 text-xs text-slate-400">{atingimentoVendasPct.toFixed(1)}% da meta</p>
+          <p class="mt-0.5 text-xs text-slate-500">{atingimentoVendasPct.toFixed(1)}% da meta</p>
         </div>
       {:else}
-        <p class="mt-0.5 text-xs text-slate-400">Sem meta cadastrada</p>
+        <p class="mt-0.5 text-xs text-slate-500">Sem meta cadastrada</p>
       {/if}
     </div>
   </div>
@@ -488,10 +476,10 @@
               style={`width:${atingimentoSeguroPctClamped.toFixed(1)}%;background:${atingimentoSeguroColor};`}
             ></div>
           </div>
-          <p class="mt-0.5 text-xs text-slate-400">{atingimentoSeguroPct.toFixed(1)}% da meta de seguro</p>
+          <p class="mt-0.5 text-xs text-slate-500">{atingimentoSeguroPct.toFixed(1)}% da meta de seguro</p>
         </div>
       {:else}
-        <p class="mt-0.5 text-xs text-slate-400">Sem meta de seguro cadastrada</p>
+        <p class="mt-0.5 text-xs text-slate-500">Sem meta de seguro cadastrada</p>
       {/if}
     </div>
   </div>

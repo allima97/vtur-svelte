@@ -879,7 +879,7 @@
           <div class="rounded-lg bg-vendas-100 p-2 text-vendas-600"><FileSpreadsheet size={20} /></div>
           <div>
             <p class="font-semibold text-slate-900">Contrato CVC</p>
-            <p class="text-sm text-slate-500">Importe contratos de pacotes, hotéis e serviços CVC.</p>
+            <p class="text-sm text-slate-600">Importe contratos de pacotes, hotéis e serviços CVC.</p>
           </div>
         </div>
       </Button>
@@ -893,7 +893,7 @@
           <div class="rounded-lg bg-vendas-100 p-2 text-vendas-600"><Ship size={20} /></div>
           <div>
             <p class="font-semibold text-slate-900">Reserva de Cruzeiro</p>
-            <p class="text-sm text-slate-500">Importe reservas de cruzeiro (roteiro).</p>
+            <p class="text-sm text-slate-600">Importe reservas de cruzeiro (roteiro).</p>
           </div>
         </div>
       </Button>
@@ -907,7 +907,7 @@
           <div class="rounded-lg bg-vendas-100 p-2 text-vendas-600"><User size={20} /></div>
           <div>
             <p class="font-semibold text-slate-900">Facial Rextur</p>
-            <p class="text-sm text-slate-500">Importe reservas da Rextur (Reserva Fácil).</p>
+            <p class="text-sm text-slate-600">Importe reservas da Rextur (Reserva Fácil).</p>
           </div>
         </div>
       </Button>
@@ -921,7 +921,7 @@
           <div class="rounded-lg bg-vendas-100 p-2 text-vendas-600"><MapPin size={20} /></div>
           <div>
             <p class="font-semibold text-slate-900">Facial CVC</p>
-            <p class="text-sm text-slate-500">Importe bilhetes aéreos do Facial CVC.</p>
+            <p class="text-sm text-slate-600">Importe bilhetes aéreos do Facial CVC.</p>
           </div>
         </div>
       </Button>

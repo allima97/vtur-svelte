@@ -672,6 +672,7 @@
               on:click={() => toggleSection(section.title)}
               ariaExpanded={!collapsed[section.title]}
               ariaControls={sectionDomId(section.title)}
+              ariaLabel={section.title}
             >
               <span class="vtur-sidebar__section-title">{section.title}</span>
               <ChevronDown

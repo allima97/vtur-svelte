@@ -1781,15 +1781,15 @@
 <Card color="financeiro" class="mb-4">
   <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
     <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'visao_geral' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('visao_geral')}>
-      <p class="text-xs {activeKpiView === 'visao_geral' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Visão geral</p>
+      <p class="text-xs {activeKpiView === 'visao_geral' ? 'font-semibold text-orange-700' : 'text-slate-500'}">Visão geral</p>
       <p class="text-lg font-semibold {activeKpiView === 'visao_geral' ? 'text-orange-700' : 'text-slate-900'}">{registros.length}</p>
     </Button>
     <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'conciliados' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('conciliados')}>
-      <p class="text-xs {activeKpiView === 'conciliados' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Conciliados</p>
+      <p class="text-xs {activeKpiView === 'conciliados' ? 'font-semibold text-orange-700' : 'text-slate-500'}">Conciliados</p>
       <p class="text-lg font-semibold {activeKpiView === 'conciliados' ? 'text-orange-700' : 'text-slate-900'}">{summary.efetivados}</p>
     </Button>
     <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes')}>
-      <p class="text-xs {activeKpiView === 'pendentes' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Pendentes conciliação</p>
+      <p class="text-xs {activeKpiView === 'pendentes' ? 'font-semibold text-orange-700' : 'text-slate-500'}">Pendentes conciliação</p>
       <p class="text-lg font-semibold {activeKpiView === 'pendentes' ? 'text-orange-700' : 'text-slate-900'}">{summary.pendentes}</p>
     </Button>
     <Button type="button" variant="unstyled" class_name="!flex min-h-[74px] flex-col! items-center! justify-center! gap-1 rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes_ranking' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes_ranking')}>

@@ -75,6 +75,7 @@ export { default as Lock } from './Lock.svelte';
 export { default as LogOut } from './LogOut.svelte';
 export { default as Mail } from './Mail.svelte';
 export { default as MapPin } from './MapPin.svelte';
+export { default as Maximize } from './Maximize.svelte';
 export { default as MapPinned } from './MapPinned.svelte';
 export { default as Megaphone } from './Megaphone.svelte';
 export { default as Menu } from './Menu.svelte';

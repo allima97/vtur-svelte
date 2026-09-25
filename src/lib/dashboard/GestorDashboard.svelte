@@ -1087,7 +1087,7 @@
         <p class="text-xs text-slate-500">Clientes que já retornaram e precisam de contato</p>
       </div>
     </div>
-    <a href="/operacao/acompanhamento" class="shrink-0 text-sm font-medium text-orange-600 transition-colors hover:text-orange-700">
+    <a href="/operacao/acompanhamento" class="shrink-0 text-sm font-medium text-orange-700 transition-colors hover:text-orange-800">
       Ver todos →
     </a>
   </div>

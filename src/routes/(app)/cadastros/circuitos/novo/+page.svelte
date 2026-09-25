@@ -222,6 +222,7 @@
           </span>
           <FieldSelect
             id="destino-circuito-{index}"
+            ariaLabel={`Destino ${index + 1}`}
             bind:value={destinosSelecionados[index]}
             options={destinosDisponiveis.map((d) => ({ value: d, label: d }))}
             placeholder="Selecione um destino..."
@@ -233,6 +234,7 @@
               variant="ghost"
               size="sm"
               on:click={() => removeDestino(index)}
+              ariaLabel="Remover destino"
               class_name="text-slate-400 hover:text-red-600"
             >
               <Trash2 size={18} />
@@ -245,7 +247,7 @@
         variant="ghost"
         size="sm"
         color="financeiro"
-        class_name="mt-4 justify-start px-0! text-financeiro-600 hover:bg-transparent! hover:text-financeiro-700!"
+        class_name="mt-4 justify-start px-0! text-financeiro-700 hover:bg-transparent! hover:text-financeiro-700!"
         on:click={addDestino}
       >
         <Plus size={18} />
@@ -260,7 +262,7 @@
         <div class="p-4 border border-slate-200 rounded-lg bg-slate-50">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
-              <span class="w-10 h-10 flex items-center justify-center bg-financeiro-500 text-white rounded-full font-bold">
+              <span class="w-10 h-10 flex items-center justify-center bg-financeiro-700 text-white rounded-full font-bold">
                 D{dia.dia}
               </span>
               <FieldInput
@@ -275,6 +277,7 @@
                 variant="ghost"
                 size="sm"
                 on:click={() => removeDiaRoteiro(index)}
+              ariaLabel="Remover dia do roteiro"
                 class_name="text-slate-400 hover:text-red-600"
               >
                 <Trash2 size={18} />
@@ -308,7 +311,7 @@
         type="button"
         variant="outline"
         color="financeiro"
-        class_name="w-full justify-center border-2 border-dashed border-financeiro-300 py-3 text-financeiro-600 hover:border-financeiro-500! hover:bg-financeiro-50!"
+        class_name="w-full justify-center border-2 border-dashed border-financeiro-300 py-3 text-financeiro-700 hover:border-financeiro-500! hover:bg-financeiro-50!"
         on:click={addDiaRoteiro}
       >
         <Plus size={20} />

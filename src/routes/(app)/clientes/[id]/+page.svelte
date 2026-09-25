@@ -8,6 +8,9 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import AcompanhantesManager from '$lib/components/clientes/AcompanhantesManager.svelte';
+  import ClienteViagensCard from '$lib/components/clientes/ClienteViagensCard.svelte';
+  import ClienteContatosCard from '$lib/components/clientes/ClienteContatosCard.svelte';
+  import { construirLinkWhatsApp } from '$lib/whatsapp';
   import {
     ArrowLeft,
     Calendar,
@@ -16,6 +19,7 @@
     Mail,
     MapPin,
     MessageCircle,
+    Phone,
     Send,
     ShoppingCart,
     Ticket,
@@ -107,6 +111,8 @@
   let modalAvisoLoadPromise: Promise<boolean> | null = null;
   let loadController: AbortController | null = null;
   let loadSeq = 0;
+  // Fase 5.4: recarrega "Contatos enviados" depois de enviar um aviso pela ficha.
+  let versaoContatos = 0;
 
   $: totalGasto = historicoVendas.reduce((acc, item) => acc + Number(item.valor_total || 0), 0);
   $: ticketMedio = historicoVendas.length > 0 ? totalGasto / historicoVendas.length : 0;
@@ -115,6 +121,9 @@
   $: clienteEmNegociacao = historicoOrcamentos.length > 0 && historicoVendas.length === 0;
   $: clienteComHistorico = historicoVendas.length > 0;
   $: clienteInicial = !clienteComHistorico && !clienteEmNegociacao;
+  // Fase 5.4: atalhos de contato (só abrem o app de telefone, e-mail ou WhatsApp).
+  $: linkWhatsApp = construirLinkWhatsApp(cliente?.whatsapp || cliente?.telefone || null);
+  $: telefoneDigitos = String(cliente?.telefone || cliente?.whatsapp || '').replace(/[^\d+]/g, '');
 
   function formatCurrency(value: number | null | undefined) {
     return BRL_CURRENCY_FORMATTER.format(Number(value || 0));
@@ -356,6 +365,25 @@
               <p class="font-medium text-slate-900">{cliente.nome}</p>
             </div>
           </div>
+          {#if linkWhatsApp || telefoneDigitos || cliente.email}
+            <div class="flex flex-wrap gap-2" aria-label="Falar com o cliente" role="group">
+              {#if linkWhatsApp}
+                <a href={linkWhatsApp} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 transition-colors hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-emerald-600">
+                  <MessageCircle size={15} aria-hidden="true" /> WhatsApp
+                </a>
+              {/if}
+              {#if telefoneDigitos}
+                <a href={`tel:${telefoneDigitos}`} class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-500">
+                  <Phone size={15} aria-hidden="true" /> Ligar
+                </a>
+              {/if}
+              {#if cliente.email}
+                <a href={`mailto:${cliente.email}`} class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-500">
+                  <Mail size={15} aria-hidden="true" /> E-mail
+                </a>
+              {/if}
+            </div>
+          {/if}
 
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
@@ -533,6 +561,10 @@
         {/if}
       </Card>
 
+      <ClienteViagensCard clienteId={String(clienteId || "")} />
+
+      <ClienteContatosCard clienteId={String(clienteId || "")} versao={versaoContatos} />
+
       <AcompanhantesManager
         clienteId={clienteId}
         editable={false}
@@ -552,7 +584,10 @@
       clienteEmail={cliente.email || ''}
       clienteNascimento={cliente.nascimento || null}
       onClose={() => (showAvisoModal = false)}
-      onEnviar={() => toast.success('Aviso preparado com sucesso.')}
+      onEnviar={() => {
+        toast.success('Aviso preparado com sucesso.');
+        versaoContatos += 1;
+      }}
     />
   {/if}
 {/if}

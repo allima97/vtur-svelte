@@ -480,10 +480,10 @@
     <!-- ── Sem dados ────────────────────────────────────────────── -->
     {:else}
       <Card>
-        <div class="py-16 text-center text-slate-400">
+        <div class="py-16 text-center text-slate-500">
           <BarChart3 class="mx-auto mb-3 h-10 w-10 opacity-30" />
           <p class="text-sm">Nenhum dado encontrado para os anos selecionados.</p>
-          <p class="mt-1 text-xs text-slate-300">Tente selecionar outros anos ou ajustar os filtros.</p>
+          <p class="mt-1 text-xs text-slate-500">Tente selecionar outros anos ou ajustar os filtros.</p>
         </div>
       </Card>
     {/if}

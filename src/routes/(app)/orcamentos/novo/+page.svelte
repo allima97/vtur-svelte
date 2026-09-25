@@ -314,7 +314,7 @@
 
       <div>
         <label for="orcamento-novo-cliente" class="block text-sm font-medium text-slate-700 mb-1">
-          Vincular cliente cadastrado <span class="text-slate-400 font-normal">(opcional)</span>
+          Vincular cliente cadastrado <span class="text-slate-500 font-normal">(opcional)</span>
         </label>
 
         {#if formData.client_id}

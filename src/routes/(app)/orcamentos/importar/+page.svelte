@@ -579,19 +579,19 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Cliente</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
           <p class="font-medium text-slate-800">{clienteNomeManual || '—'}</p>
         </div>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Modo</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Modo</p>
           <p class="font-medium text-slate-800">{modoLabel()}</p>
         </div>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Itens</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Itens</p>
           <p class="font-medium text-slate-800">{itensFiltrados.length}</p>
         </div>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pendentes</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendentes</p>
           <p class="font-medium {itensPendentes > 0 ? 'text-amber-600' : 'text-slate-800'}">{itensPendentes}</p>
         </div>
       </div>

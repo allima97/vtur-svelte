@@ -163,14 +163,14 @@
 
 <Card class="mb-6">
   <div class="flex items-center justify-between gap-4">
-    <Button variant="secondary" size="sm" on:click={() => navMes(-1)}>
+    <Button variant="secondary" size="sm" ariaLabel="Mês anterior" on:click={() => navMes(-1)}>
       <ChevronLeft size={16} />
     </Button>
     <div class="flex items-center gap-3">
       <Calendar size={18} class="text-slate-500" />
       <span class="text-lg font-semibold text-slate-900 capitalize">{periodoLabel}</span>
     </div>
-    <Button variant="secondary" size="sm" on:click={() => navMes(1)}>
+    <Button variant="secondary" size="sm" ariaLabel="Próximo mês" on:click={() => navMes(1)}>
       <ChevronRight size={16} />
     </Button>
   </div>

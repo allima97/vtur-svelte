@@ -40,6 +40,7 @@
           {name}
           bind:group={value}
           value={option.value}
+          aria-label={option.label}
           disabled={disabled || option.disabled}
           class={error ? 'text-red-600 focus:ring-red-200' : ''}
           on:change

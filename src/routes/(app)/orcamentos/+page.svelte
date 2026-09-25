@@ -399,7 +399,7 @@
     <div>
       <p class="text-sm font-medium text-slate-500">Enviados</p>
       <p class="text-2xl font-bold text-slate-900">{resumo.enviados}</p>
-      <p class="mt-0.5 text-xs text-slate-400">Aguardando cliente</p>
+      <p class="mt-0.5 text-xs text-slate-500">Aguardando cliente</p>
     </div>
   </div>
   <div class="vtur-kpi-card">
@@ -407,7 +407,7 @@
     <div>
       <p class="text-sm font-medium text-slate-500">Sem interação</p>
       <p class="text-2xl font-bold text-slate-900">{resumo.semInteracao}</p>
-      <p class="mt-0.5 text-xs text-slate-400">Prioridade máxima</p>
+      <p class="mt-0.5 text-xs text-slate-500">Prioridade máxima</p>
     </div>
   </div>
   <div class="vtur-kpi-card">
@@ -415,7 +415,7 @@
     <div>
       <p class="text-sm font-medium text-slate-500">Convertidos</p>
       <p class="text-2xl font-bold text-slate-900">{resumo.convertidos}</p>
-      <p class="mt-0.5 text-xs text-slate-400">{resumo.taxaConversao}% conversão</p>
+      <p class="mt-0.5 text-xs text-slate-500">{resumo.taxaConversao}% conversão</p>
     </div>
   </div>
 </div>

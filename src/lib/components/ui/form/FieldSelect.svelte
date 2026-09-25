@@ -18,6 +18,8 @@
   export let id: string | null = null;
   export let name: string | null = null;
   export let class_name = '';
+  /** Fase 5.2: nome para leitor de tela quando não há `label` visível. */
+  export let ariaLabel: string | null = null;
 
   $: fieldId = id || uniqueFieldId(label);
   $: describedById = error || helper ? `${fieldId}-desc` : undefined;
@@ -55,6 +57,7 @@
     placeholder={selectPlaceholder}
     aria-invalid={error ? 'true' : undefined}
     aria-describedby={describedById}
+    aria-label={label ? undefined : ariaLabel ?? undefined}
     class={selectClasses}
     on:change
     on:blur

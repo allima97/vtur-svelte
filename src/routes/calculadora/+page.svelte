@@ -153,9 +153,9 @@
     </div>
 
     <div class="vtur-modal-footer vtur-modal-footer--between border-t border-slate-100 bg-white">
-      <div class="text-xs text-slate-400">VTUR - Calculadora e Concorrência</div>
+      <div class="text-xs text-slate-500">VTUR - Calculadora e Concorrência</div>
       <div class="vtur-modal-footer__actions">
-        <span class="text-xs text-slate-400">Funciona offline após a primeira visita</span>
+        <span class="text-xs text-slate-500">Funciona offline após a primeira visita</span>
         <Button type="button" variant="secondary" on:click={closeStandaloneCalculator}>
           {canGoBack ? 'Voltar' : 'Fechar'}
         </Button>

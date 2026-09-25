@@ -82,7 +82,7 @@
           on:click={() => openRelatorio(relatorio.rota)}
           variant="unstyled"
           size="sm"
-          class_name="inline-flex items-center gap-1 text-sm font-medium text-financeiro-600 hover:text-financeiro-700 transition-colors"
+          class_name="inline-flex items-center gap-1 text-sm font-medium text-financeiro-700 hover:text-orange-800 transition-colors"
         >
           Abrir relatório
           <ArrowRight size={16} class="group-hover:translate-x-1 transition-transform" />

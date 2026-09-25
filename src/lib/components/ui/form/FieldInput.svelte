@@ -62,7 +62,7 @@
 
   <div class="relative w-full">
     {#if prefix}
-      <span class="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400 select-none">{prefix}</span>
+      <span class="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-500 select-none">{prefix}</span>
     {/if}
 
     {#if mask}
@@ -150,7 +150,7 @@
       />
     {/if}
     {#if suffix}
-      <span class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400 select-none">{suffix}</span>
+      <span class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-500 select-none">{suffix}</span>
     {/if}
     {#if actionIcon}
       <Button
