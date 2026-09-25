@@ -1,7 +1,9 @@
 <script lang="ts">
   import { dev } from '$app/environment';
   import { onMount } from 'svelte';
-  import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { apiDelete, apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { createSupabaseBrowserClient } from '$lib/db/supabase';
+  import { assinarRecadosDaEmpresa } from '$lib/realtime/muralRecados';
   import { createLoadGuard } from '$lib/utils/loadGuard';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -91,19 +93,47 @@
   const isMaster = () => /MASTER/i.test(userTypeName);
   const companyContextId = () => empresaSelecionada || userCompanyId || '';
 
+  // Fase 6.1: além da atualização a cada 15 s (mantida como está), recado novo aparece na hora
+  // via Supabase Realtime. O aviso só dispara uma nova busca na API do mural.
+  let pararRealtime: (() => void) | null = null;
+  let realtimeCompanyId = '';
+
   function clearPoller() {
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
+    pararRealtime?.();
+    pararRealtime = null;
+    realtimeCompanyId = '';
   }
 
   function startPoller() {
-    clearPoller();
-    if (!companyContextId()) return;
+    const companyId = companyContextId();
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    if (!companyId) {
+      clearPoller();
+      return;
+    }
     pollTimer = setInterval(() => {
       void loadRecados();
     }, 15000);
+    if (realtimeCompanyId !== companyId) {
+      pararRealtime?.();
+      realtimeCompanyId = companyId;
+      let client = null;
+      try {
+        client = createSupabaseBrowserClient();
+      } catch {
+        client = null;
+      }
+      pararRealtime = assinarRecadosDaEmpresa(client, companyId, () => {
+        if (companyContextId() === companyId) void loadRecados(true);
+      });
+    }
   }
 
   function getVisibleRecados(rows: RecadoRow[], targetUserId = userId) {
@@ -165,7 +195,7 @@
     }
   }
 
-  async function loadRecados() {
+  async function loadRecados(fresh = false) {
     const companyId = companyContextId();
     if (!companyId) {
       recadosGuard.abort();
@@ -175,7 +205,10 @@
     const request = recadosGuard.next();
     recadosLoading = true;
     try {
-      const payload = await apiGet<RecadosPayload>('/api/v1/mural/recados', { company_id: companyId }, request.signal);
+      // Aviso do Realtime: busca sem o cache curto das leituras, para o recado novo aparecer já.
+      const payload = fresh
+        ? await apiFetch<RecadosPayload>('/api/v1/mural/recados', { query: { company_id: companyId }, signal: request.signal, noCache: true })
+        : await apiGet<RecadosPayload>('/api/v1/mural/recados', { company_id: companyId }, request.signal);
       if (!recadosGuard.isCurrent(request.seq)) return;
       supportsAttachments = payload.supportsAttachments !== false;
       recados = getVisibleRecados(payload.recados || []);
@@ -380,7 +413,7 @@
   breadcrumbs={[
     { label: 'Recados' }
   ]}
-  actions={[{ label: 'Atualizar', onClick: loadRecados, variant: 'secondary', icon: RefreshCw }]}
+  actions={[{ label: 'Atualizar', onClick: () => loadRecados(), variant: 'secondary', icon: RefreshCw }]}
 />
 
 {#if errorMessage}

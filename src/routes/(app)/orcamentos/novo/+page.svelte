@@ -9,7 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
 
   // ─── Tipos ───────────────────────────────────────────────────────────────────
   interface ItemOrcamento {
@@ -118,11 +118,12 @@
     const seq = ++searchSeq;
     loadingClientes = true;
     try {
-      const data = await apiGet<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
-        q: query,
-        lookup: '1',
-        pageSize: 15
-      }, controller.signal);
+      const data = await apiFetch<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
+        query: { q: query, lookup: '1', pageSize: 15 },
+        signal: controller.signal,
+        // Busca de cliente é opcional no orçamento: sem acesso a Clientes, só não lista (não vai para "/negado").
+        redirectOnForbidden: false
+      });
       if (seq !== searchSeq || destroyed) return;
       clientesFiltrados = Array.isArray(data.items) ? data.items : [];
     } catch (err) {

@@ -306,8 +306,9 @@
           redirectOnUnauthorized: false,
           signal: controller.signal
         }),
-        apiGet<SugestoesBuscaResponse>('/api/v1/roteiros/sugestoes-busca', undefined, controller.signal).catch(() => null),
-        apiGet<OrcamentosPdfResponse>('/api/v1/parametros/orcamentos-pdf', undefined, controller.signal).catch(() => null),
+        // Opcionais (sugestões e dados do PDF): sem acesso, seguem vazios sem mandar para "/negado".
+        apiFetch<SugestoesBuscaResponse>('/api/v1/roteiros/sugestoes-busca', { signal: controller.signal, redirectOnForbidden: false }).catch(() => null),
+        apiFetch<OrcamentosPdfResponse>('/api/v1/parametros/orcamentos-pdf', { signal: controller.signal, redirectOnForbidden: false }).catch(() => null),
       ]);
       if (seq !== loadSeq || destroyed) return;
       const r = payload.roteiro;
@@ -528,11 +529,12 @@
       const seq = ++clienteBuscaSeq;
       gerarClienteLoading = true;
       try {
-        const data = await apiGet<ClienteBuscaResponse | ClienteBuscaResult[]>(
-          '/api/v1/clientes',
-          { search: gerarClienteQ },
-          controller.signal
-        );
+        const data = await apiFetch<ClienteBuscaResponse | ClienteBuscaResult[]>('/api/v1/clientes', {
+          query: { search: gerarClienteQ },
+          signal: controller.signal,
+          // Busca opcional de cliente: sem acesso a Clientes, só não lista (não vai para "/negado").
+          redirectOnForbidden: false
+        });
         if (seq !== clienteBuscaSeq || destroyed) return;
         gerarClienteResults = normalizeClienteBuscaResults(data);
       } catch (err) {

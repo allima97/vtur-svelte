@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 19:30._
+_Última atualização: 25/09/2026, 20:00._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -41,19 +41,13 @@ _Última atualização: 25/09/2026, 19:30._
 | Fase | Status | Resumo |
 |---|---|---|
 | 0: read model v4 | ✅ commit | Triggers de dirty em produção, rebuild v4, correções. |
-| 1: paridade | ✅ commit | Inventário de APIs, testes de caracterização, auditoria em `logs` (Vendas). |
-| 2.1: Hono base | ✅ commit | App Hono em `/api/v1`, `x-request-id`, `server-timing`, catch-all. |
-| 2.2: vendas + conciliação | ✅ commit | 40 rotas. |
-| 2.3: regras únicas | ✅ commit | `isFormaNaoComissionavel` e carregador de termos únicos; rateio duplicado removido. |
-| 2.4: formulário de venda | ✅ commit | 24 funções de nova/editar em `lib/features/vendas/form.ts`. |
-| 2.5: dashboard, relatórios, clientes, financeiro | ✅ commit | 47 rotas. |
-| 2.6: demais domínios | ✅ lotes 1 e 2 com commit ("fase4", "fase5") · ⏳ lote 3 sem commit | 71 + 55 + 37 rotas. |
-| 2.7: `api/auth` | 🚫 não migrar (decisão do usuário) | Login, convite, sessão, turnstile e passkeys continuam no SvelteKit. |
-| 3.1: indicação de atualização + `svelte-check` sem erros | ✅ commit | Ver seção Fase 3. |
-| 3.2: acessibilidade do kit `ui` | ✅ commit | Ver seção Fase 3. |
-| 3.3: navegação (menu, trilha, títulos) | ✅ commit | Ver seção Fase 3. |
-| 3.4: velocidade (placement + viagem em paralelo) | ⏳ sem commit | Ver seção Fase 3. |
-| 3.5: telas gigantes | ⏳ sem commit (editar venda já com commit) | Ver seção 3.5. |
+| 1: paridade | ✅ commit | Inventário de APIs, testes de caracterização, auditoria em `logs`. |
+| 2: Hono | ✅ commit | 252 rotas de `/api/v1` no Hono. `api/auth` não migra (decisão do usuário). |
+| 3: telas, navegação, acessibilidade, velocidade | ✅ commit | 3.1 a 3.10. |
+| 4: design system | ✅ commit | Tailwind 4, Flowbite 1.33 (componentes do 0.48 copiados), ícones Flowbite. `!important`: fica como está (ver 4.4). |
+| 5: UX e navegação | ✅ commit até 5.4 · ⏳ 5.5 sem commit | Ctrl+K, acessibilidade, placar, ficha do cliente, revisão do `/negado`. |
+| 6: tempo real | ⏳ 6.1 sem commit | Recados em tempo real. Próximos: vendas por empresa, placar ao vivo. |
+| Relatório de Performance por franquia | 📝 plano, aguardando respostas | Ver `claude/relatorio-performance-franquia-plano.md` no projeto e a seção abaixo. |
 
 ## API no Hono
 Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os routers em `src/lib/server/api/routes/<dominio>/index.ts` e o registro em `src/lib/server/api/app.ts`.
@@ -518,7 +512,7 @@ Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no 
 - **Arquivos:** `layout/CommandPalette.svelte`, `layout/commandPalette.ts` (+ teste), `stores/navegacao.ts`, `testing/dom/commandPalette.dom.test.ts`; `Sidebar.svelte` (publica os itens, 1 bloco) e `Topbar.svelte` (botão).
 - **Prova:** 704 testes (9 novos: filtro, atalho, abrir/filtrar/↓/Enter/Esc no jsdom), `svelte-check` 0/0, build OK. As 143 telas renderizadas no servidor só mudam no topo (o botão novo).
 
-### 5.2 (25/09, 19:30): acessibilidade das tabelas (DataTable) e varredura de acessibilidade. Gravado no Mac, falta o commit
+### 5.2 (25/09, 19:30): acessibilidade das tabelas (DataTable) e varredura de acessibilidade. Com commit ("fase14")
 - **DataTable** (usada em ~50 telas), sem mudar dados, ordem, filtros ou visual:
   - nome da tabela para leitor de tela (`<caption class="sr-only">` com o título) e `aria-busy` enquanto carrega;
   - campo de busca com rótulo ("Buscar em <título>", invisível);
@@ -531,14 +525,14 @@ Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no 
   - Limite: a varredura vê o que a tela mostra sem dados (renderização no servidor). Conteúdo que só aparece com dados carregados não entrou.
 - **Comparação de pixels** (antes × depois, 147 telas): mudaram só as telas com as cores acima, o botão "Placar" no ranking e os esqueletos animados de carregamento (a animação varia entre fotos).
 
-### 5.3 (25/09, 19:30): Placar de vendas da equipe (tela nova, aprovada). Gravado no Mac, falta o commit
+### 5.3 (25/09, 19:30): Placar de vendas da equipe (tela nova, aprovada). Com commit ("fase14")
 - **Onde:** `/relatorios/ranking/placar` (botão "Placar" no Ranking de vendas). Mesmo módulo de permissão do Ranking (a rota começa com `/relatorios/ranking`).
 - **Quem vê:** o mesmo público do pódio do Ranking (admin do sistema, master e gestor). Vendedor vê um aviso com link para o ranking.
 - **Sem regra nova:** usa a mesma API (`/api/v1/relatorios/ranking`), a mesma ordem (`posicao`), o mesmo percentual (`alcance_meta` e total/meta do resumo) e as mesmas cores de atingimento. As funções de cor/percentual saíram do Ranking para `$lib/features/ranking/atingimento.ts` sem alteração (com teste), e as duas telas usam o mesmo código.
 - **O que mostra:** totais da equipe (vendas e seguro com barra de meta, vendas no mês, quantos bateram a meta), pódio dos 3 primeiros e a lista da equipe com barra de meta e tendência.
 - **Uso em TV:** botão "Tela cheia" (só o placar), atualização sozinha a cada minuto enquanto a aba está visível, e "Atualizar" manual (busca sem cache).
 
-### 5.4 (25/09, 19:30): ficha completa do cliente (aprovada). Gravado no Mac, falta o commit
+### 5.4 (25/09, 19:30): ficha completa do cliente (aprovada). Com commit ("fase14")
 - A tela do cliente (`/clientes/[id]`) já reunia cadastro, vendas, orçamentos e acompanhantes. Entraram:
   - **Viagens** do cliente (API existente `/api/v1/viagens/cliente/:id`, mesmo escopo e mesmo status da tela de Viagens), com link para cada viagem. Quem não tem o módulo Viagens não vê o quadro (e a tela não vai para "acesso negado": `redirectOnForbidden: false`).
   - **Contatos enviados**: últimos avisos (API existente `/api/v1/clientes/avisos/history`), recarregados depois de enviar um aviso pela própria ficha.
@@ -548,3 +542,33 @@ Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no 
 ### Verificação 5.2–5.4
 - 719 testes (15 novos: DataTable, Placar, ficha do cliente, atingimento), `svelte-check` 0/0, build OK.
 - Achado durante os testes: qualquer resposta 403 de uma API manda a tela para "/negado" (regra existente do `apiFetch`); por isso os quadros novos da ficha pedem `redirectOnForbidden: false`.
+
+### 4.4 (25/09, 20:00): `!important` — decisão: não remover agora
+- Medido: 319 `!important` no `app.css` e 504 classes com `!` nos `.svelte`. Cada um existe para vencer outra regra (Flowbite, utilitários ou o próprio CSS do sistema).
+- Remover exigiria reescrever a precedência do CSS tela a tela, com risco alto de mudança visual e nenhum ganho para o usuário. Fica como está; dá para limpar aos poucos quando cada tela for mexida por outro motivo.
+
+### 5.5 (25/09, 20:00): revisão das consultas que mandavam para "/negado". Gravado no Mac, falta o commit
+- Regra existente (mantida): um 403 de qualquer API leva a tela para `/negado`, a não ser que a chamada peça `redirectOnForbidden: false`.
+- Revisadas todas as telas: chamadas de API de outro módulo que são **opcionais** na tela. Encontrados e corrigidos (agora só ficam vazios, sem mandar para `/negado`):
+  - **Roteiro (`orcamentos/roteiros/[id]`)**: sugestões e dados do PDF (`/parametros/orcamentos-pdf`, que exige o módulo Parâmetros). Quem tinha acesso a Roteiros mas não a Parâmetros era mandado para `/negado` ao abrir um roteiro, mesmo com a tela já protegida.
+  - **Novo orçamento / editar orçamento**: busca de cliente (opcional, exige o módulo Clientes).
+  - **Roteiro**: busca de cliente para gerar orçamento.
+- Guarda nova em `guards.test.ts`: chamada de API com `.catch(...)` (opcional) sem `redirectOnForbidden: false` falha o teste.
+- Não mudou: telas cuja consulta principal é de outro módulo (ex.: Aniversariantes usa a API do dashboard). Aí a tela depende dela; o comportamento continua o mesmo.
+
+## Fase 6: tempo real
+
+### 6.1 (25/09, 20:00): recados em tempo real. Gravado no Mac, falta o commit
+- Recado novo, alterado ou apagado aparece na hora na tela de Recados, via Supabase Realtime (`mural_recados`, filtrado pela empresa). A tabela já estava publicada no Realtime; o RLS de leitura já limita cada usuário ao que ele pode ver.
+- O aviso do Realtime só dispara uma nova busca na mesma API do mural (`/api/v1/mural/recados`, sem o cache curto). Nenhuma regra nova.
+- A atualização a cada 15 s **continua igual** (reserva se o Realtime não conectar, e para as confirmações de leitura).
+- Arquivos: `src/lib/realtime/muralRecados.ts` (+ teste) e `operacao/recados/+page.svelte`.
+- Como conferir: abrir Recados em dois navegadores com usuários da mesma empresa e enviar um recado; deve aparecer no outro em ~1 s.
+
+### Verificação 5.5 e 6.1
+- 722 testes, `svelte-check` 0/0, build OK.
+
+## Relatório de Performance por franquia (pedido em 25/09, em planejamento)
+- Modelo: PDF "5630 - LOJA SHOPPING CENTER NORTE" (Relatório de Performance da CVC, por filial).
+- Plano com o mapeamento bloco a bloco e as perguntas: documento `claude/relatorio-performance-franquia-plano.md` do projeto.
+- Principais pontos: a parte de Vendas é quase toda calculável com os dados do VTUR; **Orçamentos não tem base no banco** (6 orçamentos na tabela `quote`); vários itens precisam de definição (Venda RA, Business "Consolidadora", de/para de produtos, meta até D-1, contagem de passageiros).

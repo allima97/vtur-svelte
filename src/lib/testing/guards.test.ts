@@ -70,4 +70,31 @@ describe('guardas', () => {
       .map(({ path }) => path);
     expect(achados).toEqual([]);
   });
+
+  it('consulta opcional (com .catch) não manda a tela para "/negado" num 403', () => {
+    // Uma chamada com .catch(...) é tratada como opcional pela tela. Sem redirectOnForbidden: false,
+    // um 403 dela leva o usuário para "/negado" mesmo tendo acesso à tela (Fase 5, revisão do /negado).
+    const permitidos = new Set(['src/routes/(app)/perfil/+page.svelte:/api/v1/profile/signature']);
+    const achados: string[] = [];
+    for (const { path, text } of files) {
+      const re = /\b(apiGet|apiFetch)\s*(?:<[^>]*>)?\s*\(/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text))) {
+        let i = m.index + m[0].length;
+        let depth = 1;
+        while (depth > 0 && i < text.length) {
+          if (text[i] === '(') depth += 1;
+          else if (text[i] === ')') depth -= 1;
+          i += 1;
+        }
+        const chamada = text.slice(m.index, i);
+        if (!/^\s*\.catch\(/.test(text.slice(i, i + 20))) continue;
+        if (chamada.includes('redirectOnForbidden')) continue;
+        const endpoint = /['"`](\/api\/v1\/[^'"`?$]*)/.exec(chamada)?.[1] ?? '?';
+        const id = `${path}:${endpoint}`;
+        if (!permitidos.has(id)) achados.push(id);
+      }
+    }
+    expect(achados).toEqual([]);
+  });
 });
