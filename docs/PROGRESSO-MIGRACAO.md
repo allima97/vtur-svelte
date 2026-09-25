@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 07:45._
+_Última atualização: 25/09/2026, 08:10._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -12,7 +12,8 @@ _Última atualização: 25/09/2026, 07:45._
 - **Fase 3.1:** com commit ("fase7"). O "Dados atualizados há X" do dashboard funciona, e o `svelte-check` está sem erros.
 - **Fase 3.2:** com commit ("telas_botoes").
 - **Fase 3.3:** com commit ("breacrumbs").
-- **Correção do dashboard em meses anteriores (25/09), gravada no Mac, sem commit.** Ver a seção "Dashboard: meses anteriores" abaixo.
+- **Correção do dashboard em meses anteriores (25/09):** com commit ("dashboard"). Ver a seção "Dashboard: meses anteriores" abaixo.
+- **Fase 3.5 (telas gigantes) gravada no Mac, sem commit** (a parte `vendas/[id]/editar` já entrou no commit "dashboard"). Ver a seção 3.5.
 - **Fase 3.4:** com commit ("consultas"). Resumo:
   - o `wrangler.toml` roda o Worker ao lado do banco (`[placement] region = "aws:us-west-2"`);
   - o detalhe da viagem busca os dados em paralelo.
@@ -50,7 +51,7 @@ _Última atualização: 25/09/2026, 07:45._
 | 3.2: acessibilidade do kit `ui` | ✅ commit | Ver seção Fase 3. |
 | 3.3: navegação (menu, trilha, títulos) | ✅ commit | Ver seção Fase 3. |
 | 3.4: velocidade (placement + viagem em paralelo) | ⏳ sem commit | Ver seção Fase 3. |
-| 3.5: telas gigantes | ⬜ | Ver plano abaixo. |
+| 3.5: telas gigantes | ⏳ sem commit (editar venda já com commit) | Ver seção 3.5. |
 
 ## API no Hono
 Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os routers em `src/lib/server/api/routes/<dominio>/index.ts` e o registro em `src/lib/server/api/app.ts`.
@@ -200,6 +201,32 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
     ```
 - **Recomendado:** aplicar a migration dos gatilhos da Fase 0 (`20260924200100_read_model_v4_dirty_triggers.sql`). Com ela, qualquer alteração em mês antigo marca o mês na hora, sem esperar a noite. Precisa de aprovação.
 
+**3.5 (25/09): dividir as telas gigantes, sem mudar o comportamento.** Começou com outro agente e foi revisada e concluída aqui.
+
+| Tela | Antes | Depois | O que saiu |
+|---|---|---|---|
+| `vendas/[id]/editar` | 1388 | 1065 | 5 componentes das etapas (`EtapasNavegacao`, `EtapaDadosVenda`, `EtapaRecibos`, `EtapaPagamentos`, `EtapaResumo`) e `types.ts` (feito pelo outro agente) |
+| `operacao/vouchers/novo` | 1605 | 1442 | `SelecaoFornecedor`, `WizardEtapas`, `ImportacaoVoucher`, `formatters.ts` e `types.ts` |
+| `orcamentos/roteiros/[id]` | 2764 | 2477 | tipos e funções de lista (`tipos.ts`), importação de dias (`importacao-dias.ts`) e `formatadores.ts` |
+| `financeiro/conciliacao` | 3113 | 2809 | 14 tipos (`types.ts`) e 18 formatadores (`formatters.ts`) |
+
+- **Como foi provado que nada mudou:**
+  - **HTML:** com cada componente expandido de volta no lugar da tag, a tela fica **idêntica** à original, linha a linha, nas 4 telas. No `SelecaoFornecedor` só houve renomeação de variável (`provider` → `providerOption`, `form.provider` → prop `provider`).
+  - **Script:** cada função ou tipo foi removido da página **só se o texto for igual** ao do módulo. A comparação foi automática, uma por uma: 18 + 14 na conciliação, 19 + 7 no roteiro, mais `formatDateBR` e `WizardForm`.
+  - **Reatividade:** os dados editados nos componentes filhos usam `bind:` (`recibos`, `pagamentos`, `venda`, os textos colados na importação de voucher). As funções continuam na página e são passadas como props.
+- **Correções no que o outro agente deixou:**
+  - Em `importacao-dias.ts`, a expressão que remove acentos estava gravada com caracteres invisíveis literais. Voltou para `/[\u0300-\u036f]/`, como no original. O efeito era o mesmo, mas a forma literal é frágil.
+  - Em `conciliacao/_components/types.ts`, havia 2 tipos que **não existiam** na tela (`ImportDiferenca`, `VisaoGeralRow`). Foram removidos.
+  - Os componentes de voucher e roteiro e os formatadores da conciliação estavam criados, mas não eram usados pelas telas. Agora são.
+- **Testes novos:**
+  - `conciliacao/_components/formatters.test.ts` (6);
+  - `roteiros/[id]/_components/importacao-dias.test.ts` (5).
+- **Verificação:**
+  - 653 testes passando;
+  - `svelte-check` com 0 erros e 0 avisos;
+  - build OK.
+- **Próximo passo possível:** extrair mais blocos visuais da conciliação (abas e modais) e do roteiro, com o mesmo método de prova.
+
 **Plano (próximas etapas):**
 - ~~3.2 Kit `ui`~~ (feito). Pendentes do kit, para depois:
   - o `Dialog` (Flowbite `Modal`) não liga o título ao `role="dialog"`, porque o Flowbite não repassa atributos para esse elemento;
@@ -207,7 +234,7 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - padronizar os estados de carregando, vazio e erro.
 - ~~3.3 Navegação~~ (feito, ver acima).
 - ~~3.4 Velocidade~~ (feito, ver acima). Plano original: com o header `server-timing`, medir a API de cada tela e atacar as mais lentas (cache, chamadas em paralelo), sem mudar os resultados. Prova com testes de contrato.
-- **3.5 Telas gigantes:** dividir em componentes, sem mudar o comportamento. As maiores são `financeiro/conciliacao` (3113 linhas), `orcamentos/roteiros/[id]` (2764), `operacao/vouchers/novo` (1605) e `vendas/[id]/editar` (1388).
+- ~~3.5 Telas gigantes~~ (1ª rodada feita, ver acima). Plano original: dividir em componentes, sem mudar o comportamento. As maiores são `financeiro/conciliacao` (3113 linhas), `orcamentos/roteiros/[id]` (2764), `operacao/vouchers/novo` (1605) e `vendas/[id]/editar` (1388).
 
 ## Problemas conhecidos (não corrigidos, fora do escopo atual)
 - Tabela `push_subscriptions` não existe no banco (`push/subscribe` e `push/unsubscribe`).

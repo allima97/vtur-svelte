@@ -17,7 +17,7 @@
       </p>
     </div>
     <div class="text-sm font-medium text-slate-600">
-      Selecionado: {providers.find((provider) => provider.value === provider)?.label}
+      Selecionado: {providers.find((providerOption) => providerOption.value === provider)?.label}
     </div>
   </div>
 

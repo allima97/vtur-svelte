@@ -21,98 +21,31 @@
   import { diffDaysISODate } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
   import { safeOpenNewTab } from '$lib/security/url';
+  import {
+    addItem,
+    moveDown,
+    moveUp,
+    newDia,
+    newHotel,
+    newInvestimento,
+    newPagamento,
+    newPasseio,
+    newTransporte,
+    removeItem,
+    reorder,
+    updateItem,
+    type DiaBuscaResult,
+    type RotDia,
+    type RotHotel,
+    type RotInvestimento,
+    type RotPagamento,
+    type RotPasseio,
+    type RotTransporte
+  } from './_components/tipos';
+  import { isImportSectionHeader, normalizeImportLine, parseDiasImportText } from './_components/importacao-dias';
+  import { formatBRL } from './_components/formatadores';
 
   // ─── Types ─────────────────────────────────────────────────────────────────
-  type RotDia = {
-    id?: string;
-    ordem: number;
-    cidade: string;
-    percurso: string;
-    data: string;
-    descricao: string;
-  };
-
-  type RotHotel = {
-    id?: string;
-    ordem: number;
-    cidade: string;
-    hotel: string;
-    endereco: string;
-    data_inicio: string;
-    data_fim: string;
-    noites: number | null;
-    qtd_apto: number | null;
-    apto: string;
-    categoria: string;
-    regime: string;
-    tipo_tarifa: string;
-    qtd_adultos: number | null;
-    qtd_criancas: number | null;
-    valor_original: number | null;
-    valor_final: number | null;
-  };
-
-  type RotPasseio = {
-    id?: string;
-    ordem: number;
-    cidade: string;
-    passeio: string;
-    fornecedor: string;
-    data_inicio: string;
-    data_fim: string;
-    tipo: string;
-    ingressos: string;
-    qtd_adultos: number | null;
-    qtd_criancas: number | null;
-    valor_original: number | null;
-    valor_final: number | null;
-  };
-
-  type RotTransporte = {
-    id?: string;
-    ordem: number;
-    tipo: string;
-    fornecedor: string;
-    descricao: string;
-    data_inicio: string;
-    data_fim: string;
-    categoria: string;
-    observacao: string;
-    trecho: string;
-    cia_aerea: string;
-    data_voo: string;
-    classe_reserva: string;
-    hora_saida: string;
-    aeroporto_saida: string;
-    duracao_voo: string;
-    tipo_voo: string;
-    hora_chegada: string;
-    aeroporto_chegada: string;
-    tarifa_nome: string;
-    reembolso_tipo: string;
-    qtd_adultos: number | null;
-    qtd_criancas: number | null;
-    valor_total: number | null;
-    taxas: number | null;
-  };
-
-  type RotInvestimento = {
-    id?: string;
-    ordem: number;
-    tipo: string;
-    valor_por_pessoa: number | null;
-    qtd_apto: number | null;
-    valor_por_apto: number | null;
-  };
-
-  type RotPagamento = {
-    id?: string;
-    ordem: number;
-    servico: string;
-    forma_pagamento: string;
-    valor_total_com_taxas: number | null;
-    taxas: number | null;
-  };
 
   type PdfSettings = {
     consultor_nome?: string;
@@ -187,10 +120,6 @@
   const TRANSPORTE_TIPO_VOO_OPTIONS = ['Nacional', 'Internacional'];
   const INVESTIMENTO_TIPO_OPTIONS = ['Por pessoa', 'Por casal', 'Por família', 'Por apto'];
   const PAGAMENTO_SERVICO_OPTIONS = ['Pacote Completo', 'Passagem Aérea', 'Hospedagem', 'Passeios e Serviços', 'Seguro Viagem', 'Demais Serviços'];
-  const PT_BR_DECIMAL_FORMATTER = new Intl.NumberFormat('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
 
   // ─── Page state ────────────────────────────────────────────────────────────
   const roteiroId = $page.params.id;
@@ -254,12 +183,6 @@
   let showDiasBusca = $state(false);
   let diasBuscaQ = $state('');
   let diasBuscaCidade = $state('');
-  interface DiaBuscaResult {
-    percurso?: string | null;
-    cidade?: string | null;
-    data?: string | null;
-    descricao?: string | null;
-  }
   let diasBuscaResults: DiaBuscaResult[] = $state([]);
   let diasBuscaLoading = $state(false);
   let showDiasImport = $state(false);
@@ -295,57 +218,8 @@
   let totalInvestimento = $derived(investimentos.reduce((s, i) => s + Number(i.valor_por_pessoa || 0), 0));
 
   // ─── Factory functions ─────────────────────────────────────────────────────
-  function newDia(ordem: number): RotDia {
-    return { ordem, cidade: '', percurso: '', data: '', descricao: '' };
-  }
-  function newHotel(ordem: number): RotHotel {
-    return { ordem, cidade: '', hotel: '', endereco: '', data_inicio: '', data_fim: '', noites: null, qtd_apto: null, apto: '', categoria: '', regime: '', tipo_tarifa: '', qtd_adultos: null, qtd_criancas: null, valor_original: null, valor_final: null };
-  }
-  function newPasseio(ordem: number): RotPasseio {
-    return { ordem, cidade: '', passeio: '', fornecedor: '', data_inicio: '', data_fim: '', tipo: 'Passeio', ingressos: '', qtd_adultos: null, qtd_criancas: null, valor_original: null, valor_final: null };
-  }
-  function newTransporte(ordem: number): RotTransporte {
-    return { ordem, tipo: 'Aéreo', fornecedor: '', descricao: '', data_inicio: '', data_fim: '', categoria: '', observacao: '', trecho: '', cia_aerea: '', data_voo: '', classe_reserva: '', hora_saida: '', aeroporto_saida: '', duracao_voo: '', tipo_voo: 'Internacional', hora_chegada: '', aeroporto_chegada: '', tarifa_nome: '', reembolso_tipo: '', qtd_adultos: null, qtd_criancas: null, valor_total: null, taxas: null };
-  }
-  function newInvestimento(ordem: number): RotInvestimento {
-    return { ordem, tipo: '', valor_por_pessoa: null, qtd_apto: null, valor_por_apto: null };
-  }
-  function newPagamento(ordem: number): RotPagamento {
-    return { ordem, servico: '', forma_pagamento: '', valor_total_com_taxas: null, taxas: null };
-  }
 
   // ─── List operations ───────────────────────────────────────────────────────
-  function reorder<T extends { ordem: number }>(arr: T[]): T[] {
-    return arr.map((item, i) => ({ ...item, ordem: i }));
-  }
-
-  function addItem<T extends { ordem: number }>(list: T[], newFn: (o: number) => T, afterIndex: number = list.length - 1): T[] {
-    const next = [...list];
-    next.splice(afterIndex + 1, 0, newFn(afterIndex + 1));
-    return reorder(next);
-  }
-
-  function removeItem<T extends { ordem: number }>(list: T[], index: number): T[] {
-    return reorder(list.filter((_, i) => i !== index));
-  }
-
-  function moveUp<T extends { ordem: number }>(list: T[], index: number): T[] {
-    if (index === 0) return list;
-    const next = [...list];
-    [next[index - 1], next[index]] = [next[index], next[index - 1]];
-    return reorder(next);
-  }
-
-  function moveDown<T extends { ordem: number }>(list: T[], index: number): T[] {
-    if (index === list.length - 1) return list;
-    const next = [...list];
-    [next[index], next[index + 1]] = [next[index + 1], next[index]];
-    return reorder(next);
-  }
-
-  function updateItem<T>(list: T[], index: number, patch: Partial<T>): T[] {
-    return list.map((item, i) => (i === index ? { ...item, ...patch } : item));
-  }
 
   // ─── Hotel auto-calc noites ────────────────────────────────────────────────
   function calcNoites(dataInicio: string, dataFim: string): number | null {
@@ -387,162 +261,6 @@
     } else {
       investimentos = updateItem(investimentos, index, { [field]: v });
     }
-  }
-
-  function normalizeImportLine(value: string): string {
-    return String(value || '')
-      .replace(/\r/g, '')
-      .replace(/\t/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  function isImportSectionHeader(line: string): boolean {
-    const normalized = normalizeImportLine(line)
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-
-    return (
-      normalized === 'itinerario' ||
-      normalized === 'itinerario de viagem' ||
-      normalized === 'dia a dia' ||
-      normalized === 'roteiro' ||
-      normalized === 'programacao'
-    );
-  }
-
-  function parseDiaHeader(line: string): { dia: number | null; titulo: string } | null {
-    const normalized = normalizeImportLine(line);
-    if (!normalized || isImportSectionHeader(normalized)) return null;
-
-    const patterns = [
-      /^dia\s*(\d+)[ºoª]?\s*[:\-.–—]?\s*(.*)$/i,
-      /^(\d+)[ºoª]?\s*dia\s*[:\-.–—]?\s*(.*)$/i,
-      /^(\d+)[ºoª]?\s*[:\-.–—]\s*(.*)$/i
-    ];
-
-    for (const pattern of patterns) {
-      const match = normalized.match(pattern);
-      if (match) {
-        return {
-          dia: Number(match[1]) || null,
-          titulo: normalizeImportLine(match[2])
-        };
-      }
-    }
-
-    return null;
-  }
-
-  function isImportStopHeader(line: string): boolean {
-    const normalized = normalizeImportLine(line)
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-
-    return (
-      normalized.startsWith('servicos inclusos') ||
-      normalized.startsWith('informacoes importantes') ||
-      normalized.startsWith('formas de pagamento') ||
-      normalized === 'importante' ||
-      normalized.startsWith('importante ') ||
-      normalized.startsWith('outros servicos')
-    );
-  }
-
-  function mapImportedTitleToDia(ordem: number, tituloBruto: string, descricaoLinhas: string[]): RotDia {
-    const titulo = normalizeImportLine(tituloBruto);
-    const descricao = descricaoLinhas.map((line) => normalizeImportLine(line)).filter(Boolean).join('\n');
-    const routeParts = titulo
-      .split(/\s(?:->|→|\/|\-|–|—)\s/)
-      .map((part) => normalizeImportLine(part))
-      .filter(Boolean);
-
-    const cidade = routeParts.length > 0 ? routeParts[0] : titulo;
-    const percurso = routeParts.length > 1 ? titulo : '';
-
-    return {
-      ...newDia(ordem),
-      ordem,
-      cidade,
-      percurso,
-      descricao
-    };
-  }
-
-  function parseDiasImportText(text: string): RotDia[] {
-    const raw = String(text || '').replace(/\r/g, '').trim();
-    if (!raw) return [];
-
-    const lines = raw.split('\n');
-    const parsed: RotDia[] = [];
-
-    let started = false;
-    let expectingTitleFromNextLine = false;
-    let currentTitle = '';
-    let currentDescription: string[] = [];
-
-    const commitCurrent = () => {
-      if (!currentTitle.trim() && currentDescription.length === 0) return;
-      parsed.push(mapImportedTitleToDia(parsed.length, currentTitle || `Dia ${parsed.length + 1}`, currentDescription));
-      currentTitle = '';
-      currentDescription = [];
-    };
-
-    for (const rawLine of lines) {
-      const line = normalizeImportLine(rawLine);
-      if (!line) continue;
-      if (isImportSectionHeader(line)) continue;
-
-      if (started && isImportStopHeader(line)) {
-        break;
-      }
-
-      const header = parseDiaHeader(line);
-      if (header) {
-        started = true;
-        commitCurrent();
-        currentTitle = header.titulo;
-        currentDescription = [];
-        expectingTitleFromNextLine = !currentTitle;
-        continue;
-      }
-
-      if (!started) {
-        continue;
-      }
-
-      if (expectingTitleFromNextLine) {
-        currentTitle = line;
-        expectingTitleFromNextLine = false;
-        continue;
-      }
-
-      if (!currentTitle) {
-        currentTitle = line;
-      } else {
-        currentDescription.push(line);
-      }
-    }
-
-    commitCurrent();
-
-    if (parsed.length > 0) {
-      return reorder(parsed);
-    }
-
-    const blocks = raw
-      .split(/\n{2,}/)
-      .map((block) => block.split('\n').map((line) => normalizeImportLine(line)).filter(Boolean))
-      .filter((block) => block.length > 0);
-
-    return reorder(
-      blocks.map((block, index) => {
-        const [titulo, ...descricaoLinhas] = block;
-        return mapImportedTitleToDia(index, titulo || `Dia ${index + 1}`, descricaoLinhas);
-      })
-    );
   }
 
   function handleImportDiasText() {
@@ -1488,11 +1206,6 @@
     } finally {
       previewingPdf = false;
     }
-  }
-
-  function formatBRL(value: number | null | undefined): string {
-    if (value == null) return '';
-    return PT_BR_DECIMAL_FORMATTER.format(value);
   }
 
   onMount(async () => {

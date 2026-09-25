@@ -15,7 +15,38 @@
   import { parseConciliacaoImportFile, parseConciliacaoImportText } from '$lib/conciliacao/importParser';
   import { extractRexturFromText } from '$lib/vendas/facialRexturExtractor';
   import { todayISODateLocal } from '$lib/date';
-  import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
+  import {
+    auditExpectedActual,
+    auditIssueBorderClass,
+    auditSeverityClass,
+    auditSeverityLabel,
+    exigeRanking,
+    formatCurrency,
+    formatDate,
+    formatDateTime,
+    formatDocumentoConciliacao,
+    formatMoney,
+    formatPercent,
+    formatPtBrInput,
+    getDiffModalSeverity,
+    getImportDiffSeverity,
+    resolveMetaDifLabel,
+    statusImportLabel,
+  } from './_components/formatters';
+  import type {
+    ConciliacaoChange,
+    ConciliacaoExecution,
+    ConciliacaoItem,
+    ConciliacaoOperationLog,
+    ConciliacaoSummary,
+    DetalheRateioInfo,
+    EmpresaOption,
+    ImportLookupMatch,
+    ImportPreviewRow,
+    ProdutoOption,
+    VendedorOption,
+    VinculoAuditResult,
+  } from './_components/types';
   import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import type { ConciliacaoLinhaInput } from '../../../api/v1/conciliacao/_types';
@@ -38,233 +69,6 @@
     Upload,
     Users
   } from 'lucide-svelte';
-
-  function resolveMetaDifLabel(percentualComissaoLoja: number | null | undefined, fallback?: string | null): string {
-    const pct = Number(percentualComissaoLoja || 0);
-    if (pct >= 31) return 'Seguro Viagem';
-    return fallback || 'Não';
-  }
-
-  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  });
-
-  const PT_BR_DECIMAL_FORMATTER = new Intl.NumberFormat('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-
-    type ConciliacaoItem = {
-    id: string;
-    company_id?: string;
-    documento: string;
-    numero_reserva?: string | null;
-    movimento_data: string | null;
-    status: string;
-    descricao: string | null;
-    valor_lancamentos: number | null;
-    valor_taxas: number | null;
-    valor_descontos: number | null;
-    valor_abatimentos: number | null;
-    valor_nao_comissionavel: number | null;
-    valor_calculada_loja: number | null;
-    valor_visao_master: number | null;
-    valor_opfax: number | null;
-    valor_saldo: number | null;
-    valor_venda_real: number | null;
-    valor_comissao_loja: number | null;
-    percentual_comissao_loja: number | null;
-    faixa_comissao: string | null;
-    is_seguro_viagem: boolean;
-    origem: string | null;
-    conciliado: boolean;
-    match_total: boolean | null;
-    match_taxas: boolean | null;
-    sistema_valor_total: number | null;
-    sistema_valor_taxas: number | null;
-    diff_total: number | null;
-    diff_taxas: number | null;
-    venda_id: string | null;
-    venda_recibo_id: string | null;
-    venda_numero?: string | null;
-    venda_cliente_nome?: string | null;
-    venda_vendedor_nome?: string | null;
-    recibo_numero?: string | null;
-    ranking_vendedor_id: string | null;
-    ranking_produto_id: string | null;
-    ranking_assigned_at: string | null;
-    ranking_vendedor?: { id: string; nome_completo: string | null } | null;
-    ranking_produto?: { id: string; nome: string | null } | null;
-    is_baixa_rac?: boolean | null;
-    is_nao_comissionavel?: boolean | null;
-    last_checked_at: string | null;
-    conciliado_em?: string | null;
-    status_display?: string;
-    status_label?: string;
-  };
-
-  type ConciliacaoSummary = {
-    total: number;
-    efetivados: number;
-    pendentes: number;
-    semRanking: number;
-    baixaRac: number;
-    totalValor: number;
-    timeline: Array<{ date: string; value: number }>;
-    lacunaCronologica?: {
-      fronteira: string | null;
-      dias_faltantes: string[];
-      dias_bloqueados: string[];
-      registros_bloqueados: number;
-      aviso: string;
-    } | null;
-  };
-
-  type ConciliacaoChange = {
-    id: string;
-    numero_recibo: string | null;
-    field: string;
-    old_value: number | null;
-    new_value: number | null;
-    changed_at: string;
-    reverted_at: string | null;
-    actor: string;
-    changed_by_user?: { nome_completo?: string | null; email?: string | null } | null;
-  };
-
-  type ConciliacaoExecution = {
-    id: string;
-    actor: string;
-    checked: number;
-    reconciled: number;
-    updated_taxes: number;
-    still_pending: number;
-    status: string;
-    error_message: string | null;
-    created_at: string;
-    actor_user?: { nome_completo?: string | null; email?: string | null } | null;
-  };
-
-  type ConciliacaoOperationLog = {
-    id: string;
-    created_at: string;
-    action: string;
-    status: 'success' | 'error';
-    message: string;
-    month: string;
-    checked: number;
-    reconciled: number;
-    recalculated: number;
-    recalculatedChecked: number;
-    updatedTaxes: number;
-    duplicateGroups: number;
-    duplicatesRemoved: number;
-    updateErrors: number;
-  };
-
-  type VendedorOption = { id: string; nome_completo: string };
-  type ProdutoOption = { id: string; nome: string };
-  type EmpresaOption = { id: string; nome: string };
-  type DetalheRateioInfo = {
-    vendedor_destino_nome: string;
-    percentual_destino: number;
-  };
-  type VinculoAuditIssue = {
-    code: string;
-    severity: 'info' | 'warning' | 'critical';
-    title: string;
-    message: string;
-    expected?: string | number | null;
-    actual?: string | number | null;
-  };
-  type VinculoAuditDetail = {
-    id: string;
-    documento: string;
-    movimento_data: string | null;
-    status: string | null;
-    severity: 'ok' | 'info' | 'warning' | 'critical';
-    fixable: boolean;
-    issues: VinculoAuditIssue[];
-    conciliacao?: {
-      venda_id?: string | null;
-      venda_recibo_id?: string | null;
-      ranking_vendedor_nome?: string | null;
-      valor_venda_real?: number | null;
-      valor_taxas?: number | null;
-    };
-    sistema?: {
-      numero_recibo?: string | null;
-      vendedor_nome?: string | null;
-      data_venda?: string | null;
-      data_lancamento?: string | null;
-      valor_ranking?: number | null;
-      valor_taxas?: number | null;
-      rateio?: {
-        vendedor_origem_nome?: string | null;
-        vendedor_destino_nome?: string | null;
-        percentual_origem?: number | null;
-        percentual_destino?: number | null;
-      } | null;
-    } | null;
-    candidatos?: Array<{
-      numero_recibo: string;
-      vendedor_nome?: string | null;
-      data_venda?: string | null;
-      valor_total?: number | null;
-      valor_taxas?: number | null;
-    }>;
-  };
-  type VinculoAuditResult = {
-    checked: number;
-    critical: number;
-    warnings: number;
-    infos: number;
-    issues: number;
-    corrigiveis: number;
-    corrigidos: number;
-    dryRun: boolean;
-    detalhes: VinculoAuditDetail[];
-  };
-  type ImportPreviewRow = {
-    documento: string;
-    numero_reserva?: string | null;
-    movimento_data: string | null;
-    status: string | null | undefined;
-    descricao: string | null | undefined;
-    vendedor_ranking: string;
-    meta_dif: string;
-    valor_lancamentos: number | null | undefined;
-    valor_taxas: number | null | undefined;
-    valor_descontos: number | null | undefined;
-    valor_abatimentos: number | null | undefined;
-    valor_nao_comissionavel: number | null | undefined;
-    valor_venda_real: number | null | undefined;
-    valor_comissao_loja: number | null | undefined;
-    valor_saldo: number | null | undefined;
-    percentual_comissao_loja: number | null | undefined;
-    faixa_comissao: string | null | undefined;
-    ranking_vendedor_id?: string | null;
-    ranking_produto_id?: string | null;
-    venda_id?: string | null;
-    venda_recibo_id?: string | null;
-    sistema_valor_total?: number | null;
-    sistema_valor_taxas?: number | null;
-    tem_diferenca?: boolean;
-    diff_total?: number | null;
-    diff_taxas?: number | null;
-    origem?: string | null;
-  };
-
-  type ImportLookupMatch = {
-    vendedor_id: string;
-    venda_id: string;
-    venda_recibo_id: string;
-    sistema_valor_total: number | null;
-    sistema_valor_taxas: number | null;
-    diff_total: number | null;
-    diff_taxas: number | null;
-  };
 
   let activeTab = 'visao_geral';
   let activeKpiView: 'visao_geral' | 'conciliados' | 'pendentes' | 'pendentes_ranking' | 'baixa_rac' | 'execucoes' = 'visao_geral';
@@ -600,64 +404,6 @@
 
     return true;
   });
-
-  function statusImportLabel(status?: string | null) {
-    const value = String(status || '').toUpperCase();
-    if (value === 'BAIXA') return 'Efetivado';
-    if (value === 'OPFAX') return 'Pendente em OPFAX';
-    if (value === 'ESTORNO') return 'Estorno';
-    return value || 'OUTRO';
-  }
-
-  function formatDocumentoConciliacao(row: { documento?: string | null; numero_reserva?: string | null }) {
-    const documento = String(row.documento || '').trim();
-    const reserva = String(row.numero_reserva || '').trim();
-    return reserva ? `${documento} / ${reserva}` : documento || '-';
-  }
-
-  function exigeRanking(status?: string | null) {
-    const value = String(status || '').toUpperCase();
-    return value === 'BAIXA' || value === 'OPFAX';
-  }
-
-  function formatMoney(value: number | null | undefined) {
-    const num = Number(value || 0);
-    if (!Number.isFinite(num)) return '-';
-    return PT_BR_DECIMAL_FORMATTER.format(num);
-  }
-
-  function getDiffRatio(diff: number | null | undefined, sistemaValue: number | null | undefined) {
-    const diffAbs = Math.abs(Number(diff || 0));
-    if (diffAbs <= 0.01) return 0;
-
-    const base = Math.abs(Number(sistemaValue || 0));
-    if (base <= 0.01) return Number.POSITIVE_INFINITY;
-
-    return diffAbs / base;
-  }
-
-  function isCriticalDiff(diff: number | null | undefined, sistemaValue: number | null | undefined) {
-    return getDiffRatio(diff, sistemaValue) >= 0.1;
-  }
-
-  function getImportDiffSeverity(row: ImportPreviewRow): 'none' | 'warning' | 'critical' {
-    if (!row.tem_diferenca) return 'none';
-
-    if (
-      isCriticalDiff(row.diff_total, row.sistema_valor_total) ||
-      isCriticalDiff(row.diff_taxas, row.sistema_valor_taxas)
-    ) {
-      return 'critical';
-    }
-
-    return 'warning';
-  }
-
-  function getDiffModalSeverity(diff: { diff_total: number; diff_taxas: number; valor_sistema: number; taxas_sistema: number }) {
-    return isCriticalDiff(diff.diff_total, diff.valor_sistema) || isCriticalDiff(diff.diff_taxas, diff.taxas_sistema)
-      ? 'critical'
-      : 'warning';
-  }
 
   function normalizeRexturLocalizador(value?: string | null) {
     return String(value || '')
@@ -1872,13 +1618,6 @@
     return parsePtBrNumberInput(raw);
   }
 
-  function formatPtBrInput(value: number | null | undefined) {
-    if (value === null || value === undefined) return '';
-    const num = Number(value);
-    if (!Number.isFinite(num)) return '';
-    return PT_BR_DECIMAL_FORMATTER.format(num);
-  }
-
   function fillDetailsForm(row: ConciliacaoItem) {
     detalheValorLancamentos = formatPtBrInput(row.valor_lancamentos);
     detalheValorTaxas = formatPtBrInput(row.valor_taxas);
@@ -1993,53 +1732,6 @@
 
   function currentMonth() {
     return todayISODateLocal().slice(0, 7);
-  }
-
-  function formatCurrency(value: number | null | undefined) {
-    return BRL_CURRENCY_FORMATTER.format(Number(value || 0));
-  }
-
-  function formatPercent(value: number | null | undefined) {
-    const num = Number(value || 0);
-    if (!num) return '-';
-    return `${num.toFixed(2)}%`;
-  }
-
-  function formatDate(value?: string | null) {
-    return formatDateValue(value);
-  }
-
-  function formatDateTime(value?: string | null) {
-    return formatDateTimeValue(value);
-  }
-
-  function auditSeverityLabel(severity?: string | null) {
-    if (severity === 'critical') return 'Crítico';
-    if (severity === 'warning') return 'Alerta';
-    if (severity === 'info') return 'Info';
-    return 'OK';
-  }
-
-  function auditSeverityClass(severity?: string | null) {
-    if (severity === 'critical') return 'bg-red-100 text-red-700';
-    if (severity === 'warning') return 'bg-amber-100 text-amber-700';
-    if (severity === 'info') return 'bg-blue-100 text-blue-700';
-    return 'bg-green-100 text-green-700';
-  }
-
-  function auditIssueBorderClass(severity?: string | null) {
-    if (severity === 'critical') return 'border-red-200 bg-red-50 text-red-900';
-    if (severity === 'warning') return 'border-amber-200 bg-amber-50 text-amber-900';
-    return 'border-blue-200 bg-blue-50 text-blue-900';
-  }
-
-  function auditExpectedActual(issue: VinculoAuditIssue) {
-    const expected = issue.expected ?? null;
-    const actual = issue.actual ?? null;
-    if (expected === null && actual === null) return '';
-    const left = expected === null ? '-' : String(expected);
-    const right = actual === null ? '-' : String(actual);
-    return `Esperado: ${left} | Atual: ${right}`;
   }
 
   function escapeHtml(value: string) {

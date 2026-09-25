@@ -18,6 +18,11 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { fade, slide } from 'svelte/transition';
+  import SelecaoFornecedor from './_components/SelecaoFornecedor.svelte';
+  import WizardEtapas from './_components/WizardEtapas.svelte';
+  import ImportacaoVoucher from './_components/ImportacaoVoucher.svelte';
+  import { formatDateBR } from './_components/formatters';
+  import type { WizardForm } from './_components/types';
   import { 
     createEmptyVoucherImport, 
     extractVoucherImportFromFile,
@@ -44,24 +49,6 @@
   } from '$lib/vouchers/types';
 
   // Tipo para o formulário do wizard
-  interface WizardForm {
-    provider: VoucherProvider;
-    nome: string;
-    codigo_systur: string;
-    codigo_fornecedor: string;
-    reserva_online: string;
-    passageiros: string;
-    tipo_acomodacao: string;
-    operador: string;
-    resumo: string;
-    data_inicio: string;
-    data_fim: string;
-    ativo: boolean;
-    status: 'rascunho' | 'finalizado' | 'cancelado';
-    extra_data: VoucherExtraData;
-    dias: VoucherDia[];
-    hoteis: VoucherHotel[];
-  }
 
   let currentStep = 0;
   let loading = true;
@@ -81,7 +68,6 @@
   let importingHotels = false;
   let importingFile = false;
   let importedFileName = '';
-  let importFileInput: HTMLInputElement | null = null;
   let importAccordion: string[] = [];
   
   // Accordion states
@@ -174,11 +160,6 @@
   }
 
   // ============ HELPERS ============
-  function formatDateBR(value?: string | null) {
-    if (!value) return '';
-    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
-  }
 
   function addDaysToDate(startDate: string, days: number): string {
     return addDaysISODate(startDate, days);
@@ -270,7 +251,6 @@
     form.dias = dias.map((d, i) => ({ ...d, dia_numero: i + 1, ordem: i }));
     syncDaysWithStartDate();
   }
-
 
   function applyImportedResult(
     imported: VoucherImportResult,
@@ -426,7 +406,6 @@
     form.hoteis[index].noites = diffNights(form.hoteis[index].data_inicio, form.hoteis[index].data_fim);
     form.hoteis = [...form.hoteis];
   }
-
 
   // ============ ETAPA 4: APPS ============
   function addApp() {
@@ -589,78 +568,9 @@
   <LoadingState />
 {:else}
   <div class="max-w-6xl mx-auto pb-20">
-    <section class="mb-6 rounded-xl border border-clientes-100 bg-white p-5 shadow-sm">
-      <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p class="text-sm font-medium text-clientes-600">Primeiro passo</p>
-          <h2 class="text-xl font-bold text-slate-900">Escolha o fornecedor do voucher</h2>
-          <p class="text-sm text-slate-500">
-            A importação e os campos abaixo seguem o padrão do fornecedor selecionado.
-          </p>
-        </div>
-        <div class="text-sm font-medium text-slate-600">
-          Selecionado: {providers.find((provider) => provider.value === form.provider)?.label}
-        </div>
-      </div>
+    <SelecaoFornecedor {providers} provider={form.provider} {setVoucherProvider} />
 
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {#each providers as provider}
-          <Button
-            type="button"
-            variant={form.provider === provider.value ? 'primary' : 'outline'}
-            size="lg"
-            class_name={`!min-h-[72px] !justify-start !rounded-xl !border-2 !px-5 !py-4 !text-left ${
-              form.provider === provider.value ? '!shadow-md' : '!bg-white hover:!bg-slate-50'
-            }`}
-            on:click={() => setVoucherProvider(provider.value)}
-          >
-            <span class="mr-3 h-4 w-4 shrink-0 rounded-full {provider.color}"></span>
-            <span>
-              <span class="block font-semibold">{provider.label}</span>
-              <span class="block text-xs opacity-75">Usar modelo {provider.label}</span>
-            </span>
-          </Button>
-        {/each}
-      </div>
-    </section>
-
-    <!-- Wizard Steps -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
-      <div class="flex flex-wrap">
-        {#each steps as step, i}
-          {@const status = getStepStatus(i)}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            class_name={`flex-1 min-w-[140px] !rounded-none !border-0 !px-3 !py-4 flex flex-col items-center justify-center gap-2 text-sm font-medium transition-all relative ${
-              status === 'current'
-                ? '!bg-clientes-50 !text-clientes-700'
-                : status === 'completed'
-                  ? '!bg-green-50 !text-green-700 hover:!bg-green-100'
-                  : '!bg-white !text-slate-400 hover:!bg-slate-50'
-            }`}
-            on:click={() => goToStep(i)}
-          >
-            <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg
-              {status === 'current' 
-                ? 'bg-clientes-500 text-white shadow-lg' 
-                : status === 'completed'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-slate-200 text-slate-500'}">
-              <svelte:component this={step.icon} size={20} />
-            </div>
-            <div class="text-center">
-              <p class="font-semibold hidden sm:block">{step.label}</p>
-              <p class="text-xs opacity-75 hidden md:block">{step.description}</p>
-            </div>
-            {#if status === 'current'}
-              <div class="absolute bottom-0 left-0 right-0 h-1 bg-clientes-500"></div>
-            {/if}
-          </Button>
-        {/each}
-      </div>
-    </div>
+    <WizardEtapas {steps} {goToStep} {getStepStatus} />
 
     <!-- Conteúdo do Wizard -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
@@ -679,95 +589,22 @@
           </div>
 
           <div class="space-y-6">
-            <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
-              <h3 class="font-semibold text-slate-900 mb-2">Importar dados do voucher</h3>
-              <p class="text-sm text-slate-600 mb-4">
-                Cole cada parte do voucher na caixa correspondente ou importe por arquivo.
-              </p>
-
-              <input
-                bind:this={importFileInput}
-                type="file"
-                class="hidden"
-                accept=".docx,.pdf,.txt"
-                on:change={async (e) => {
-                  const file = (e.currentTarget as HTMLInputElement).files?.[0];
-                  (e.currentTarget as HTMLInputElement).value = '';
-                  if (!file) return;
-                  await importFromFile(file);
-                }}
-              />
-
-              <div class="space-y-2">
-                <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('viagem')}>
-                    <span>Colar dados da viagem</span>
-                    <ChevronDown size={16} class={importAccordion.includes('viagem') ? 'rotate-180 transition-transform' : 'transition-transform'} />
-                  </Button>
-                  {#if importAccordion.includes('viagem')}
-                    <div class="p-4 border-t border-slate-100 space-y-3">
-                      <FieldTextarea bind:value={travelPasteText} rows={8} placeholder="Cole dados da viagem, passageiros e informações principais..." />
-                      <div class="flex gap-2 flex-wrap">
-                        <Button variant="secondary" size="sm" on:click={importTravelFromPaste} disabled={importingTravel}>
-                          {importingTravel ? 'Importando...' : 'Importar dados da viagem'}
-                        </Button>
-                        {#if travelPasteText}
-                          <Button variant="ghost" size="sm" on:click={() => (travelPasteText = '')}>Limpar</Button>
-                        {/if}
-                      </div>
-                    </div>
-                  {/if}
-                </div>
-
-                <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('itinerario')}>
-                    <span>Colar itinerário</span>
-                    <ChevronDown size={16} class={importAccordion.includes('itinerario') ? 'rotate-180 transition-transform' : 'transition-transform'} />
-                  </Button>
-                  {#if importAccordion.includes('itinerario')}
-                    <div class="p-4 border-t border-slate-100 space-y-3">
-                      <FieldTextarea bind:value={circuitPasteText} rows={8} placeholder="Cole o itinerário dia a dia..." />
-                      <div class="flex gap-2 flex-wrap">
-                        <Button variant="secondary" size="sm" on:click={importItineraryFromPaste} disabled={importingCircuit}>
-                          {importingCircuit ? 'Importando...' : 'Importar itinerário'}
-                        </Button>
-                        {#if circuitPasteText}
-                          <Button variant="ghost" size="sm" on:click={() => (circuitPasteText = '')}>Limpar</Button>
-                        {/if}
-                      </div>
-                    </div>
-                  {/if}
-                </div>
-
-                <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('hoteis')}>
-                    <span>Colar lista de hotéis</span>
-                    <ChevronDown size={16} class={importAccordion.includes('hoteis') ? 'rotate-180 transition-transform' : 'transition-transform'} />
-                  </Button>
-                  {#if importAccordion.includes('hoteis')}
-                    <div class="p-4 border-t border-slate-100 space-y-3">
-                      <FieldTextarea bind:value={hotelPasteText} rows={8} placeholder="Cole a lista de hotéis..." />
-                      <div class="flex gap-2 flex-wrap">
-                        <Button variant="secondary" size="sm" on:click={importHotelsFromPasteUnified} disabled={importingHotels}>
-                          {importingHotels ? 'Importando...' : 'Importar hotéis'}
-                        </Button>
-                        {#if hotelPasteText}
-                          <Button variant="ghost" size="sm" on:click={() => (hotelPasteText = '')}>Limpar</Button>
-                        {/if}
-                      </div>
-                    </div>
-                  {/if}
-                </div>
-              </div>
-
-              <div class="flex items-center gap-3 mt-4">
-                <Button variant="primary" on:click={() => importFileInput?.click()} disabled={importingFile}>
-                  {importingFile ? 'Importando arquivo...' : 'Importar arquivo'}
-                </Button>
-                <span class="text-sm text-slate-600">{importedFileName || 'Nenhum arquivo selecionado'}</span>
-              </div>
-              <p class="text-xs text-slate-500 mt-2">Escolha o arquivo Word (.docx), PDF ou texto (.txt) e importe tudo de uma vez.</p>
-            </div>
+            <ImportacaoVoucher
+              bind:travelPasteText
+              bind:circuitPasteText
+              bind:hotelPasteText
+              {importingTravel}
+              {importingCircuit}
+              {importingHotels}
+              {importingFile}
+              {importedFileName}
+              {importAccordion}
+              {importTravelFromPaste}
+              {importItineraryFromPaste}
+              {importHotelsFromPasteUnified}
+              {importFromFile}
+              {toggleImportAccordion}
+            />
 
             <!-- Informações Principais -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

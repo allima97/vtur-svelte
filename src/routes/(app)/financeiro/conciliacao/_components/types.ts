@@ -208,23 +208,3 @@ export type ImportLookupMatch = {
   diff_total: number | null;
   diff_taxas: number | null;
 };
-
-export type ImportDiferenca = {
-  documento: string;
-  movimento_data: string;
-  valor_importacao: number;
-  valor_sistema: number;
-  taxas_importacao: number;
-  taxas_sistema: number;
-  diff_total: number;
-  diff_taxas: number;
-  severidade: 'warning' | 'critical';
-};
-
-export type VisaoGeralRow = ConciliacaoItem & {
-  _vendedor_nome: string | null;
-  _status_label: string;
-  _recibo_encontrado: boolean;
-  _ranking_ok: boolean | null;
-  _mes: string;
-};
