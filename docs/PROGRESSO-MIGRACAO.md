@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 20:00._
+_Última atualização: 25/09/2026, 21:00._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -45,9 +45,9 @@ _Última atualização: 25/09/2026, 20:00._
 | 2: Hono | ✅ commit | 252 rotas de `/api/v1` no Hono. `api/auth` não migra (decisão do usuário). |
 | 3: telas, navegação, acessibilidade, velocidade | ✅ commit | 3.1 a 3.10. |
 | 4: design system | ✅ commit | Tailwind 4, Flowbite 1.33 (componentes do 0.48 copiados), ícones Flowbite. `!important`: fica como está (ver 4.4). |
-| 5: UX e navegação | ✅ commit até 5.4 · ⏳ 5.5 sem commit | Ctrl+K, acessibilidade, placar, ficha do cliente, revisão do `/negado`. |
-| 6: tempo real | ⏳ 6.1 sem commit | Recados em tempo real. Próximos: vendas por empresa, placar ao vivo. |
-| Relatório de Performance por franquia | 📝 plano, aguardando respostas | Ver `claude/relatorio-performance-franquia-plano.md` no projeto e a seção abaixo. |
+| 5: UX e navegação | ✅ commit | Ctrl+K, acessibilidade, placar, ficha do cliente, revisão do `/negado`. |
+| 6: tempo real | ✅ 6.1 com commit | Recados em tempo real. Próximos: vendas por empresa, placar ao vivo. |
+| Relatório de Performance por franquia | ⏳ implementado, sem commit | Tela `/relatorios/performance` + PDF. Ver a seção abaixo. |
 
 ## API no Hono
 Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os routers em `src/lib/server/api/routes/<dominio>/index.ts` e o registro em `src/lib/server/api/app.ts`.
@@ -547,7 +547,7 @@ Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no 
 - Medido: 319 `!important` no `app.css` e 504 classes com `!` nos `.svelte`. Cada um existe para vencer outra regra (Flowbite, utilitários ou o próprio CSS do sistema).
 - Remover exigiria reescrever a precedência do CSS tela a tela, com risco alto de mudança visual e nenhum ganho para o usuário. Fica como está; dá para limpar aos poucos quando cada tela for mexida por outro motivo.
 
-### 5.5 (25/09, 20:00): revisão das consultas que mandavam para "/negado". Gravado no Mac, falta o commit
+### 5.5 (25/09, 20:00): revisão das consultas que mandavam para "/negado". Com commit ("fase15")
 - Regra existente (mantida): um 403 de qualquer API leva a tela para `/negado`, a não ser que a chamada peça `redirectOnForbidden: false`.
 - Revisadas todas as telas: chamadas de API de outro módulo que são **opcionais** na tela. Encontrados e corrigidos (agora só ficam vazios, sem mandar para `/negado`):
   - **Roteiro (`orcamentos/roteiros/[id]`)**: sugestões e dados do PDF (`/parametros/orcamentos-pdf`, que exige o módulo Parâmetros). Quem tinha acesso a Roteiros mas não a Parâmetros era mandado para `/negado` ao abrir um roteiro, mesmo com a tela já protegida.
@@ -558,7 +558,7 @@ Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no 
 
 ## Fase 6: tempo real
 
-### 6.1 (25/09, 20:00): recados em tempo real. Gravado no Mac, falta o commit
+### 6.1 (25/09, 20:00): recados em tempo real. Com commit ("fase15")
 - Recado novo, alterado ou apagado aparece na hora na tela de Recados, via Supabase Realtime (`mural_recados`, filtrado pela empresa). A tabela já estava publicada no Realtime; o RLS de leitura já limita cada usuário ao que ele pode ver.
 - O aviso do Realtime só dispara uma nova busca na mesma API do mural (`/api/v1/mural/recados`, sem o cache curto). Nenhuma regra nova.
 - A atualização a cada 15 s **continua igual** (reserva se o Realtime não conectar, e para as confirmações de leitura).
@@ -568,7 +568,21 @@ Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no 
 ### Verificação 5.5 e 6.1
 - 722 testes, `svelte-check` 0/0, build OK.
 
-## Relatório de Performance por franquia (pedido em 25/09, em planejamento)
-- Modelo: PDF "5630 - LOJA SHOPPING CENTER NORTE" (Relatório de Performance da CVC, por filial).
-- Plano com o mapeamento bloco a bloco e as perguntas: documento `claude/relatorio-performance-franquia-plano.md` do projeto.
-- Principais pontos: a parte de Vendas é quase toda calculável com os dados do VTUR; **Orçamentos não tem base no banco** (6 orçamentos na tabela `quote`); vários itens precisam de definição (Venda RA, Business "Consolidadora", de/para de produtos, meta até D-1, contagem de passageiros).
+## Relatório de Performance por franquia (pedido em 25/09). Gravado no Mac, falta o commit
+- **Modelo:** PDF "5630 - LOJA SHOPPING CENTER NORTE" (Relatório de Performance da CVC, por filial).
+- **Onde:** `/relatorios/performance` (cartão "Performance da franquia" em Relatórios). Botão **Baixar PDF**: abre a impressão do navegador já montada em 1 folha A4 (Salvar como PDF).
+- **Quem vê:** admin do sistema e master escolhem a empresa (só as do seu escopo); gestor vê a própria. Vendedor não vê (a API responde 403 e a tela nem chama).
+- **API:** `GET /api/v1/relatorios/performance?company_id=&mes=AAAA-MM`. Agregação em `src/lib/server/performance/performance.ts` (testada); busca em `src/lib/server/api/routes/relatorios/performance.ts` (teste de contrato com banco falso).
+- **Definições (confirmadas pelo usuário em 25/09):**
+  - Venda: mesmas contribuições por recibo do Ranking/Dashboard (valor bruto); ICM e gap na mesma base de meta do Ranking (parâmetros de comissão da empresa).
+  - Dados até D-1 (ontem); mês passado vai até o último dia. Comparação com o mesmo período do ano anterior.
+  - Meta: soma das metas dos vendedores da equipe (mesma lista do Ranking). Meta até D-1 = proporcional aos **dias corridos**.
+  - **Venda RA = REXTUR** (recibo "REXTUR"). **Business Consolidadora = REXTUR**; Marítimo = produto do tipo Cruzeiro; **Nacional = destino em cidade do Brasil**, Internacional = fora do Brasil (cidade → estado → país).
+  - Produto = **tipo do produto do cadastro** (o mesmo das vendas).
+  - Passageiros = os passageiros da venda (vêm na importação), sem repetir a mesma pessoa na mesma venda. Faixa etária pela data de nascimento no dia do corte.
+  - Formas de pagamento: `vendas_pagamentos` das vendas do mês (Top 5 por valor).
+  - Antecipação: % da venda por mês de embarque (ano atual / próximo ano).
+  - **Orçamentos:** os importados no VTUR pelo PDF de orçamento da CVC (Orçamentos › Importar; exemplo "Impressão de Orçamento"). Empresa = do usuário que importou. Produto = tipo dos itens do orçamento. Conversão = aprovados + fechados ÷ total (a mesma da tela de Orçamentos, `deriveStatus` agora exportado de `orcamentos/list.ts`). "% Mês anterior" compara com o mês anterior inteiro.
+- **Hoje no banco:** só 6 orçamentos importados. A parte de Orçamentos vai ganhar volume conforme os PDFs forem importados.
+- **Verificação:** 734 testes (12 novos: regras, contrato da API, tela), `svelte-check` 0/0, build OK. Layout conferido em 1440 px, celular (390 px, sem rolagem lateral) e no PDF (1 folha A4).
+- **Conferir em produção:** abrir o relatório de uma loja num mês fechado e comparar com o PDF da CVC do mesmo mês. Diferenças esperadas vêm de vendas não lançadas no VTUR.

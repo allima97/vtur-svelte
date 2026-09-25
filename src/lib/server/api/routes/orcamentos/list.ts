@@ -67,7 +67,7 @@ function addDays(isoDate: string | null, days: number) {
   return isoDate ? addDaysISODate(isoDate, days) : null;
 }
 
-function deriveStatus(row: OrcamentoRow): 'novo' | 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado' | 'fechado' {
+export function deriveStatus(row: Pick<OrcamentoRow, "status_negociacao" | "status">): 'novo' | 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado' | 'fechado' {
   const status = normalizeText(row.status_negociacao || row.status);
 
   if (status.includes('fech')) return 'fechado';

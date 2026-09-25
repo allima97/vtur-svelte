@@ -3,13 +3,15 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { permissoes } from '$lib/stores/permissoes';
   import {
     PieChart,
     Users,
     TrendingUp,
     MapPin,
     ShoppingCart,
-    ArrowRight
+    ArrowRight,
+    FileText
   } from '$lib/icons';
 
   const relatorios = [
@@ -45,6 +47,18 @@
     }
   ];
 
+  // Relatório de Performance por franquia: master e gestor (e admin do sistema).
+  const relatorioPerformance = {
+    titulo: 'Performance da franquia',
+    descricao: 'Resumo do mês por empresa: vendas, meta, produtos, destinos e orçamentos (com PDF).',
+    icone: FileText,
+    rota: '/relatorios/performance'
+  };
+  $: relatoriosVisiveis =
+    !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor
+      ? [...relatorios, relatorioPerformance]
+      : relatorios;
+
   function openRelatorio(path: string) {
     void goto(path);
   }
@@ -66,8 +80,8 @@
     <h2 class="text-lg font-semibold text-slate-900">Relatórios disponíveis</h2>
   </div>
 
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-    {#each relatorios as relatorio}
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 {relatoriosVisiveis.length > 5 ? 'lg:grid-cols-3 xl:grid-cols-6' : 'lg:grid-cols-5'}">
+    {#each relatoriosVisiveis as relatorio}
       <Card color="financeiro" class="group h-full transition-all duration-200 hover:shadow-lg p-4!">
         <div class="mb-3 flex items-start justify-between gap-2">
           <div class="rounded-lg bg-financeiro-50 p-2.5">

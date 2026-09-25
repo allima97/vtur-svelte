@@ -5,6 +5,7 @@ import { handleRelatoriosCidadesBuscaGet } from './cidades-busca';
 import { handleRelatoriosClientesGet } from './clientes';
 import { handleRelatoriosDestinosGet } from './destinos';
 import { handleRelatoriosProdutosGet } from './produtos';
+import { handleRelatoriosPerformanceGet } from './performance';
 import { handleRelatoriosProdutosRecibosGet } from './produtos-recibos';
 import { handleRelatoriosRankingGet } from './ranking';
 import { handleRelatoriosRankingDebugGet, handleRelatoriosRankingDebugPost } from './ranking-debug';
@@ -20,6 +21,7 @@ export const relatoriosRoutes = new Hono<ApiEnv>()
   .get('/cidades-busca', (c) => handleRelatoriosCidadesBuscaGet(c.env.event))
   .get('/clientes', (c) => handleRelatoriosClientesGet(c.env.event))
   .get('/destinos', (c) => handleRelatoriosDestinosGet(c.env.event))
+  .get('/performance', (c) => handleRelatoriosPerformanceGet(c.env.event))
   .get('/produtos', (c) => handleRelatoriosProdutosGet(c.env.event))
   .get('/produtos-recibos', (c) => handleRelatoriosProdutosRecibosGet(c.env.event))
   .get('/ranking', (c) => handleRelatoriosRankingGet(c.env.event))
