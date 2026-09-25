@@ -4,7 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldCheckbox, FieldInput, FieldRadioGroup, FieldSelect, FieldTextarea } from '$lib/components/ui';
-  import { Route, Save, ArrowLeft, Plus, Trash2 } from 'lucide-svelte';
+  import { Route, Save, ArrowLeft, Plus, Trash2 } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
 
   let saving = false;

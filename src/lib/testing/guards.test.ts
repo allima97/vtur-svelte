@@ -60,4 +60,14 @@ describe('guardas', () => {
       .filter((path) => !permitidos.has(path));
     expect(achados).toEqual([]);
   });
+
+  it('ícones vêm de $lib/icons (Fase 4.3), não direto do lucide-svelte', () => {
+    // $lib/icons usa o desenho do flowbite-svelte-icons com o mesmo tamanho do Lucide;
+    // só os ícones sem equivalente no Flowbite continuam com o desenho do Lucide, lá dentro.
+    const achados = files
+      .filter(({ path }) => !path.startsWith('src/lib/icons/'))
+      .filter(({ text }) => /from\s+['"]lucide-svelte/.test(text))
+      .map(({ path }) => path);
+    expect(achados).toEqual([]);
+  });
 });

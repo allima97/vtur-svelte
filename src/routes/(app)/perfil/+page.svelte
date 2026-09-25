@@ -8,7 +8,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Save, User, Phone, MapPin, Mail, Building2 } from 'lucide-svelte';
+  import { Save, User, Phone, MapPin, Mail, Building2 } from '$lib/icons';
 
   type Perfil = {
     id: string;

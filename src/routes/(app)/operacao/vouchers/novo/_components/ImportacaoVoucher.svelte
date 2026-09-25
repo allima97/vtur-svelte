@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button, FieldTextarea } from '$lib/components/ui';
-  import { ChevronDown } from 'lucide-svelte';
+  import { ChevronDown } from '$lib/icons';
 
   export let travelPasteText: string;
   export let circuitPasteText: string;

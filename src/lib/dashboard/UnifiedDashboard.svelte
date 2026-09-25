@@ -30,7 +30,7 @@
     Plane,
     UserPlus,
     Clock
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { construirLinkWhatsAppComTexto, montarMensagemFollowUp } from '$lib/whatsapp';

@@ -11,7 +11,7 @@
     Minus,
     BarChart3,
     RefreshCw,
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import type { ChartData, ChartOptions } from 'chart.js';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';

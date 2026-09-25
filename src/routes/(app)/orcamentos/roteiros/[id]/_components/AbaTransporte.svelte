@@ -3,7 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { type RotTransporte, addItem, moveDown, moveUp, newTransporte, removeItem, updateItem } from './tipos';
-  import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-svelte';
+  import { ChevronDown, ChevronUp, Plus, Trash2 } from '$lib/icons';
 
   let { TRANSPORTE_TIPO_OPTIONS, TRANSPORTE_TIPO_VOO_OPTIONS, aereoImportError, aereoImportMsg, aereoImportText = $bindable(), handleImportAereoText, onAereoValorChange, transportes = $bindable() }: { TRANSPORTE_TIPO_OPTIONS: string[]; TRANSPORTE_TIPO_VOO_OPTIONS: string[]; aereoImportError: string | null; aereoImportMsg: string | null; aereoImportText: string; handleImportAereoText: () => void; onAereoValorChange: (index: number, field: 'valor_total' | 'taxas', rawValue: string) => void; transportes: RotTransporte[] } = $props();
 </script>

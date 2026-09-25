@@ -20,7 +20,7 @@
     Settings,
     ShoppingCart,
     Wallet
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   type CaixaSummary = {
     resumo?: {

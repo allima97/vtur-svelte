@@ -12,7 +12,7 @@
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { DEFAULT_HIDDEN_MENU_KEYS } from '$lib/config/menuDefaults';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Save, RefreshCw } from 'lucide-svelte';
+  import { Save, RefreshCw } from '$lib/icons';
 
   const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
   const MENU_PREFS_KEY = 'vtur:menu-prefs';

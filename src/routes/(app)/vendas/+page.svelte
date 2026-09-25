@@ -9,7 +9,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
-  import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar, SlidersHorizontal } from 'lucide-svelte';
+  import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar, SlidersHorizontal } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { permissoes } from '$lib/stores/permissoes';

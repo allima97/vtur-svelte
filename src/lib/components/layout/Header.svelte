@@ -5,7 +5,7 @@
   import { FieldInput } from '$lib/components/ui';
   import type { ModuleColor } from '$lib/theme/colors';
   import { MODULE_COLORS } from '$lib/theme/colors';
-  import { Menu, Bell, Search, User } from 'lucide-svelte';
+  import { Menu, Bell, Search, User } from '$lib/icons';
   
   export let moduleColor: ModuleColor = 'default';
   

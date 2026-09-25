@@ -24,7 +24,7 @@
     Search,
     Plus,
     Plane
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   // ── Tipos locais ─────────────────────────────────────────────────────────
 

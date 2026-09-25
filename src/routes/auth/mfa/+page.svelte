@@ -8,7 +8,7 @@
   import LoadingState from "$lib/components/ui/LoadingState.svelte";
   import FieldInput from "$lib/components/ui/form/FieldInput.svelte";
   import { toUserMessage } from "$lib/utils/errors";
-  import { AlertCircle, KeyRound } from "lucide-svelte";
+  import { AlertCircle, KeyRound } from '$lib/icons';
 
   let codigo = "";
   let loading = true;

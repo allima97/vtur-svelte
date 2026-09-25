@@ -1,6 +1,6 @@
 <script lang="ts">
   import { dev } from '$app/environment';
-  import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from 'lucide-svelte';
+  import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from '$lib/icons';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dialog, FieldInput, FieldTextarea, FieldSelect, LoadingState } from '$lib/components/ui';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';

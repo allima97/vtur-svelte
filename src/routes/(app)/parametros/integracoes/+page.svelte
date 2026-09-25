@@ -4,7 +4,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import { FieldInput } from '$lib/components/ui';
-  import { Save, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-svelte';
+  import { Save, AlertTriangle, RefreshCw, ExternalLink } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
 
   let saving = false;

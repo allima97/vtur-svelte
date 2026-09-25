@@ -12,7 +12,7 @@
   import { apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';
   import { safeOpenNewTab } from '$lib/security/url';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Calendar, Download, Plus, RefreshCw, SlidersHorizontal, Video, X } from 'lucide-svelte';
+  import { Calendar, Download, Plus, RefreshCw, SlidersHorizontal, Video, X } from '$lib/icons';
 
   type Consultoria = {
     id: string;

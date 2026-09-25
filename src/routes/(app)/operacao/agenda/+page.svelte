@@ -22,7 +22,7 @@
     Search,
     SlidersHorizontal,
     UserRound
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   type AgendaItem = {
     id: string;

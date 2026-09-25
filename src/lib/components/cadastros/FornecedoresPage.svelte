@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
-  import { Building2, MapPin, Phone, Wallet, Plus } from 'lucide-svelte';
+  import { Building2, MapPin, Phone, Wallet, Plus } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';

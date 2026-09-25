@@ -9,7 +9,7 @@
   import { 
     Plus, Edit2, Trash2, CreditCard, 
     CheckCircle, XCircle, SlidersHorizontal
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { apiDelete, apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';

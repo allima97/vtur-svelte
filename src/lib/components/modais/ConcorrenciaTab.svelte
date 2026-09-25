@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { DollarSign, Percent, Settings, Plus, Trash2, AlertTriangle, CheckCircle } from 'lucide-svelte';
+  import { DollarSign, Percent, Settings, Plus, Trash2, AlertTriangle, CheckCircle } from '$lib/icons';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
 

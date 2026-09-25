@@ -14,7 +14,7 @@
     Plus, Download, ArrowUpRight, ArrowDownRight,
     Wallet, CreditCard, Banknote, FileText,
     AlertCircle, CheckCircle, SlidersHorizontal
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';

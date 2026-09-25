@@ -9,7 +9,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, BottomSheet } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { ArrowLeft, Wallet, TrendingUp, BarChart2, Trophy, SlidersHorizontal } from 'lucide-svelte';
+  import { ArrowLeft, Wallet, TrendingUp, BarChart2, Trophy, SlidersHorizontal } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';

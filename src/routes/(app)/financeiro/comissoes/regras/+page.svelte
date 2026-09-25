@@ -2,7 +2,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { Settings } from 'lucide-svelte';
+  import { Settings } from '$lib/icons';
 </script>
 
 <svelte:head>

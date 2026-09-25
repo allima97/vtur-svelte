@@ -11,7 +11,7 @@
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { ArrowLeft, X, TrendingUp, DollarSign, Users, ShoppingCart, SlidersHorizontal } from 'lucide-svelte';
+  import { ArrowLeft, X, TrendingUp, DollarSign, Users, ShoppingCart, SlidersHorizontal } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import {

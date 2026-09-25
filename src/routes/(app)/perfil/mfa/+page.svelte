@@ -12,7 +12,7 @@
   import { createLoadGuard } from '$lib/utils/loadGuard';
   import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
   import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
-  import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode, Fingerprint } from 'lucide-svelte';
+  import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode, Fingerprint } from '$lib/icons';
 
   import { confirmAction } from '$lib/stores/confirm';
   type MfaFactor = {

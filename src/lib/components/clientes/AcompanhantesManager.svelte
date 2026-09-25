@@ -3,7 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Calendar, Phone, Save, Trash2, UserPlus, Users } from 'lucide-svelte';
+  import { Calendar, Phone, Save, Trash2, UserPlus, Users } from '$lib/icons';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
 

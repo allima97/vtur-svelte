@@ -2,7 +2,7 @@
   import { Button, FieldCheckbox, FieldInput, FieldSelect, FormPanel } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import { getCidadeLabel } from '$lib/features/vendas/form';
-  import { Plus, Receipt, Trash2 } from 'lucide-svelte';
+  import { Plus, Receipt, Trash2 } from '$lib/icons';
   import type { Option, ReciboEditForm } from './types';
 
   export let recibos: ReciboEditForm[];

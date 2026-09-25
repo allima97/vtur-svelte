@@ -10,7 +10,7 @@
   import { BottomSheet, FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { apiDelete, apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Plus, Route, MapPin, Calendar, DollarSign, Search, SlidersHorizontal, Trash2 } from 'lucide-svelte';
+  import { Plus, Route, MapPin, Calendar, DollarSign, Search, SlidersHorizontal, Trash2 } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
 
   interface Circuito {

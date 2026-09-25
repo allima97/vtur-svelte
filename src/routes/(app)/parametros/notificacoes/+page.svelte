@@ -3,7 +3,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldCheckbox, FieldToggle } from '$lib/components/ui';
-  import { Bell, Save, Mail, MessageSquare, AlertTriangle } from 'lucide-svelte';
+  import { Bell, Save, Mail, MessageSquare, AlertTriangle } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
 
   let saving = false;

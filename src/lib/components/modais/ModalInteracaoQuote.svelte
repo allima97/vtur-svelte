@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MessageCircle, Phone, Mail, Calendar, Send, Clock } from 'lucide-svelte';
+  import { MessageCircle, Phone, Mail, Calendar, Send, Clock } from '$lib/icons';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dialog, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';

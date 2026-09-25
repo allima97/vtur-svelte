@@ -5,7 +5,7 @@
   import { 
     Calculator, RefreshCw, AlertCircle,
     DollarSign, TrendingUp, Wallet, SlidersHorizontal
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { currentMonthRangeISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';

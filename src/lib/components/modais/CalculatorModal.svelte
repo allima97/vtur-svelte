@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X, Calculator, TrendingDown } from 'lucide-svelte';
+  import { X, Calculator, TrendingDown } from '$lib/icons';
   import Button from '$lib/components/ui/Button.svelte';
   import OverlayModal from '$lib/components/ui/OverlayModal.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';

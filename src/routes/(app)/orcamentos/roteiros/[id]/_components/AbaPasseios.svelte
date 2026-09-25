@@ -3,7 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { type RotPasseio, addItem, moveDown, moveUp, newPasseio, removeItem, updateItem } from './tipos';
-  import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-svelte';
+  import { ChevronDown, ChevronUp, Plus, Trash2 } from '$lib/icons';
 
   let { PASSEIO_TIPO_OPTIONS, handleImportPasseioText, passeioImportError, passeioImportMsg, passeioImportText = $bindable(), passeios = $bindable(), sugestoes }: { PASSEIO_TIPO_OPTIONS: string[]; handleImportPasseioText: () => void; passeioImportError: string | null; passeioImportMsg: string | null; passeioImportText: string; passeios: RotPasseio[]; sugestoes: Record<string, string[]> } = $props();
 </script>

@@ -12,7 +12,7 @@
   import { auth } from '$lib/stores/auth';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte';
+  import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from '$lib/icons';
 
   type EscalaDia = {
     id: string;

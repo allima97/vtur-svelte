@@ -10,7 +10,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, AlertCircle, Wallet, TrendingUp, SlidersHorizontal } from 'lucide-svelte';
+  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, AlertCircle, Wallet, TrendingUp, SlidersHorizontal } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';

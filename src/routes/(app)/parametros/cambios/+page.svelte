@@ -10,7 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, DollarSign } from '$lib/icons';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';

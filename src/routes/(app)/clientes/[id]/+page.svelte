@@ -25,7 +25,7 @@
     Clock,
     AlertCircle,
     CheckCircle
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';

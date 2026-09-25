@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { TrendingUp, TrendingDown } from 'lucide-svelte';
+  import { TrendingUp, TrendingDown } from '$lib/icons';
   import type { ComponentType } from 'svelte';
 
   export let title: string;

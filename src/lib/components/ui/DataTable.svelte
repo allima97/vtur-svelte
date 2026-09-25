@@ -10,7 +10,7 @@
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
-  } from "lucide-svelte";
+  } from '$lib/icons';
   import Button from "./Button.svelte";
   import Checkbox from "./Checkbox.svelte";
   import BottomSheet from "./BottomSheet.svelte";

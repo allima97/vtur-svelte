@@ -29,7 +29,7 @@
     TrendingUp,
     Package,
     AlertCircle,
-  } from "lucide-svelte";
+  } from '$lib/icons';
   import { toast } from "$lib/stores/ui";
   import { compareISODate, todayISODateLocal } from "$lib/date";
   import {

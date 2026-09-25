@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { Badge, FieldSelect, LoadingState } from '$lib/components/ui';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
-  import { Building2, FileCheck2, FileText, PlugZap, ReceiptText, Settings } from 'lucide-svelte';
+  import { Building2, FileCheck2, FileText, PlugZap, ReceiptText, Settings } from '$lib/icons';
 
   type EmpresaOption = {
     id: string;

@@ -10,7 +10,7 @@
     MapPin,
     ShoppingCart,
     ArrowRight
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   const relatorios = [
     {

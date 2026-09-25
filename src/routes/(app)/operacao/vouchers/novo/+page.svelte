@@ -15,7 +15,7 @@
     ChevronLeft, MapPin, Calendar, Hotel, Info, FileText,
     Users, Trash2, MoveUp, MoveDown, ChevronDown, ChevronUp,
     Plane, Phone, Smartphone, AlertCircle
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { fade, slide } from 'svelte/transition';
   import SelecaoFornecedor from './_components/SelecaoFornecedor.svelte';

@@ -37,7 +37,7 @@
     History,
     TrendingUp,
     MapPinned,
-  } from "lucide-svelte";
+  } from '$lib/icons';
   import { diffDaysISODate } from "$lib/date";
   import {
     formatDate as formatDateValue,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Merge, CheckCircle, Loader2, Calendar, MapPin, Receipt, DollarSign, Search } from 'lucide-svelte';
+  import { Merge, CheckCircle, Loader2, Calendar, MapPin, Receipt, DollarSign, Search } from '$lib/icons';
   import AlertMessage from '$lib/components/ui/AlertMessage.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';

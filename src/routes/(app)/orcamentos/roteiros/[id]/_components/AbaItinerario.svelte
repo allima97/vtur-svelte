@@ -3,7 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { type RotDia, addItem, moveDown, moveUp, newDia, removeItem } from './tipos';
-  import { ChevronDown, ChevronUp, FileText, Plus, Trash2 } from 'lucide-svelte';
+  import { ChevronDown, ChevronUp, FileText, Plus, Trash2 } from '$lib/icons';
 
   let { dias = $bindable(), diasImportError = $bindable(), diasImportMsg = $bindable(), showDiasBusca = $bindable(), showDiasImport = $bindable(), sugestoes }: { dias: RotDia[]; diasImportError: string | null; diasImportMsg: string | null; showDiasBusca: boolean; showDiasImport: boolean; sugestoes: Record<string, string[]> } = $props();
 </script>

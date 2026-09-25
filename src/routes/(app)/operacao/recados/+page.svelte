@@ -20,7 +20,7 @@
     Send,
     Trash2,
     Users
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import {
     buildThreads,
     formatBadge,

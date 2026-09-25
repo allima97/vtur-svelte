@@ -72,7 +72,7 @@
     SlidersHorizontal,
     Upload,
     Users
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   let activeTab = 'visao_geral';
   let activeKpiView: 'visao_geral' | 'conciliados' | 'pendentes' | 'pendentes_ranking' | 'baixa_rac' | 'execucoes' = 'visao_geral';

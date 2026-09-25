@@ -13,7 +13,7 @@
     Percent,
     Plus,
     Trash2
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';

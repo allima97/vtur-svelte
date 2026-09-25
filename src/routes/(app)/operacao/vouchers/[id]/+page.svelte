@@ -28,7 +28,7 @@
     FileText,
     ChevronRight,
     Copy,
-  } from "lucide-svelte";
+  } from '$lib/icons';
   import { toast } from "$lib/stores/ui";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import { fade } from "svelte/transition";

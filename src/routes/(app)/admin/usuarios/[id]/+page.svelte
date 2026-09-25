@@ -13,7 +13,7 @@
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, UserPlus, Users } from 'lucide-svelte';
+  import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, UserPlus, Users } from '$lib/icons';
 
   type Option = {
     id: string;

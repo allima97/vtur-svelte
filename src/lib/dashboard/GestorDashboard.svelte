@@ -8,7 +8,7 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Award, BarChart2, Building2, Calendar, Clock, Eye, Gift, MapPin, MessageCircle, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, UserPlus, Users, Wallet } from 'lucide-svelte';
+  import { Award, BarChart2, Building2, Calendar, Clock, Eye, Gift, MapPin, MessageCircle, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, UserPlus, Users, Wallet } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { goto } from '$app/navigation';

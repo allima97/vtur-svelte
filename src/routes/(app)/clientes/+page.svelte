@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { CalendarDays, Plus, Users, Wallet, FileText, Clock } from 'lucide-svelte';
+  import { CalendarDays, Plus, Users, Wallet, FileText, Clock } from '$lib/icons';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';

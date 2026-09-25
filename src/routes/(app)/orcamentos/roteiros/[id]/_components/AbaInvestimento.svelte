@@ -4,7 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import { formatBRL } from './formatadores';
   import { type RotInvestimento, addItem, moveDown, moveUp, newInvestimento, removeItem } from './tipos';
-  import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-svelte';
+  import { ChevronDown, ChevronUp, Plus, Trash2 } from '$lib/icons';
 
   let { INVESTIMENTO_TIPO_OPTIONS, investimentos = $bindable(), onInvestimentoChange, totalInvestimento }: { INVESTIMENTO_TIPO_OPTIONS: string[]; investimentos: RotInvestimento[]; onInvestimentoChange: (index: number, field: 'valor_por_pessoa' | 'qtd_apto' | 'valor_por_apto', rawValue: string) => void; totalInvestimento: number } = $props();
 </script>

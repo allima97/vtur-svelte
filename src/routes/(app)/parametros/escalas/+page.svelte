@@ -11,7 +11,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Calendar, ChevronLeft, ChevronRight, Eraser, RefreshCw } from 'lucide-svelte';
+  import { Calendar, ChevronLeft, ChevronRight, Eraser, RefreshCw } from '$lib/icons';
   import { toUserMessage } from '$lib/utils/errors';
 
   type EscalaDia = {

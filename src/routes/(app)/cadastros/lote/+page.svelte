@@ -8,7 +8,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Upload, FileText, CheckCircle, AlertCircle, Download } from 'lucide-svelte';
+  import { Upload, FileText, CheckCircle, AlertCircle, Download } from '$lib/icons';
 
   type TipoProduto = { id: string; nome: string };
   type Subdivisao = { id: string; nome: string };

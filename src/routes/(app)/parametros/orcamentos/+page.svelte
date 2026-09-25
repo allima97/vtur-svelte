@@ -8,7 +8,7 @@
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Save, RefreshCw, FileText, Upload, ImageIcon, X } from 'lucide-svelte';
+  import { Save, RefreshCw, FileText, Upload, ImageIcon, X } from '$lib/icons';
   import { toUserMessage } from '$lib/utils/errors';
 
   const LOGO_BUCKET = 'quotes';

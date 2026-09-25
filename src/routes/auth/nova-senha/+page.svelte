@@ -6,7 +6,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { toUserMessage } from '$lib/utils/errors';
-  import { Lock, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
+  import { Lock, AlertCircle, CheckCircle, Eye, EyeOff } from '$lib/icons';
 
   let password = '';
   let confirmPassword = '';

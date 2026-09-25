@@ -10,7 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, MessageSquare } from '$lib/icons';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
 

@@ -8,7 +8,7 @@
   import Badge from '$lib/components/ui/Badge.svelte';
   import Checkbox from '$lib/components/ui/Checkbox.svelte';
   import { toast } from '$lib/stores/ui';
-  import { RefreshCw, Users, LayoutGrid, XCircle } from 'lucide-svelte';
+  import { RefreshCw, Users, LayoutGrid, XCircle } from '$lib/icons';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';

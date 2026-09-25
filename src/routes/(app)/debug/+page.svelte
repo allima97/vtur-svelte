@@ -7,7 +7,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Bug, RefreshCw, CheckCircle, XCircle } from 'lucide-svelte';
+  import { Bug, RefreshCw, CheckCircle, XCircle } from '$lib/icons';
 
   type DebugPermissionsResponse = {
     usuario?: {

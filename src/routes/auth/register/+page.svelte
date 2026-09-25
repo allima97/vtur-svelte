@@ -1,6 +1,6 @@
 <script lang="ts">
   import Card from '$lib/components/ui/Card.svelte';
-  import { Lock } from 'lucide-svelte';
+  import { Lock } from '$lib/icons';
 </script>
 
 <svelte:head>

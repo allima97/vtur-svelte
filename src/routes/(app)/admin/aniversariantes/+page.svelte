@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { BottomSheet, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Gift, RefreshCw, SlidersHorizontal, Users } from 'lucide-svelte';
+  import { Gift, RefreshCw, SlidersHorizontal, Users } from '$lib/icons';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';

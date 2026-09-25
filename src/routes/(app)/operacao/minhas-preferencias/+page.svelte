@@ -8,7 +8,7 @@
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { Plus, Trash2, RefreshCw, Star, Search } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, Star, Search } from '$lib/icons';
 
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';

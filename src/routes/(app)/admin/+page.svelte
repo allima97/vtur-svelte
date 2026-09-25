@@ -28,7 +28,7 @@
     BellRing,
     CheckCircle2,
     AlertCircle
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   type AdminSummary = {
     counts?: Record<string, number | undefined>;

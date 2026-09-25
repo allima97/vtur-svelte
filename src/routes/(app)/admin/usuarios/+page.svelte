@@ -7,7 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { BottomSheet, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Plus, RefreshCw, SlidersHorizontal, Users, UserCheck, UserX, UserCog } from 'lucide-svelte';
+  import { Plus, RefreshCw, SlidersHorizontal, Users, UserCheck, UserX, UserCog } from '$lib/icons';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
   import { escapeHtml } from '$lib/utils/html';

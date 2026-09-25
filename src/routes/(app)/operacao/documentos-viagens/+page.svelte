@@ -6,7 +6,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { RefreshCw, Trash2, FileText, ExternalLink } from 'lucide-svelte';
+  import { RefreshCw, Trash2, FileText, ExternalLink } from '$lib/icons';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
   import { escapeHtml } from '$lib/utils/html';

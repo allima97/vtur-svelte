@@ -8,7 +8,7 @@
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { todayISODateLocal } from '$lib/date';
-  import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
+  import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from '$lib/icons';
   import {
     adicionarParcela,
     createPagamento,

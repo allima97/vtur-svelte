@@ -22,7 +22,7 @@
     SlidersHorizontal,
     SquareCheckBig,
     Tag
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   type TodoStatus = 'novo' | 'agendado' | 'em_andamento' | 'concluido';
   type VisibleTodoStatus = 'novo' | 'agendado' | 'em_andamento';

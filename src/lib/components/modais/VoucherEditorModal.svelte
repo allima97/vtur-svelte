@@ -6,7 +6,7 @@
     X, Plus, Trash2, MoveUp, MoveDown, Save, FileText,
     ChevronDown, ChevronUp, Calendar, Hotel, MapPin, Users,
     Info, Plane, Phone, Smartphone, AlertCircle, CheckCircle
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import {
     Button,
     FieldInput,

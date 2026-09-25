@@ -9,7 +9,7 @@
   import { FieldInput } from '$lib/components/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { toast } from '$lib/stores/ui';
-  import { Plus, Trash2, RefreshCw, Map as MapIcon, Calendar } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, Map as MapIcon, Calendar } from '$lib/icons';
   import { formatDate } from '$lib/utils/formatters';
 
   import { confirmAction } from '$lib/stores/confirm';

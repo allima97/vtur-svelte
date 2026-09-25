@@ -13,10 +13,10 @@
     ArrowLeft, Edit, Trash2, ShoppingCart, User, Mail, Phone,
     Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle,
     AlertCircle, Clock, CheckCircle, Shield, BarChart2, AlertTriangle, Info
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { Merge } from 'lucide-svelte';
+  import { Merge } from '$lib/icons';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
   import { ApiError, apiDelete, apiFetch, apiGet, apiPatch, apiPost } from '$lib/services/api';

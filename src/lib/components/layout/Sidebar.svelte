@@ -54,7 +54,7 @@
     UserCircle,
     Video,
     Wallet
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { slide } from 'svelte/transition';
   import Button from '$lib/components/ui/Button.svelte';
   import {

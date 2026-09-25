@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 18:10._
+_Última atualização: 25/09/2026, 18:40._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -474,7 +474,7 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 - **Arquivos temporários:** `tmp/container-src*.md5` e `tmp/audit_patch.py` (entraram no commit "fase10") foram apagados.
 - **Próximo (4.2):** Flowbite-Svelte 0.48 → 1.x. A 1.x exige Tailwind 4, que já está no lugar, e o `Modal`/`Dropdown` mudaram de API. A troca fica isolada nos wrappers de `lib/components/ui/`.
 
-### 4.2 (25/09, 18:10): Flowbite-Svelte 0.48 → 1.33, com o mesmo visual e o mesmo comportamento. Gravado no Mac, falta o commit
+### 4.2 (25/09, 18:10): Flowbite-Svelte 0.48 → 1.33, com o mesmo visual e o mesmo comportamento. Com commit ("flowbite 1.33")
 - **O que o 1.x muda (medido renderizando os wrappers de `ui/` nas duas versões, 142 casos):**
   - Select e Textarea ganham uma `div` em volta, e a classe `vtur-input` sai do campo;
   - Checkbox, Radio e Toggle mudam classes, cores (blue-700 no lugar de blue-600) e espaçamento;
@@ -491,4 +491,16 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - teste novo em `src/lib/testing/guards.test.ts`: nenhum `.svelte` importa `flowbite-svelte` pelo índice (fora a tabela).
 - **Verificação:** 694 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
 - **No Mac:** rodar `npm install` (o `package-lock.json` já vem atualizado), depois `npm test` e `npm run build`.
-- **Próximo (4.3, precisa de aprovação):** trocar os ícones Lucide por `flowbite-svelte-icons` (cerca de 150 arquivos).
+
+### 4.3 (25/09, 18:40): ícones Lucide → flowbite-svelte-icons (aprovado pelo usuário). Gravado no Mac, falta o commit
+- **Como foi feito:** pasta nova `src/lib/icons/`, com um arquivo por ícone e os **mesmos nomes do Lucide** (`Plus`, `Trash2`, `RefreshCw`...). Nas 150 telas mudou só a linha do import (`'lucide-svelte'` → `'$lib/icons'`); o resto do código é o mesmo.
+- **Mesmo tamanho e mesmo layout:** o `IconAdapter.svelte` faz o ícone do Flowbite aceitar as props do Lucide (`size` em px vira width/height, `class`, `strokeWidth`, `color`), desliga o tamanho próprio do Flowbite (w-5 h-5) e desfaz o `shrink-0` que ele acrescenta.
+- **124 ícones** passaram para o desenho do Flowbite (versão contorno, "Outline"). Mapa em `src/lib/icons/*.svelte` (ex.: `Trash2`→`TrashBin`, `Save`→`FloppyDisk`, `Users`→`UsersGroup`, `Settings`→`Cog`, `X`→`Close`).
+- **19 ícones continuam com o desenho do Lucide**, porque o Flowbite não tem equivalente: AlertTriangle, ArrowDownRight, ArrowUpRight, Calculator, Eraser, FileClock, ImagePlus, Loader2 (o que gira no "carregando"), Map, Package, Plane, PlugZap, Route, ShieldAlert, Ship, SquareCheckBig, Target, Trophy, UserCheck. O pacote `lucide-svelte` continua no `package.json` por causa deles.
+- **Como foi provado:**
+  - folha de comparação com os 143 ícones lado a lado (Lucide × Flowbite), conferida um a um;
+  - as 143 telas e layouts renderizadas no servidor: os 1.283 `<svg>` têm a mesma largura, altura e classes de antes, e o resto do HTML é idêntico;
+  - CSS: só entrou a classe `.shrink` (flex-shrink: 1, o valor padrão);
+  - teste novo em `guards.test.ts`: nenhum arquivo fora de `src/lib/icons/` importa `lucide-svelte`.
+- **Diferença visível (esperada):** os desenhos do Flowbite têm mais margem interna, então parecem um pouco menores dentro da mesma caixa (ex.: no menu lateral). O espaço ocupado é o mesmo.
+- **Verificação:** 695 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.

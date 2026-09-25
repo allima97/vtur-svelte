@@ -12,7 +12,7 @@
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { CopyCheck, Pencil, Plus, RefreshCw, SlidersHorizontal, Target, Trash2 } from 'lucide-svelte';
+  import { CopyCheck, Pencil, Plus, RefreshCw, SlidersHorizontal, Target, Trash2 } from '$lib/icons';
   import { toUserMessage } from '$lib/utils/errors';
 
   type Produto = {

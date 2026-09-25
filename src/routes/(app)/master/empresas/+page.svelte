@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
-  import { RefreshCw, Building2, CheckCircle, CreditCard, Network } from 'lucide-svelte';
+  import { RefreshCw, Building2, CheckCircle, CreditCard, Network } from '$lib/icons';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
   import { escapeHtml } from '$lib/utils/html';

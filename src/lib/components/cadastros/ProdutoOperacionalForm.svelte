@@ -7,7 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { FieldCheckbox, FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, FieldToggle, LoadingState } from '$lib/components/ui';
-  import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-svelte';
+  import { ArrowLeft, Plus, Save, Trash2 } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { apiDelete, apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';

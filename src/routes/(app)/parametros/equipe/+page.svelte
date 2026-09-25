@@ -8,7 +8,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Users, RefreshCw, UserCheck, UserX, Search } from 'lucide-svelte';
+  import { Users, RefreshCw, UserCheck, UserX, Search } from '$lib/icons';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
 

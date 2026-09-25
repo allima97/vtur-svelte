@@ -27,7 +27,7 @@
     User,
     Ship,
     FileSpreadsheet
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';

@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
-  import { RefreshCw, Settings, CheckCircle, XCircle } from 'lucide-svelte';
+  import { RefreshCw, Settings, CheckCircle, XCircle } from '$lib/icons';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import { createLoadGuard } from '$lib/utils/loadGuard';

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { BottomSheet } from 'svelte-bottom-sheet';
-  import { X } from 'lucide-svelte';
+  import { X } from '$lib/icons';
   import Button from './Button.svelte';
 
   interface Props {

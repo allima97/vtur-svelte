@@ -9,7 +9,7 @@
   import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Save, CheckCircle, User, Phone, MapPin } from 'lucide-svelte';
+  import { Save, CheckCircle, User, Phone, MapPin } from '$lib/icons';
 
   let loading = true;
   let saving = false;

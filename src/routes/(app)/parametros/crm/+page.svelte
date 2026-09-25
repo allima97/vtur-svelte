@@ -23,7 +23,7 @@
     MessageCircle,
     X,
     Pencil
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   const loadGuard = createLoadGuard();
   const clienteSearchGuard = createLoadGuard();
 

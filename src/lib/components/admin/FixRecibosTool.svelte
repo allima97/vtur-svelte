@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Search, Wrench } from 'lucide-svelte';
+  import { Search, Wrench } from '$lib/icons';
   import AlertMessage from '$lib/components/ui/AlertMessage.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';

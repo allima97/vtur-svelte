@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronRight, Home } from 'lucide-svelte';
+  import { ChevronRight, Home } from '$lib/icons';
   import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import Button from './Button.svelte';
 

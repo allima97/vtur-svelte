@@ -38,7 +38,7 @@
     Settings,
     Shield,
     Trash2,
-  } from "lucide-svelte";
+  } from '$lib/icons';
 
   // ─── TABS ────────────────────────────────────────────────────────────────────
   const tabItems = [

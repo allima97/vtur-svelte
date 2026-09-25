@@ -1,7 +1,7 @@
 <script lang="ts">
   import { dev } from '$app/environment';
   import { onMount } from 'svelte';
-  import { Calculator, TrendingDown, Download, Smartphone, X } from 'lucide-svelte';
+  import { Calculator, TrendingDown, Download, Smartphone, X } from '$lib/icons';
   import CalculatorBody from '$lib/components/calculadora/CalculatorBody.svelte';
   import ConcorrenciaTab from '$lib/components/modais/ConcorrenciaTab.svelte';
   import Button from '$lib/components/ui/Button.svelte';

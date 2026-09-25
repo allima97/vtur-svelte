@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
-  import { X, Edit, FileDown, Printer, Trash2, Copy } from 'lucide-svelte';
+  import { X, Edit, FileDown, Printer, Trash2, Copy } from '$lib/icons';
   import Button from '../ui/Button.svelte';
   import LoadingState from '../ui/LoadingState.svelte';
   import { buildVoucherPreviewDocument } from '../../vouchers/preview';

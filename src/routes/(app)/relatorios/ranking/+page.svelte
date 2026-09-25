@@ -7,7 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, BottomSheet } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, SlidersHorizontal } from 'lucide-svelte';
+  import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, SlidersHorizontal } from '$lib/icons';
   import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
   import { toast } from '$lib/stores/ui';

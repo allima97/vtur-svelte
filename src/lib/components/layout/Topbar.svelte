@@ -4,7 +4,7 @@
   import { Dropdown, DropdownItem, DropdownDivider, Tooltip } from '$lib/components/ui';
   import { auth } from '$lib/stores/auth';
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
-  import { Bell, Calendar, Calculator, LogOut, User, Settings, Shield } from 'lucide-svelte';
+  import { Bell, Calendar, Calculator, LogOut, User, Settings, Shield } from '$lib/icons';
   import { toUserMessage } from '$lib/utils/errors';
 
   let loggingOut = false;
