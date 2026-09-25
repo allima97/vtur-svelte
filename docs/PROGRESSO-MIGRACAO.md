@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 18:40._
+_Última atualização: 25/09/2026, 19:00._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -492,7 +492,7 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 - **Verificação:** 694 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
 - **No Mac:** rodar `npm install` (o `package-lock.json` já vem atualizado), depois `npm test` e `npm run build`.
 
-### 4.3 (25/09, 18:40): ícones Lucide → flowbite-svelte-icons (aprovado pelo usuário). Gravado no Mac, falta o commit
+### 4.3 (25/09, 18:40): ícones Lucide → flowbite-svelte-icons (aprovado pelo usuário). Com commit ("icones")
 - **Como foi feito:** pasta nova `src/lib/icons/`, com um arquivo por ícone e os **mesmos nomes do Lucide** (`Plus`, `Trash2`, `RefreshCw`...). Nas 150 telas mudou só a linha do import (`'lucide-svelte'` → `'$lib/icons'`); o resto do código é o mesmo.
 - **Mesmo tamanho e mesmo layout:** o `IconAdapter.svelte` faz o ícone do Flowbite aceitar as props do Lucide (`size` em px vira width/height, `class`, `strokeWidth`, `color`), desliga o tamanho próprio do Flowbite (w-5 h-5) e desfaz o `shrink-0` que ele acrescenta.
 - **124 ícones** passaram para o desenho do Flowbite (versão contorno, "Outline"). Mapa em `src/lib/icons/*.svelte` (ex.: `Trash2`→`TrashBin`, `Save`→`FloppyDisk`, `Users`→`UsersGroup`, `Settings`→`Cog`, `X`→`Close`).
@@ -504,3 +504,16 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - teste novo em `guards.test.ts`: nenhum arquivo fora de `src/lib/icons/` importa `lucide-svelte`.
 - **Diferença visível (esperada):** os desenhos do Flowbite têm mais margem interna, então parecem um pouco menores dentro da mesma caixa (ex.: no menu lateral). O espaço ocupado é o mesmo.
 - **Verificação:** 695 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
+
+## Fase 5: UX e navegação (sem mudar regra de negócio)
+
+Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no celular, menu inferior no celular, ficha 360° do cliente, acessibilidade.
+- Já existem no sistema: dashboards por perfil (`/dashboard/admin|master|gestor|financeiro|vendedor`), menu inferior no celular (Sidebar) e tabelas em cartões no celular (`table-mobile-cards`).
+- Placar e ficha 360° são telas novas: só com aprovação.
+
+### 5.1 (25/09, 19:00): busca rápida no menu (Ctrl+K / ⌘K). Gravado no Mac, falta o commit
+- **O que é:** botão "Buscar" no topo (no celular, só a lupa) e o atalho Ctrl+K (⌘K no Mac). Abre uma janela com as telas do menu; digitar filtra (sem acento, por nome ou seção); ↑/↓ escolhem, Enter abre, Esc fecha.
+- **Sem regra nova:** mostra **exatamente o que o menu lateral mostra** para o usuário. O `Sidebar` publica os itens já filtrados (permissões, papel, "Personalizar Menu") no store `$lib/stores/navegacao.ts`; a busca só lê. Não chama API.
+- **Acessibilidade:** padrão combobox + listbox (`aria-activedescendant`, `aria-selected`), foco no campo ao abrir, foco devolvido ao fechar; com outra janela aberta o atalho não abre uma segunda por cima.
+- **Arquivos:** `layout/CommandPalette.svelte`, `layout/commandPalette.ts` (+ teste), `stores/navegacao.ts`, `testing/dom/commandPalette.dom.test.ts`; `Sidebar.svelte` (publica os itens, 1 bloco) e `Topbar.svelte` (botão).
+- **Prova:** 704 testes (9 novos: filtro, atalho, abrir/filtrar/↓/Enter/Esc no jsdom), `svelte-check` 0/0, build OK. As 143 telas renderizadas no servidor só mudam no topo (o botão novo).

@@ -10,6 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { descobrirModulo } from '$lib/config/modulos';
   import { DEFAULT_HIDDEN_MENU_KEYS } from '$lib/config/menuDefaults';
+  import { menuVisivel } from '$lib/stores/navegacao';
   import {
     AlertCircle,
     Banknote,
@@ -434,6 +435,22 @@
     visibleMasterItems = masterItems.filter((item) => canSeeItem(item));
     visibleAdminItems = $permissoes.isSystemAdmin ? adminItems.filter((item) => canSeeItem(item)) : [];
   }
+
+  // Fase 5.1: a busca rápida (Ctrl+K) mostra exatamente o que este menu mostra.
+  $: menuVisivel.set(
+    [
+      ...visibleMenuSections.flatMap((section) =>
+        section.items.map((item) => ({ secao: section.title, item }))
+      ),
+      ...($permissoes.isMaster ? visibleMasterItems.map((item) => ({ secao: 'MASTER', item })) : []),
+      ...visibleAdminItems.map((item) => ({
+        secao: $permissoes.isSystemAdmin ? 'ADMINISTRAÇÃO' : 'ADMIN',
+        item
+      }))
+    ]
+      .filter(({ item }) => Boolean(item.href) && !item.disabled)
+      .map(({ secao, item }) => ({ secao, nome: item.name, href: item.href as string, icon: item.icon }))
+  );
 
   function handleItemClick() {
     if ($isMobile) sidebar.close();

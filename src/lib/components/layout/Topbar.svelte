@@ -4,12 +4,17 @@
   import { Dropdown, DropdownItem, DropdownDivider, Tooltip } from '$lib/components/ui';
   import { auth } from '$lib/stores/auth';
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
-  import { Bell, Calendar, Calculator, LogOut, User, Settings, Shield } from '$lib/icons';
+  import { Bell, Calendar, Calculator, LogOut, Search, User, Settings, Shield } from '$lib/icons';
+  import CommandPalette from './CommandPalette.svelte';
   import { toUserMessage } from '$lib/utils/errors';
 
   let loggingOut = false;
   let userDropdownOpen = false;
   let showCalculator = false;
+  let showBusca = false;
+  // Fase 5.1: no Mac o atalho é ⌘K; nos demais, Ctrl+K.
+  const atalhoBusca =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K';
   let CalculatorModalComponent: typeof import('$lib/components/modais/CalculatorModal.svelte').default | null = null;
   let calculatorLoadPromise: Promise<boolean> | null = null;
   let logoutController: AbortController | null = null;
@@ -99,6 +104,37 @@
 
     <!-- Direita: ações + avatar -->
     <div class="vtur-topbar__actions">
+      <!-- Busca rápida no menu (Fase 5.1) -->
+      {#if $isMobile}
+        <Button
+          id="topbar-btn-busca"
+          type="button"
+          variant="unstyled"
+          size="sm"
+          class_name="vtur-icon-button h-10! w-10! rounded-xl! p-0!"
+          ariaLabel="Buscar tela"
+          ariaHaspopup="dialog"
+          on:click={() => (showBusca = true)}
+        >
+          <Search size={18} />
+        </Button>
+      {:else}
+        <Button
+          id="topbar-btn-busca"
+          type="button"
+          variant="unstyled"
+          size="sm"
+          class_name="vtur-icon-button h-10! w-auto! gap-2 rounded-xl! px-3! text-sm font-medium"
+          ariaLabel={`Buscar tela (${atalhoBusca})`}
+          ariaHaspopup="dialog"
+          on:click={() => (showBusca = true)}
+        >
+          <Search size={16} />
+          <span>Buscar</span>
+          <kbd class="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 font-sans text-[11px] opacity-80" aria-hidden="true">{atalhoBusca}</kbd>
+        </Button>
+      {/if}
+
       {#if !$isMobile}
         <!-- Calculadora -->
         <Button
@@ -210,3 +246,5 @@
     onClose={() => (showCalculator = false)}
   />
 {/if}
+
+<CommandPalette bind:open={showBusca} />
