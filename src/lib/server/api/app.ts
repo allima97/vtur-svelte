@@ -23,6 +23,11 @@ import { dashboardRoutes } from './routes/dashboard';
 import { relatoriosRoutes } from './routes/relatorios';
 import { clientesRoutes } from './routes/clientes';
 import { financeiroRoutes } from './routes/financeiro';
+import { adminRoutes } from './routes/admin';
+import { orcamentosRoutes } from './routes/orcamentos';
+import { parametrosRoutes } from './routes/parametros';
+import { roteirosRoutes } from './routes/roteiros';
+import { viagensRoutes } from './routes/viagens';
 
 export function createApiApp() {
   const app = new Hono<ApiEnv>().basePath('/api/v1');
@@ -41,6 +46,11 @@ export function createApiApp() {
   app.route('/relatorios', relatoriosRoutes);
   app.route('/clientes', clientesRoutes);
   app.route('/financeiro', financeiroRoutes);
+  app.route('/admin', adminRoutes);
+  app.route('/orcamentos', orcamentosRoutes);
+  app.route('/parametros', parametrosRoutes);
+  app.route('/roteiros', roteirosRoutes);
+  app.route('/viagens', viagensRoutes);
 
   return app;
 }
