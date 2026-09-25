@@ -196,6 +196,8 @@ export type VendasKpiDashboardSummary = {
   timeline: VendasTimelinePoint[];
   topDestinos: Array<{ name: string; value: number; count: number }>;
   porProduto: Array<{ id: string; name: string; value: number }>;
+  /** Última reconstrução do read model (só no caminho do read model; null/ausente no caminho raw). */
+  rebuiltAt?: string | null;
 };
 
 export type VendasKpiReciboContribution = {

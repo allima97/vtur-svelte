@@ -926,6 +926,34 @@ export function scheduleReciboContribuicoesReadModelEnsure(
   );
 }
 
+/**
+ * Data da reconstrução MAIS ANTIGA entre os meses/empresas exibidos — é o
+ * "Dados atualizados há X min" do dashboard (Fase 3). A RPC de resumo não
+ * devolve rebuilt_at, por isso o valor vem de ranking_read_model_status.
+ * Só leitura; qualquer falha resulta em null (o dashboard não é afetado).
+ */
+export function oldestRebuiltAt(rows: Array<{ rebuilt_at?: string | null }>): string | null {
+  let oldest: number | null = null;
+  for (const row of rows) {
+    const time = row?.rebuilt_at ? new Date(row.rebuilt_at).getTime() : NaN;
+    if (!Number.isFinite(time)) continue;
+    if (oldest === null || time < oldest) oldest = time;
+  }
+  return oldest === null ? null : new Date(oldest).toISOString();
+}
+
+async function fetchReadModelRebuiltAt(params: ReadModelParams): Promise<string | null> {
+  const companyIds = normalizeIds(params.companyIds);
+  if (companyIds.length === 0) return null;
+  try {
+    const monthStarts = monthKeysBetween(params.dataInicio, params.dataFim).map(monthStartFromKey);
+    const rows = await fetchStatusRows(getAdminClient(), companyIds, monthStarts);
+    return oldestRebuiltAt(rows);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchDashboardSummaryReadModelRpc(
   _client: SupabaseClient,
   params: ReadModelParams,
@@ -933,16 +961,19 @@ export async function fetchDashboardSummaryReadModelRpc(
   if (readModelUnavailable) return null;
 
   try {
-    const { data, error } = await getAdminClient().rpc(
-      "dashboard_vendas_summary_from_read_model",
-      {
-        p_company_ids: rpcIdArray(params.companyIds),
-        p_vendedor_ids: rpcIdArray(params.vendedorIds),
-        p_cliente_ids: rpcIdArray(params.accessibleClientIds),
-        p_inicio: params.dataInicio,
-        p_fim: params.dataFim,
-      },
-    );
+    const [{ data, error }, rebuiltAt] = await Promise.all([
+      getAdminClient().rpc(
+        "dashboard_vendas_summary_from_read_model",
+        {
+          p_company_ids: rpcIdArray(params.companyIds),
+          p_vendedor_ids: rpcIdArray(params.vendedorIds),
+          p_cliente_ids: rpcIdArray(params.accessibleClientIds),
+          p_inicio: params.dataInicio,
+          p_fim: params.dataFim,
+        },
+      ),
+      fetchReadModelRebuiltAt(params),
+    ]);
 
     if (error) {
       if (!isRpcUnavailableError(error)) {
@@ -954,7 +985,9 @@ export async function fetchDashboardSummaryReadModelRpc(
     const row = Array.isArray(data)
       ? (data[0] as DashboardSummaryRpcRow | undefined)
       : (data as DashboardSummaryRpcRow | null);
-    return normalizeDashboardSummaryRow(row);
+    const summary = normalizeDashboardSummaryRow(row);
+    if (summary && !summary.rebuiltAt) summary.rebuiltAt = rebuiltAt;
+    return summary;
   } catch (error) {
     if (!isRpcUnavailableError(error)) {
       logServerError("[read-model] erro ao executar RPC de resumo do dashboard; usando fallback.", error);

@@ -964,7 +964,7 @@ function parseProviderCards(
       }
     }
 
-    const cardSegments: Array<Omit<ImportedRoteiroAereo, "ordem" | "trecho" | "tarifa_nome" | "reembolso_tipo" | "qtd_adultos" | "qtd_criancas" | "taxas" | "valor_total"> & { direction: string }> = [];
+    const cardSegments: Array<Omit<ImportedRoteiroAereo, "ordem" | "trecho" | "tarifa_nome" | "reembolso_tipo" | "qtd_adultos" | "qtd_criancas" | "taxas" | "valor_total" | "numero_voo"> & { direction: string }> = [];
 
     for (let cursor = 0; cursor < lines.length; cursor++) {
       const airlineLine = lines[cursor] || "";

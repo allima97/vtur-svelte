@@ -994,10 +994,19 @@
 />
 
 {#if !loading && readModelRebuiltAt}
-  {@const diffMs = Date.now() - new Date(readModelRebuiltAt).getTime()}
-  {@const diffMin = Math.round(diffMs / 60_000)}
-  <p class="mb-2 text-right text-xs text-slate-400">
-    Dados atualizados {diffMin <= 1 ? 'agora mesmo' : `há ${diffMin} min`} · <span class="text-slate-300">read model</span>
+  {@const diffMin = Math.max(0, Math.round((Date.now() - new Date(readModelRebuiltAt).getTime()) / 60_000))}
+  {@const quando =
+    diffMin <= 1
+      ? 'agora mesmo'
+      : diffMin < 60
+        ? `há ${diffMin} min`
+        : diffMin < 48 * 60
+          ? `há ${Math.round(diffMin / 60)} h`
+          : `há ${Math.round(diffMin / (60 * 24))} dias`}
+  <p class="mb-2 text-right text-xs text-slate-500 dark:text-slate-400">
+    <time datetime={readModelRebuiltAt} title={new Date(readModelRebuiltAt).toLocaleString('pt-BR')}>
+      Dados atualizados {quando}
+    </time>
   </p>
 {/if}
 
