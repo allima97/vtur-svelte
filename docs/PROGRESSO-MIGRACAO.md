@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 08:10._
+_Última atualização: 25/09/2026, 08:30._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -13,7 +13,8 @@ _Última atualização: 25/09/2026, 08:10._
 - **Fase 3.2:** com commit ("telas_botoes").
 - **Fase 3.3:** com commit ("breacrumbs").
 - **Correção do dashboard em meses anteriores (25/09):** com commit ("dashboard"). Ver a seção "Dashboard: meses anteriores" abaixo.
-- **Fase 3.5 (telas gigantes) gravada no Mac, sem commit** (a parte `vendas/[id]/editar` já entrou no commit "dashboard"). Ver a seção 3.5.
+- **Fase 3.5, 1ª rodada:** com commit ("correções_dashboard").
+- **Fase 3.5, 2ª rodada (abas e janelas da conciliação e do roteiro):** gravada no Mac, sem commit. Ver a seção 3.5.
 - **Fase 3.4:** com commit ("consultas"). Resumo:
   - o `wrangler.toml` roda o Worker ao lado do banco (`[placement] region = "aws:us-west-2"`);
   - o detalhe da viagem busca os dados em paralelo.
@@ -225,7 +226,33 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - 653 testes passando;
   - `svelte-check` com 0 erros e 0 avisos;
   - build OK.
-- **Próximo passo possível:** extrair mais blocos visuais da conciliação (abas e modais) e do roteiro, com o mesmo método de prova.
+- **2ª rodada (25/09): abas e janelas.**
+
+| Tela | Antes | Depois | Componentes novos |
+|---|---|---|---|
+| `financeiro/conciliacao` | 2809 | 2526 | `AbaRegistros`, `AbaAlteracoes`, `AbaExecucoes` (tabelas só de leitura) e `JanelaAuditoriaVinculos` (só `bind:open`) |
+| `orcamentos/roteiros/[id]` | 2477 | 1550 | `AbaItinerario`, `AbaHoteis`, `AbaPasseios`, `AbaTransporte`, `AbaInvestimento`, `AbaPagamento` |
+
+  - **O roteiro usa runas do Svelte 5.** As abas recebem as listas e as variáveis que alteram como `$bindable()`, e a página liga com `bind:`. Um script detectou quais variáveis cada aba altera, e o `svelte-check` validou os tipos.
+  - **Prova do HTML:** expandindo as tags, as duas telas ficam idênticas às originais. No script, só entraram os imports.
+  - **Prova de execução**, feita com `jsdom` instalado só na cópia da nuvem, sem mudar o `package.json`: montei a aba dentro de uma página de teste com `bind:`, cliquei nos botões e digitei nos campos.
+    - Adicionar, editar, trocar a opção, mover e remover alteram a lista da página.
+    - As variáveis simples também voltam para a página, por exemplo `showDiasImport` e as mensagens.
+    - **Contraprova:** sem o `bind:` o teste falha, então ele detecta o erro.
+  - **Deixados de propósito na página da conciliação:**
+    - a janela de **diferenças na importação**: os botões mudam duas variáveis e na mesma linha chamam `importPreviewRows()`, que lê uma delas. Separar arriscaria a ordem, numa tela de dinheiro;
+    - a janela de **detalhes**, com 18 `bind:` de valores financeiros;
+    - a aba **Visão geral**, com 8 filtros com `bind:`;
+    - a aba **Importação**.
+  - **Verificação:** 653 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
+- **Resultado da 3.5:**
+
+| Tela | Original | Agora |
+|---|---|---|
+| `financeiro/conciliacao` | 3113 | 2526 |
+| `orcamentos/roteiros/[id]` | 2764 | 1550 |
+| `operacao/vouchers/novo` | 1605 | 1442 |
+| `vendas/[id]/editar` | 1388 | 1065 |
 
 **Plano (próximas etapas):**
 - ~~3.2 Kit `ui`~~ (feito). Pendentes do kit, para depois:
