@@ -353,3 +353,52 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - Os "Carregando..." restantes são textos de botões ("Carregar mais", "Aplicar"). Estão certos e ficaram como estão.
 - **Única correção:** `role="alert"` nas 6 faixas de erro feitas à mão, para o leitor de tela anunciar a falha. As telas são vendas, clientes, orçamentos, ranking, recados e regras financeiras. A faixa de `orcamentos/importar` usa o `AlertMessage` (Flowbite), que já tinha `role="alert"`.
 - **Verificação:** `svelte-check` com 0 erros e 0 avisos. Os hashes de Mac e nuvem batem, ignorando CRLF.
+
+### 3.9 (25/09, 12:45): pedidos aprovados pelo usuário (testes de tela, rate limit, logo)
+
+**1. Testes de tela permanentes (jsdom)**
+- **O que foi criado:**
+  - `vitest.workspace.ts` com dois grupos:
+    - `unit`: os testes de sempre, em Node;
+    - `dom`: arquivos `*.dom.test.ts`, com jsdom e a versão "browser" do Svelte.
+  - `src/lib/testing/dom/`: `setup.ts` (polyfill de `matchMedia`) e três harnesses em `harness/`.
+- **Testes de tela:**
+  - `roteiroAbas.dom.test.ts`: as abas Investimento e Itinerário alteram a página pelo `bind:`. Contraprova: sem o `bind:`, o teste falha.
+  - `dialog.dom.test.ts`: o Dialog aberto é nomeado pelo título e pela descrição.
+  - `legacyReactivity.dom.test.ts`: documenta a armadilha do `$: x = fn()`.
+- **Guardas estáticas** (`src/lib/testing/guards.test.ts`, grupo `unit`):
+  - Falha se algum `.svelte` voltar a ter `$: x = fn();` sem argumentos. Há duas exceções conscientes.
+  - Falha se algum `.svelte` usar `goto(..., { replaceState: true })`. Nesses casos, usar `replaceState()`.
+  - As duas foram testadas com contraprova.
+- **Resultado:** 680 testes passando (89 arquivos), `svelte-check` com 0 erros e 0 avisos.
+- **Pendência do usuário:** instalar o `jsdom` no Mac com `npm install -D jsdom@^25.0.1`, que atualiza o `package.json` e o `package-lock.json`.
+  - O lock não foi gerado aqui porque o npm deste ambiente apaga os campos `libc` do lock do Mac, o que seria ruído.
+  - Sem essa instalação, o grupo `dom` falha no `npm test`.
+
+**2. RPC `check_security_rate_limit`, aplicada no banco**
+- **Migração:** `supabase/migrations/20260925160000_security_rate_limit.sql`.
+- **Tabela `security_rate_limits`:**
+  - chave primária `(scope, key_hash)`;
+  - a chave é gravada só como md5, então IP e id do usuário não ficam em texto;
+  - RLS ligado e sem políticas;
+  - sem acesso para `anon` e `authenticated`.
+- **Função:** SECURITY DEFINER, com `search_path` fixo. Só o `service_role` pode executá-la, que é o cliente admin do servidor.
+- **Regra:** a mesma do contador em memória (`rateLimit.ts`).
+  - A janela é fixa e começa na primeira chamada.
+  - Permite até `p_max` chamadas.
+  - Depois disso responde `allowed=false` com o tempo que falta, com mínimo de 1 s.
+  - Faz limpeza ocasional das janelas vencidas.
+- **Teste no banco:**
+  - max=2: as chamadas 1 e 2 passam, a 3 é bloqueada com 60 s, e outra chave é independente;
+  - depois que a janela vence, volta a permitir;
+  - as linhas de teste foram apagadas.
+- **Advisor de segurança:** só aparece o aviso INFO "RLS sem política", esperado e igual ao das tabelas do read model.
+- **Efeito:** o `persistentRateLimit.ts` deixa de cair no fallback. Agora o limite vale para todas as instâncias do Worker. O contador em memória continua sendo checado primeiro.
+
+**3. Coluna `companies.logo_url`, aplicada no banco**
+- **Migração:** `supabase/migrations/20260925160100_companies_logo_url.sql`.
+- **Coluna:** `text`, opcional.
+- **Efeito:**
+  - As leituras de `parametros/empresa`, `crm/library`, `clientes/templates-send` e `cards/_render` param de receber 400 e passam a ler `null`. Mesmo resultado de antes, sem erro.
+  - Quando alguém preencher o logo, ele passa a aparecer.
+- **Pendente:** hoje nenhuma tela grava esse campo. A de parâmetros da empresa diz "entre em contato com o administrador". Criar um campo de edição seria função nova e depende de decisão.
