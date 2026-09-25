@@ -302,3 +302,24 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 - Causa real: `syncUrl()` usava `goto()`. O `beforeNavigate` do `src/routes/+layout.svelte` chama `abortInFlightApiReads()`, e o SvelteKit só dispara o beforeNavigate depois de um `await` interno — ou seja, depois que `atualizar()` já tinha iniciado a busca do mês. Em `api.ts`, uma leitura abortada por navegação devolve `new Promise(() => {})` (nunca resolve), então `loading` ficava `true` para sempre. Os logs do banco mostravam o RPC respondendo em ~30 ms; era o navegador que descartava a resposta.
 - Correção: `replaceState()` de `$app/navigation` (roteamento raso: atualiza o endereço sem navegação, sem beforeNavigate, sem load). Aplicado no `UnifiedDashboard.svelte` e em `relatorios/ranking` (mesmo padrão: syncUrl() antes de loadRanking()).
 - Verificação: `svelte-check` 0/0, 657 testes, hash Mac = container.
+
+### 3.6 (25/09, 12:10): robustez da URL, título dos diálogos e modo escuro. Gravado no Mac, falta o commit
+- **URL sem navegação (`replaceState`)**
+  - **Relatórios de vendas:** a URL passou a ser atualizada sem navegar, como já foi feito no dashboard e no ranking.
+  - **Bug latente evitado:** no `onMount`, `loadBase()` e `loadRelatorio()` rodam juntos. Se o relatório terminasse primeiro, o `goto()` cancelava a busca dos filtros. Essa leitura, cancelada por navegação, nunca resolvia, e empresas e vendedores ficavam "carregando" para sempre.
+  - **Conferência:** agora nenhuma tela usa `goto()` para sincronizar a própria URL.
+  - **Aviso:** `api.ts` devolve uma promessa que nunca resolve quando a leitura é cancelada por navegação. Toda sincronização de URL na mesma rota precisa usar `replaceState`.
+- **Título dos diálogos**
+  - O `Dialog` agora dá nome ao `role="dialog"`: o título vira `aria-labelledby` e a descrição vira `aria-describedby`.
+  - O Modal do Flowbite 0.48 não repassa atributos para esse `<div>`. Por isso a action `dialogLabel` (`ui/dialogLabel.ts`) parte do `<h3>` e sobe até o `[role="dialog"]`.
+  - **Testes:** o novo `dialogLabel.test.ts` tem 3 casos. Um teste de execução no jsdom, feito uma vez só, montou o Dialog aberto: o leitor de tela passa a anunciar "Excluir venda" e a descrição.
+- **Modo escuro**
+  - `tailwind.config.js` passou a usar `darkMode: 'class'`.
+  - **Problema:** o app é sempre claro (ver o bloco "NEUTRALIZAR DARK MODE" em `app.css`). Com o padrão `media`, as classes `dark:` do Flowbite, do dashboard, de `relatorios/desempenho` e do roteiro ligavam quando o sistema operacional estava no modo escuro. Na tela de desempenho, isso deixava texto `slate-100` sobre o fundo branco forçado, praticamente invisível.
+  - **Solução:** agora essas classes só ligariam com `.dark` no `<html>`, e o app nunca aplica essa classe.
+  - **Conferência:** no CSS gerado, as classes `dark:` ficaram como `:is(.dark *)`, e só sobrou a media query de neutralização.
+- **Ambiente:** a cópia da nuvem não tinha `tailwind.config.js` nem `postcss.config.js`. Os dois foram copiados do Mac.
+- **Verificação:** 660 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK. Os hashes do Mac e da nuvem conferem.
+- **Próximos candidatos:**
+  - padronizar os estados de carregando, vazio e erro;
+  - medir `clientes/historico` e `vendas/complementares`.

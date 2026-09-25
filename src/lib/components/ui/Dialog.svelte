@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { Modal } from 'flowbite-svelte';
   import Button from './Button.svelte';
+  import { dialogLabel, nextDialogLabelId } from './dialogLabel';
 
   type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
   type DialogColor =
@@ -36,6 +37,10 @@
   export let onCancel: ((e?: Event) => void) | undefined = undefined;
   export let onConfirm: ((e?: Event) => void) | undefined = undefined;
   export let onclose: ((e?: Event) => void) | undefined = undefined;
+
+  // Acessibilidade (Fase 3.6): o título e a descrição nomeiam o role="dialog".
+  const labelId = nextDialogLabelId();
+  const descriptionId = `${labelId}-desc`;
 
   const dispatch = createEventDispatcher<{
     cancel: Event | undefined;
@@ -109,9 +114,13 @@
     <div class={`vtur-dialog__accent ${dialogToneClass}`.trim()}></div>
     <div class="vtur-dialog__header">
       <div class="min-w-0">
-        <h3 class="vtur-dialog__title">{title}</h3>
+        <h3
+          id={labelId}
+          class="vtur-dialog__title"
+          use:dialogLabel={{ labelId, descriptionId: description ? descriptionId : null }}
+        >{title}</h3>
         {#if description}
-          <p class="vtur-dialog__description">{description}</p>
+          <p id={descriptionId} class="vtur-dialog__description">{description}</p>
         {/if}
       </div>
     </div>

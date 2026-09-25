@@ -1,5 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // O sistema é sempre claro (ver "NEUTRALIZAR DARK MODE" em src/app.css). Com o padrão
+  // 'media', as classes dark: (Flowbite e 3 telas) ligavam no modo escuro do sistema
+  // operacional e deixavam texto claro sobre o fundo branco forçado. Com 'class' elas só
+  // ligariam com a classe .dark no <html>, que o app nunca aplica.
+  darkMode: 'class',
   content: [
     './src/**/*.{html,js,svelte,ts}',
     './node_modules/flowbite-svelte/**/*.{html,js,svelte,ts}'

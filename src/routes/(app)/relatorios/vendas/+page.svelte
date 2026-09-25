@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, replaceState } from '$app/navigation';
   import type { ChartData } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -403,11 +403,11 @@
     if (produtoFiltro) params.set('produto', produtoFiltro);
     if (tipoProdutoFiltro) params.set('tipo_produto', tipoProdutoFiltro);
 
-    void goto(`/relatorios/vendas?${params.toString()}`, {
-      replaceState: true,
-      noScroll: true,
-      keepFocus: true
-    });
+    // Só atualiza o endereço (replaceState do SvelteKit = sem navegação). Com goto(), o
+    // beforeNavigate do layout raiz chama abortInFlightApiReads(): se o relatório terminasse antes
+    // do loadBase() (disparados juntos no onMount), a busca dos filtros era cancelada e nunca
+    // resolvia, deixando empresas/vendedores em "carregando".
+    replaceState(`/relatorios/vendas?${params.toString()}`, {});
   }
 
   function buildRelatorioParams(start: string, end: string) {
