@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/clientes/create/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import {
@@ -116,6 +117,13 @@ export async function handleClientesCreatePost(event: RequestEvent) {
       .single();
 
     if (insertError) throw insertError;
+
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Clientes',
+      acao: 'cliente_criado',
+      detalhes: { ...payload, created_by: user.id }
+    });
 
     invalidateClientReadModels({
       companyIds: companyId ? [companyId] : [],

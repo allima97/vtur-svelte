@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/clientes/[id]/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import {
@@ -292,6 +293,8 @@ export async function handleClientesIdPatch(event: RequestEvent) {
 
     if (updateError) throw updateError;
 
+    registrarLog(event, { userId: user.id, modulo: 'Clientes', acao: 'cliente_editado', detalhes: { id, payload } });
+
     invalidateClientReadModels({
       companyIds: data?.company_id ? [String(data.company_id)] : [],
       userId: user.id
@@ -326,6 +329,8 @@ export async function handleClientesIdDelete(event: RequestEvent) {
 
     const { error: deleteError } = await client.from('clientes').delete().eq('id', id);
     if (deleteError) throw deleteError;
+
+    registrarLog(event, { userId: user.id, modulo: 'Clientes', acao: 'cliente_excluido', detalhes: { id } });
 
     invalidateClientReadModels({
       companyIds: filters.companyIds,

@@ -1,7 +1,8 @@
 /**
  * Banco falso para testes de contrato (Fase 3.4).
  *
- * - Responde a from(tabela).select/eq/in/order/limit/single/maybeSingle/update.
+ * - Responde a from(tabela).select/eq/in/order/limit/single/maybeSingle/update/upsert/insert/delete.
+ *   (insert/delete: Fase 3.10, testes de auditoria; devolvem as linhas inseridas, com `id` gerado.)
  * - Filtra as linhas da tabela por eq/in (a projeção do select é ignorada:
  *   o teste compara a resposta da versão antiga com a nova usando o mesmo banco).
  * - Cada consulta espera `delayMs`, e o banco registra quantas ficaram abertas ao
@@ -11,7 +12,7 @@ type Row = Record<string, unknown>;
 
 export type FakeQueryLog = {
   table: string;
-  op: 'select' | 'update' | 'upsert';
+  op: 'select' | 'update' | 'upsert' | 'insert' | 'delete';
   filters: string[];
   values?: Row | Row[];
 };
@@ -28,6 +29,8 @@ export interface FakeBuilder extends PromiseLike<Result> {
   select: (columns?: string) => FakeBuilder;
   update: (values: Row) => FakeBuilder;
   upsert: (values: Row | Row[], options?: unknown) => FakeBuilder;
+  insert: (values: Row | Row[]) => FakeBuilder;
+  delete: () => FakeBuilder;
   eq: (column: string, value: unknown) => FakeBuilder;
   in: (column: string, values: unknown[]) => FakeBuilder;
   order: (column: string, options?: unknown) => FakeBuilder;
@@ -46,7 +49,7 @@ export function createFakeSupabase(
   const from = (table: string): FakeBuilder => {
     const predicates: Array<(row: Row) => boolean> = [];
     const filters: string[] = [];
-    let op: 'select' | 'update' | 'upsert' = 'select';
+    let op: 'select' | 'update' | 'upsert' | 'insert' | 'delete' = 'select';
     let updateValues: Row | Row[] | undefined;
     let limitN: number | null = null;
 
@@ -57,6 +60,14 @@ export function createFakeSupabase(
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       stats.inFlight -= 1;
 
+      if (op === 'insert') {
+        const inserted = (Array.isArray(updateValues) ? updateValues : [updateValues || {}]).map((row, index) => ({
+          id: `novo-${table}-${index + 1}`,
+          ...row
+        }));
+        if (mode === 'many') return { data: inserted, error: null };
+        return { data: inserted[0] ?? null, error: null };
+      }
       if (op !== 'select') return { data: null, error: null };
 
       let rows = (tables[table] || []).filter((row) => predicates.every((p) => p(row)));
@@ -82,6 +93,15 @@ export function createFakeSupabase(
       upsert: (values) => {
         op = 'upsert';
         updateValues = Array.isArray(values) ? values.map((v) => ({ ...v })) : { ...values };
+        return builder;
+      },
+      insert: (values) => {
+        op = 'insert';
+        updateValues = Array.isArray(values) ? values.map((v) => ({ ...v })) : { ...values };
+        return builder;
+      },
+      delete: () => {
+        op = 'delete';
         return builder;
       },
       eq: (column, value) => {

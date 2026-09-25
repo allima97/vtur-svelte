@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/user/profile/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { getAdminClient, requireAuthenticatedUser, toErrorResponse } from '$lib/server/v1';
@@ -86,6 +87,8 @@ export async function handleUserProfilePatch(event: RequestEvent) {
 
     const { error: updateError } = await client.from('users').update(payload).eq('id', user.id);
     if (updateError) throw updateError;
+
+    registrarLog(event, { userId: user.id, modulo: 'perfil', acao: 'perfil_atualizado', detalhes: { ...payload } });
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {

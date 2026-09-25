@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/parametros/escalas/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -396,6 +397,46 @@ export async function handleParametrosEscalasGet(event: RequestEvent) {
   }
 }
 
+// Auditoria (mesmo formato do histórico da tabela logs): empresa e gestor vêm do mês da escala.
+// Lidos em background, depois da resposta, para não atrasar o salvamento.
+async function escalaMesAuditInfo(client: SupabaseClient, escalaMesId: string) {
+  const { data } = await client
+    .from('escala_mes')
+    .select('company_id, gestor_id')
+    .eq('id', escalaMesId)
+    .maybeSingle();
+  const gestorId = (data?.gestor_id as string | null) || null;
+  return {
+    company_id: (data?.company_id as string | null) || null,
+    gestor_id: gestorId,
+    gestor_raw_id: gestorId,
+    escala_mes_id: escalaMesId
+  };
+}
+
+async function escalaLoteAuditDetalhes(
+  client: SupabaseClient,
+  scope: Awaited<ReturnType<typeof resolveUserScope>>,
+  escalaMesId: string,
+  usuarioId: string,
+  datas: string[],
+  tipo: string | null,
+  horaInicio: string | null,
+  horaFim: string | null
+) {
+  return {
+    ...(await escalaMesAuditInfo(client, escalaMesId)),
+    papel: scope.papel || null,
+    usuario_id: usuarioId,
+    datas,
+    total: datas.length,
+    tipo,
+    hora_inicio: horaInicio,
+    hora_fim: horaFim,
+    horario_informado: Boolean(horaInicio || horaFim)
+  };
+}
+
 export async function handleParametrosEscalasPost(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -453,15 +494,36 @@ export async function handleParametrosEscalasPost(event: RequestEvent) {
         .eq('data', data)
         .maybeSingle();
 
+      let operacao: 'insert' | 'update' | 'delete' | null = null;
+      let escalaDiaId: string | null = existing?.id || null;
       if (existing?.id) {
         if (!tipo) {
           // Remove o registro se tipo vazio
           await client.from('escala_dia').delete().eq('id', existing.id);
+          operacao = 'delete';
         } else {
           await client.from('escala_dia').update(payload).eq('id', existing.id);
+          operacao = 'update';
         }
       } else if (tipo) {
-        await client.from('escala_dia').insert(payload);
+        const { data: inserted } = await client.from('escala_dia').insert(payload).select('id').maybeSingle();
+        escalaDiaId = inserted?.id || null;
+        operacao = 'insert';
+      }
+
+      if (operacao) {
+        registrarLog(event, {
+          userId: user.id,
+          modulo: 'Escalas',
+          acao: 'escala_dia_salva',
+          detalhes: async () => ({
+            ...(await escalaMesAuditInfo(client, escalaMesId)),
+            papel: scope.papel || null,
+            operacao,
+            escala_dia_id: escalaDiaId,
+            ...payload
+          })
+        });
       }
 
       invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
@@ -506,6 +568,13 @@ export async function handleParametrosEscalasPost(event: RequestEvent) {
           .eq('usuario_id', usuarioId)
           .in('data', datas);
         if (deleteError) throw deleteError;
+        registrarLog(event, {
+          userId: user.id,
+          modulo: 'Escalas',
+          acao: 'escala_dia_lote_salvo',
+          detalhes: async () =>
+            escalaLoteAuditDetalhes(client, scope, mesId, usuarioId, datas, tipo, horaInicio, horaFim)
+        });
         invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
         return json({ ok: true, removed: datas.length, id: mesId }, { headers: NO_STORE_HEADERS });
       }
@@ -526,6 +595,13 @@ export async function handleParametrosEscalasPost(event: RequestEvent) {
         .select('id, escala_mes_id, usuario_id, data, tipo, hora_inicio, hora_fim, observacao');
       if (upsertError) throw upsertError;
 
+      registrarLog(event, {
+        userId: user.id,
+        modulo: 'Escalas',
+        acao: 'escala_dia_lote_salvo',
+        detalhes: async () =>
+          escalaLoteAuditDetalhes(client, scope, mesId, usuarioId, datas, tipo, horaInicio, horaFim)
+      });
       invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
       return json({ ok: true, id: mesId, items: saved || [] }, { headers: NO_STORE_HEADERS });
     }

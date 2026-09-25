@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/admin/permissoes/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import {
@@ -108,6 +109,14 @@ export async function handleAdminPermissoesGet(event: RequestEvent) {
   }
 }
 
+// Auditoria: lista completa de módulos desligados depois de salvar (formato do histórico).
+async function listDisabledModules(client: ReturnType<typeof getAdminClient>) {
+  const { data } = await client.from('system_module_settings').select('module_key').eq('enabled', false);
+  return ((data || []) as Array<{ module_key: string | null }>)
+    .map((row) => String(row.module_key || ''))
+    .filter(Boolean);
+}
+
 export async function handleAdminPermissoesPost(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -137,6 +146,12 @@ export async function handleAdminPermissoesPost(event: RequestEvent) {
         client,
         Array.isArray(body.settings) ? body.settings : []
       );
+      registrarLog(event, {
+        userId: user.id,
+        modulo: 'Admin',
+        acao: 'modulos_globais_atualizados',
+        detalhes: async () => ({ disabled_modules: await listDisabledModules(client) })
+      });
       invalidateUserReadModels();
       return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
@@ -155,6 +170,20 @@ export async function handleAdminPermissoesPost(event: RequestEvent) {
     const permissions = Array.isArray(body.permissions) ? body.permissions : [];
     ensureAssignablePermissionSet(scope, permissions);
     await saveUserPermissions(client, userId, permissions);
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Admin',
+      acao: 'permissoes_atualizadas',
+      detalhes: {
+        permissoes: Object.fromEntries(
+          (permissions as Array<{ modulo?: unknown; permissao?: unknown }>).map((item) => [
+            String(item?.modulo ?? ''),
+            String(item?.permissao ?? '')
+          ])
+        ),
+        usuario_alterado_id: userId
+      }
+    });
     invalidateUserReadModels({
       userId,
       companyIds: scope.companyIds

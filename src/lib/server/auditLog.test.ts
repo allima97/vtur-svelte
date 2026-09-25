@@ -74,3 +74,38 @@ describe('registrarLog', () => {
     await expect(Promise.all(ev.tasks)).resolves.toBeDefined();
   });
 });
+
+describe('registrarLog com detalhes montados em background (Fase 3.10)', () => {
+  it('aceita função assíncrona e grava o resultado', async () => {
+    const ev = fakeEvent();
+    registrarLog(ev, {
+      userId: 'u1',
+      modulo: 'Admin',
+      acao: 'modulos_globais_atualizados',
+      detalhes: async () => ({ disabled_modules: ['crm'] }),
+    });
+    await Promise.all(ev.tasks);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].row).toMatchObject({
+      modulo: 'Admin',
+      acao: 'modulos_globais_atualizados',
+      detalhes: { disabled_modules: ['crm'] },
+    });
+  });
+
+  it('se a função falhar, não lança erro e não grava', async () => {
+    const ev = fakeEvent();
+    expect(() =>
+      registrarLog(ev, {
+        userId: 'u1',
+        modulo: 'Escalas',
+        acao: 'escala_dia_salva',
+        detalhes: async () => {
+          throw new Error('banco fora');
+        },
+      })
+    ).not.toThrow();
+    await Promise.all(ev.tasks);
+    expect(inserts).toHaveLength(0);
+  });
+});

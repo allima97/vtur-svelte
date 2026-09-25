@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/admin/system-modules/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import {
@@ -219,6 +220,13 @@ export const handleAdminSystemModulesPost = async (event: RequestEvent) => {
       }
       throw upsertError;
     }
+
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Admin',
+      acao: 'modulos_globais_atualizados',
+      detalhes: { disabled_modules: disabledNormalized.map((item) => item.module_key) }
+    });
 
     return json({ ok: true, disabled: disabledNormalized.map((item) => item.module_key) }, { headers: NO_STORE_HEADERS });
   } catch (err) {

@@ -402,3 +402,32 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - As leituras de `parametros/empresa`, `crm/library`, `clientes/templates-send` e `cards/_render` param de receber 400 e passam a ler `null`. Mesmo resultado de antes, sem erro.
   - Quando alguém preencher o logo, ele passa a aparecer.
 - **Pendente:** hoje nenhuma tela grava esse campo. A de parâmetros da empresa diz "entre em contato com o administrador". Criar um campo de edição seria função nova e depende de decisão.
+
+### 3.10 (25/09, 13:00): auditoria na tabela `logs` além de Vendas (pendência da Fase 1). Gravado no Mac, falta o commit
+- **Referência:** o histórico da própria tabela `logs`, gravado pelo sistema antigo até mai/2026. Módulo, ação e as chaves de `detalhes` foram copiados de lá.
+
+| Módulo | Ação | Onde | `detalhes` |
+|---|---|---|---|
+| Clientes | `cliente_criado` | `clientes/create` | payload + `created_by` |
+| Clientes | `cliente_editado` | `PATCH clientes/:id` | `{ id, payload }` |
+| Clientes | `cliente_excluido` | `DELETE clientes/:id` | `{ id }` |
+| Cadastros | `cidade_criada` / `cidade_editada` / `cidade_excluida` | `cidades` (POST, PATCH /:id, DELETE e DELETE /:id) | payload / `{ id, payload }` / `{ id }` |
+| Parametros | `parametros_sistema_salvos` | `parametros/sistema` | payload sem `updated_at` |
+| Parametros | `quote_print_settings_salvos` | `parametros/orcamentos-pdf` | campos da configuração, sem dono e empresa |
+| Escalas | `escala_dia_salva` | `parametros/escalas` (`upsert_dia`) | as 13 chaves do histórico; empresa e gestor vêm do `escala_mes` |
+| Escalas | `escala_dia_lote_salvo` | `parametros/escalas` (`apply_batch`) | as 12 chaves do histórico |
+| Admin | `permissoes_atualizadas` | `admin/permissoes` e `admin/permissoes/:id` | `{ permissoes: { modulo: permissao }, usuario_alterado_id }` |
+| Admin | `modulos_globais_atualizados` | `admin/permissoes` (global), `admin/system-modules` e `admin/modulos-sistema` | `{ disabled_modules }` |
+| perfil | `perfil_atualizado` | `PATCH user/profile` | payload gravado em `users` |
+
+- **Como funciona:** o `registrarLog` passou a aceitar `detalhes` como função assíncrona. Ela é montada em background (`waitUntil`) quando precisa ler o banco, como no caso das escalas e dos módulos globais. Assim a resposta não fica mais lenta. Se a função falhar, nada é gravado e a operação não é afetada.
+- **Única mudança fora do log:** em `upsert_dia`, o insert de `escala_dia` passou a pedir `.select('id').maybeSingle()` para registrar o `escala_dia_id`. O tratamento de erro não mudou: o código já ignorava o retorno.
+- **Fora desta etapa, de propósito:**
+  - login e logout, `tentativa_login`, `login_falhou`, recuperação de senha e MFA (`auth_mfa`, `mfa_ativado`, `mfa_removido`). As rotas de `api/auth` não são alteradas, e a ativação e remoção do MFA acontecem no navegador (`supabase.auth.mfa`). Depende de decisão do usuário.
+  - `upsert_horario_usuario` e as permissões por tipo de usuário, que não têm precedente no histórico.
+- **Testes:**
+  - `auditoria.contract.test.ts` (11 casos): módulo, ação e formato de cada log; erro de validação não gera log; a gravação de negócio não muda.
+  - `auditLog.test.ts` ganhou 2 casos para os detalhes assíncronos.
+  - `fakeSupabase` agora aceita `insert` e `delete`.
+- **Verificação:** 693 testes passando, `svelte-check` com 0 erros e 0 avisos, e os hashes de Mac e nuvem batem, ignorando CRLF.
+- **Arquivo auxiliar:** `tmp/audit_patch.py` foi o script que aplicou as mudanças. Pode ser apagado.

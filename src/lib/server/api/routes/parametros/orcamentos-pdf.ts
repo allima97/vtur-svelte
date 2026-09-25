@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/parametros/orcamentos-pdf/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import {
@@ -121,6 +122,11 @@ export async function handleParametrosOrcamentosPdfPost(event: RequestEvent) {
     } else {
       const { error: insertError } = await client.from('quote_print_settings').insert(payload);
       if (insertError) throw insertError;
+    }
+    {
+      // Mesmo formato do histórico: os campos da configuração, sem dono e empresa.
+      const { owner_user_id: _owner, company_id: _company, ...detalhes } = payload;
+      registrarLog(event, { userId: user.id, modulo: 'Parametros', acao: 'quote_print_settings_salvos', detalhes });
     }
 
     invalidateQuoteReadModels({

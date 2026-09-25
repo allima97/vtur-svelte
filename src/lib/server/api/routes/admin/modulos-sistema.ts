@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/admin/modulos-sistema/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import {
@@ -143,6 +144,21 @@ export async function handleAdminModulosSistemaPost(event: RequestEvent) {
       .from('system_module_settings')
       .upsert(payload, { onConflict: 'module_key' });
     if (upsertError) throw upsertError;
+
+    // Auditoria: lista completa de módulos desligados depois de salvar (formato do histórico).
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Admin',
+      acao: 'modulos_globais_atualizados',
+      detalhes: async () => {
+        const { data } = await client.from('system_module_settings').select('module_key').eq('enabled', false);
+        return {
+          disabled_modules: ((data || []) as Array<{ module_key: string | null }>)
+            .map((row) => String(row.module_key || ''))
+            .filter(Boolean)
+        };
+      }
+    });
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {

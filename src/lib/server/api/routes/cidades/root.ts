@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/cidades/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import {
@@ -149,10 +150,12 @@ export async function handleCidadesPost(event: RequestEvent) {
       const { data, error: updateError } = await client.from('cidades').update(payload).eq('id', id).select('id').single();
       if (updateError) throw updateError;
       result = data;
+      registrarLog(event, { userId: user.id, modulo: 'Cadastros', acao: 'cidade_editada', detalhes: { id, payload } });
     } else {
       const { data, error: insertError } = await client.from('cidades').insert(payload).select('id').single();
       if (insertError) throw insertError;
       result = data;
+      registrarLog(event, { userId: user.id, modulo: 'Cadastros', acao: 'cidade_criada', detalhes: { ...payload } });
     }
 
     invalidateCatalogReadModels({ userId: user.id });
@@ -180,6 +183,7 @@ export async function handleCidadesDelete(event: RequestEvent) {
 
     const { error: deleteError } = await client.from('cidades').delete().eq('id', id);
     if (deleteError) throw deleteError;
+    registrarLog(event, { userId: user.id, modulo: 'Cadastros', acao: 'cidade_excluida', detalhes: { id } });
 
     invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true }, { headers: NO_STORE_HEADERS });

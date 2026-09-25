@@ -15,7 +15,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { getAdminClient, logServerError } from '$lib/server/v1';
 
-export type AuditModulo = 'Vendas';
+export type AuditModulo = 'Vendas' | 'Clientes' | 'Cadastros' | 'Parametros' | 'Escalas' | 'Admin' | 'perfil';
 
 /** Ações já existentes no histórico da tabela `logs` para o módulo Vendas. */
 export type AuditAcaoVendas =
@@ -30,6 +30,28 @@ export type AuditAcaoVendas =
   | 'recibo_principal_atualizado'
   | 'recibo_complementar_vinculado'
   | 'recibo_complementar_removido';
+
+/**
+ * Ações dos demais módulos (Fase 1, pendência "estender a auditoria"). Nomes, módulo e
+ * formato de `detalhes` copiados do histórico da tabela `logs` (gravado pelo sistema antigo
+ * até mai/2026). Login/MFA ficam de fora: as rotas de api/auth não são alteradas.
+ */
+export type AuditAcaoOutros =
+  | 'cliente_criado' // Clientes: payload gravado (+ created_by)
+  | 'cliente_editado' // Clientes: { id, payload }
+  | 'cliente_excluido' // Clientes: { id }
+  | 'cidade_criada' // Cadastros: payload { nome, descricao, subdivisao_id }
+  | 'cidade_editada' // Cadastros: { id, payload }
+  | 'cidade_excluida' // Cadastros: { id }
+  | 'parametros_sistema_salvos' // Parametros: payload de parametros_comissao (sem updated_at)
+  | 'quote_print_settings_salvos' // Parametros: campos de quote_print_settings (sem dono/empresa)
+  | 'escala_dia_salva' // Escalas
+  | 'escala_dia_lote_salvo' // Escalas
+  | 'permissoes_atualizadas' // Admin: { permissoes: { modulo: permissao }, usuario_alterado_id }
+  | 'modulos_globais_atualizados' // Admin: { disabled_modules: string[] }
+  | 'perfil_atualizado'; // perfil: payload gravado em users
+
+export type AuditAcao = AuditAcaoVendas | AuditAcaoOutros;
 
 type AuditEvent = Pick<RequestEvent, 'request' | 'getClientAddress'> & {
   platform?: unknown;
@@ -67,8 +89,12 @@ export function registrarLog(
   params: {
     userId?: string | null;
     modulo: AuditModulo;
-    acao: AuditAcaoVendas;
-    detalhes?: Record<string, unknown> | null;
+    acao: AuditAcao;
+    /**
+     * Objeto pronto, ou uma função assíncrona que monta os detalhes em background
+     * (para quando é preciso ler algo do banco sem atrasar a resposta).
+     */
+    detalhes?: Record<string, unknown> | null | (() => Promise<Record<string, unknown> | null>);
   },
 ): void {
   let row: Record<string, unknown>;
@@ -77,7 +103,7 @@ export function registrarLog(
       user_id: params.userId || null,
       modulo: params.modulo,
       acao: params.acao,
-      detalhes: params.detalhes ?? null,
+      detalhes: typeof params.detalhes === 'function' ? null : (params.detalhes ?? null),
       ip: resolveIp(event),
       user_agent: (event.request.headers.get('user-agent') || '').slice(0, MAX_USER_AGENT) || null,
     };
@@ -88,6 +114,9 @@ export function registrarLog(
 
   const task = (async () => {
     try {
+      if (typeof params.detalhes === 'function') {
+        row.detalhes = (await params.detalhes()) ?? null;
+      }
       const { error } = await getAdminClient().from('logs').insert(row);
       if (error) throw error;
     } catch (err) {

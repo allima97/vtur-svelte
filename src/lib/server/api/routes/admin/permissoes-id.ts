@@ -1,5 +1,6 @@
 // Migrado para Hono de src/routes/api/v1/admin/permissoes/[id]/+server.ts — corpo IDÊNTICO ao original
 // (só nome/assinatura do handler e caminhos de import mudaram). Ver src/lib/server/api/app.ts.
+import { registrarLog } from '$lib/server/auditLog';
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import {
@@ -114,6 +115,20 @@ export async function handleAdminPermissoesIdPost(event: RequestEvent) {
     const permissions = Array.isArray(body.permissions) ? body.permissions : [];
     ensureAssignablePermissionSet(scope, permissions);
     await saveUserPermissions(client, userId, permissions);
+    registrarLog(event, {
+      userId: user.id,
+      modulo: 'Admin',
+      acao: 'permissoes_atualizadas',
+      detalhes: {
+        permissoes: Object.fromEntries(
+          (permissions as Array<{ modulo?: unknown; permissao?: unknown }>).map((item) => [
+            String(item?.modulo ?? ''),
+            String(item?.permissao ?? '')
+          ])
+        ),
+        usuario_alterado_id: userId
+      }
+    });
     invalidateUserReadModels({
       userId,
       companyIds: scope.companyIds
