@@ -41,8 +41,16 @@ const uniqSorted = (arr) => Array.from(new Set(arr)).sort();
 // tabelas/guardas passa a ler o módulo em src/lib/server/api/routes/<rota>.ts.
 function honoModuleFor(file) {
   const rel = relative(API_DIR, file).split(sep).join('/').replace(/\/\+server\.(ts|js)$/, '');
-  const base = join(ROOT, 'src', 'lib', 'server', 'api', 'routes', ...rel.replace(/^v1\//, '').split('/'));
-  for (const candidate of [`${base}.ts`, join(base, 'index.ts')]) {
+  const segs = rel.replace(/^v1\/?/, '').split('/').filter(Boolean);
+  const [dom, ...rest] = segs;
+  const routesDir = join(ROOT, 'src', 'lib', 'server', 'api', 'routes');
+  // Convenção dos geradores (migrate_*.py): routes/<dominio>/<segmentos-sem-[]-unidos-por-hifen>.ts
+  // ('root' para a raiz do domínio). Mantém o formato antigo (pastas aninhadas) como alternativa.
+  const flat = rest.length ? rest.map((s) => s.replace(/^\[|\]$/g, '')).join('-') : 'root';
+  const candidates = dom
+    ? [join(routesDir, dom, `${flat}.ts`), join(routesDir, ...segs) + '.ts', join(routesDir, ...segs, 'index.ts')]
+    : [];
+  for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
   return null;

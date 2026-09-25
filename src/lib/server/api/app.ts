@@ -19,6 +19,10 @@ import type { ApiEnv } from './types';
 import { healthRoutes } from './routes/health';
 import { vendasRoutes } from './routes/vendas';
 import { conciliacaoRoutes } from './routes/conciliacao';
+import { dashboardRoutes } from './routes/dashboard';
+import { relatoriosRoutes } from './routes/relatorios';
+import { clientesRoutes } from './routes/clientes';
+import { financeiroRoutes } from './routes/financeiro';
 
 export function createApiApp() {
   const app = new Hono<ApiEnv>().basePath('/api/v1');
@@ -33,6 +37,10 @@ export function createApiApp() {
   app.route('/health', healthRoutes);
   app.route('/vendas', vendasRoutes);
   app.route('/conciliacao', conciliacaoRoutes);
+  app.route('/dashboard', dashboardRoutes);
+  app.route('/relatorios', relatoriosRoutes);
+  app.route('/clientes', clientesRoutes);
+  app.route('/financeiro', financeiroRoutes);
 
   return app;
 }

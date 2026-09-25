@@ -1,7 +1,4 @@
-import type { RequestEvent } from "@sveltejs/kit";
-import { forwardLegacyReportGET } from "../_legacyForward";
-import { GET as produtosGET } from "../produtos/+server";
+// Migrado para Hono: implementação em src/lib/server/api/routes/relatorios/vendas-por-produto.ts
+import { apiHandler } from '$lib/server/api/sveltekit';
 
-export async function GET(event: RequestEvent) {
-  return forwardLegacyReportGET(event, produtosGET);
-}
+export const GET = apiHandler;
