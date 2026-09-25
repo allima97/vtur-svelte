@@ -441,7 +441,10 @@
     if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
     if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
 
-    void goto(`/dashboard/geral?${params.toString()}`, {
+    // Mantém a rota atual (/, /dashboard/vendedor ou /dashboard/geral). Antes navegava sempre
+    // para /dashboard/geral: fora dessa rota o SvelteKit desmontava e montava o dashboard de
+    // novo a cada troca de mês, e o onMount refazia todas as chamadas (requisições em dobro).
+    void goto(`${window.location.pathname}?${params.toString()}`, {
       replaceState: true,
       noScroll: true,
       keepFocus: true

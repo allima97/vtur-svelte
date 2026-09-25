@@ -291,3 +291,8 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 - Tabela `push_subscriptions` não existe no banco (`push/subscribe` e `push/unsubscribe`).
 - Auditoria em `logs` só cobre Vendas. Faltam login, Clientes, Cadastros, Parâmetros, Escalas, Admin e perfil.
 - `importar-vendas` responde 410 (descontinuado) desde antes da migração.
+
+### Dashboard lento ao trocar de mês (25/09)
+- Causa: `syncUrl()` do `UnifiedDashboard.svelte` fazia `goto('/dashboard/geral?...')` fixo. Vendedor fica em `/dashboard/vendedor` (ou `/`), então cada troca de mês mudava de rota: o SvelteKit desmontava o dashboard, montava outro e o `onMount` refazia tudo (loadBase + summary + operacional + assinatura), além do `atualizar()` já disparado. Resultado: requisições em dobro, tela "piscando" e título trocando para "Dashboard geral".
+- Correção: `goto(\`${window.location.pathname}?...\`)` mantém a rota atual. Mesma regra, mesmos parâmetros de URL. `svelte-check` 0/0.
+- Pendente usuário: commit/push/`cf:deploy`.
