@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Dropdown as FlowbiteDropdown } from 'flowbite-svelte';
+  import { Dropdown as FlowbiteDropdown } from './flowbite-legacy';
 
   export let triggeredBy: string;
   export let open = false;

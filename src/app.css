@@ -20,7 +20,10 @@ layer(base);
    utilitários próprios e o resto) mantêm exatamente a mesma precedência de antes. */
 @import 'tailwindcss/preflight.css';
 
-@source '../node_modules/flowbite-svelte/**/*.{html,js,svelte,ts}';
+/* Fase 4.2: os componentes do Flowbite 0.48 usados pelo sistema estão copiados em
+   src/lib/components/ui/flowbite-legacy (lidos pelo Tailwind junto com o src). A lista abaixo
+   guarda as classes que antes vinham da leitura do pacote 0.48 inteiro, para o CSS continuar igual. */
+@source './lib/components/ui/flowbite-legacy/tailwind-classes-0.48.txt';
 
 @custom-variant dark (&:is(.dark *));
 

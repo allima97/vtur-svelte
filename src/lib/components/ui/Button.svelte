@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button as FlowbiteButton } from 'flowbite-svelte';
+  import { Button as FlowbiteButton } from './flowbite-legacy';
   import { sanitizeHref } from '$lib/security/url';
 
   type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'unstyled' | 'selected';

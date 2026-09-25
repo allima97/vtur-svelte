@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Tooltip as FlowbiteTooltip } from 'flowbite-svelte';
+  import { Tooltip as FlowbiteTooltip } from './flowbite-legacy';
 
   export let triggeredBy: string;
   export let placement: 'top' | 'bottom' | 'left' | 'right' = 'top';

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Helper, Toggle } from 'flowbite-svelte';
+  import { Helper, Toggle } from '../flowbite-legacy';
   import { uniqueFieldId } from './fieldId';
 
   type FieldToggleBaseColor = 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'teal' | 'orange';

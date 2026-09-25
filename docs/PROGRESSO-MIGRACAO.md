@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 08:45._
+_Última atualização: 25/09/2026, 18:10._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -434,7 +434,7 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 
 ## Fase 4: design system (Tailwind 4 + Flowbite)
 
-### 4.1 (25/09, 15:50): Tailwind 3.4 → 4.3, com o mesmo visual. Gravado no Mac, falta o commit
+### 4.1 (25/09, 15:50): Tailwind 3.4 → 4.3, com o mesmo visual. Com commit
 - **O que mudou:**
   - `@tailwindcss/vite` no `vite.config.ts`. O PostCSS ficou sem plugins e o `tailwind.config.js` foi removido.
   - O tema foi para o `@theme` do `app.css`: cores, fonte, sombras e raios do antigo config.
@@ -473,3 +473,22 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 - **Verificação:** 693 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK, e `vite dev` sobe. Mac e nuvem estão idênticos, ignorando CRLF.
 - **Arquivos temporários:** `tmp/container-src*.md5` e `tmp/audit_patch.py` (entraram no commit "fase10") foram apagados.
 - **Próximo (4.2):** Flowbite-Svelte 0.48 → 1.x. A 1.x exige Tailwind 4, que já está no lugar, e o `Modal`/`Dropdown` mudaram de API. A troca fica isolada nos wrappers de `lib/components/ui/`.
+
+### 4.2 (25/09, 18:10): Flowbite-Svelte 0.48 → 1.33, com o mesmo visual e o mesmo comportamento. Gravado no Mac, falta o commit
+- **O que o 1.x muda (medido renderizando os wrappers de `ui/` nas duas versões, 142 casos):**
+  - Select e Textarea ganham uma `div` em volta, e a classe `vtur-input` sai do campo;
+  - Checkbox, Radio e Toggle mudam classes, cores (blue-700 no lugar de blue-600) e espaçamento;
+  - Badge ganha fundo cinza nas cores que eram sem fundo (gray, dark, teal, operação); Alert muda as cores;
+  - Button não repassa mais `on:click`, e teal/orange/purple mudam;
+  - Modal passa a usar `<dialog>` nativo, e Dropdown e Tooltip passam a usar a Popover API (outro jeito de abrir, fechar, focar e rolar).
+- **Decisão:** os componentes do 0.48 que o sistema usa foram copiados **sem alteração** para `src/lib/components/ui/flowbite-legacy/` (licença MIT, com `README.md` explicando). Só mudam os caminhos de import e um `// @ts-nocheck` no topo. Os wrappers de `ui/` trocaram só a linha do import (`'flowbite-svelte'` → `'./flowbite-legacy'`). Do pacote 1.x o sistema usa a tabela (`SimpleTable` → `flowbite-svelte/Table.svelte`, import direto para não puxar o pacote inteiro).
+- **CSS idêntico, byte a byte:** antes o Tailwind lia o pacote 0.48 inteiro (`@source`), inclusive componentes que não usamos. As classes que vinham só de lá ficaram em `flowbite-legacy/tailwind-classes-0.48.txt`, lido pelo `app.css`. Resultado: os 7 arquivos `.css` do build são iguais aos de antes (mesmo hash).
+- **Dependências:** `flowbite-svelte` ^1.33.1; `tailwind-merge` e `@floating-ui/dom` viraram dependências diretas (as cópias do 0.48 usam).
+- **Como foi provado:**
+  - os 142 casos dos wrappers renderizam o mesmo HTML (só a tabela muda um comentário de hidratação);
+  - as 143 telas e layouts renderizadas no servidor: iguais, exceto um espaço em branco entre `<div>` e `<table>` na tela `admin/fix-recibos`, sem efeito visual;
+  - CSS do build idêntico;
+  - teste novo em `src/lib/testing/guards.test.ts`: nenhum `.svelte` importa `flowbite-svelte` pelo índice (fora a tabela).
+- **Verificação:** 694 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
+- **No Mac:** rodar `npm install` (o `package-lock.json` já vem atualizado), depois `npm test` e `npm run build`.
+- **Próximo (4.3, precisa de aprovação):** trocar os ícones Lucide por `flowbite-svelte-icons` (cerca de 150 arquivos).

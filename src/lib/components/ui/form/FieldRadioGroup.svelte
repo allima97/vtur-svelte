@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Helper, Label, Radio } from 'flowbite-svelte';
+  import { Helper, Label, Radio } from '../flowbite-legacy';
   import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;

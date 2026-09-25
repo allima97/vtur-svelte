@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Alert } from 'flowbite-svelte';
+  import { Alert } from './flowbite-legacy';
   import type { Component } from 'svelte';
   import Button from './Button.svelte';
   import { InfoCircleSolid, CheckCircleSolid, ExclamationCircleSolid, CloseCircleSolid } from 'flowbite-svelte-icons';

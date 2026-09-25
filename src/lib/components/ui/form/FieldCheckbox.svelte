@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Checkbox, Helper } from 'flowbite-svelte';
+  import { Checkbox, Helper } from '../flowbite-legacy';
   import { uniqueFieldId } from './fieldId';
 
   type FieldCheckboxBaseColor = 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'teal' | 'orange';

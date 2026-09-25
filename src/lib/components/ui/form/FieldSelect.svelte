@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Label, Select, Helper } from 'flowbite-svelte';
+  import { Label, Select, Helper } from '../flowbite-legacy';
   import { buildVturInputClasses } from '../inputContract';
   import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { uniqueFieldId } from './fieldId';

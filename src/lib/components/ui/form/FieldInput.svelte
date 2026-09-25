@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Input, Label, Helper } from 'flowbite-svelte';
+  import { Input, Label, Helper } from '../flowbite-legacy';
   import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import type { HTMLInputAttributes } from 'svelte/elements';
   import Button from '../Button.svelte';

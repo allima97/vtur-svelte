@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Helper, Label, Textarea } from 'flowbite-svelte';
+  import { Helper, Label, Textarea } from '../flowbite-legacy';
   import { buildVturInputClasses } from '../inputContract';
   import { uniqueFieldId } from './fieldId';
 

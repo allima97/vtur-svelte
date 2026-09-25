@@ -1,5 +1,5 @@
 /**
- * Guardas estáticas contra dois defeitos já encontrados (25/09/2026).
+ * Guardas estáticas contra defeitos já encontrados (25/09/2026).
  * Leem os arquivos .svelte e falham se o padrão problemático voltar.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -46,6 +46,18 @@ describe('guardas', () => {
     const achados = files
       .filter(({ text }) => /goto\([^)]*\{[^}]*replaceState:\s*true/s.test(text))
       .map(({ path }) => path);
+    expect(achados).toEqual([]);
+  });
+
+  it('componentes visuais do Flowbite vêm da cópia 0.48 (flowbite-legacy), não do pacote 1.x', () => {
+    // Fase 4.2: no flowbite-svelte 1.x os campos, selos, alertas, menus e a janela modal mudaram
+    // de aparência e de comportamento. O pacote 1.x só entra por import direto de arquivo
+    // (hoje só a tabela); o import pelo índice ('flowbite-svelte') traria o pacote inteiro.
+    const permitidos = new Set(['src/lib/components/ui/SimpleTable.svelte']);
+    const achados = files
+      .filter(({ text }) => /from\s+['"]flowbite-svelte(\/[^'"]*)?['"]/.test(text))
+      .map(({ path }) => path)
+      .filter((path) => !permitidos.has(path));
     expect(achados).toEqual([]);
   });
 });

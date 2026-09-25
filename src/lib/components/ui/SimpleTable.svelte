@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Table } from 'flowbite-svelte';
+  import Table from 'flowbite-svelte/Table.svelte';
 
   export let title: string | null = null;
   export let header: string | null = null;
