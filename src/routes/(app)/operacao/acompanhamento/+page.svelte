@@ -233,7 +233,9 @@
     { total: 0, atrasados: 0, semTexto: 0, fechados: 0 }
   );
 
-  $: autoReloadKey = buildAutoReloadKey();
+  // O $: do modo legado só reage às variáveis escritas nesta linha (não enxerga dentro de
+  // buildAutoReloadKey()). Por isso a mesma expressão da função fica aqui, idêntica.
+  $: autoReloadKey = [inicio, fim, statusFilter].join('|');
 
   $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
     lastAutoReloadKey = autoReloadKey;

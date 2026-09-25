@@ -450,7 +450,9 @@
     { value: 'paga', label: 'Pagas' },
     { value: 'cancelada', label: 'Canceladas' }
   ];
-  $: autoReloadKey = buildAutoReloadKey();
+  // O $: do modo legado só reage às variáveis escritas nesta linha (não enxerga dentro de
+  // buildAutoReloadKey()). Por isso a mesma expressão da função fica aqui, idêntica.
+  $: autoReloadKey = [empresaId, filtroMes, filtroAno, filtroStatus, filtroVendedor].join('|');
   $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
     lastAutoReloadKey = autoReloadKey;
     scheduleAutoReload();

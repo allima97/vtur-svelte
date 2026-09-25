@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 08:30._
+_Última atualização: 25/09/2026, 08:45._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -15,6 +15,7 @@ _Última atualização: 25/09/2026, 08:30._
 - **Correção do dashboard em meses anteriores (25/09):** com commit ("dashboard"). Ver a seção "Dashboard: meses anteriores" abaixo.
 - **Fase 3.5, 1ª rodada:** com commit ("correções_dashboard").
 - **Fase 3.5, 2ª rodada (abas e janelas da conciliação e do roteiro):** gravada no Mac, sem commit. Ver a seção 3.5.
+- **Correção: telas travadas no mês atual (25/09, 08:45):** gravada no Mac, sem commit. Ver a seção "Filtros que não recarregavam" abaixo.
 - **Fase 3.4:** com commit ("consultas"). Resumo:
   - o `wrangler.toml` roda o Worker ao lado do banco (`[placement] region = "aws:us-west-2"`);
   - o detalhe da viagem busca os dados em paralelo.
@@ -253,6 +254,29 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 | `orcamentos/roteiros/[id]` | 2764 | 1550 |
 | `operacao/vouchers/novo` | 1605 | 1442 |
 | `vendas/[id]/editar` | 1388 | 1065 |
+
+**Filtros que não recarregavam e dashboard de julho (25/09).**
+- **Sintoma:** em Relatórios de vendas, escolher fevereiro continuava mostrando setembro, tanto nos KPIs quanto na lista.
+  - Nos logs do banco, o relatório só pediu setembro (`data_venda` entre 2026-09-01 e 2026-09-25): a busca de fevereiro nunca saiu da tela.
+  - O endereço só é atualizado quando a busca termina com sucesso, e por isso continuava mostrando setembro.
+- **Causa (provada com teste no jsdom):** no modo legado do Svelte, `$: autoReloadKey = buildAutoReloadKey();` só reage às variáveis escritas **na própria linha**, e não às que estão dentro da função. Trocar o mês não mudava a chave, então a recarga nunca era agendada.
+  - No teste, depois de mudar o mês para 2026-02, a chave feita pela função continuou `mes|2026-09`, enquanto a escrita direto na linha virou `mes|2026-02`.
+- **Correção:** a linha `$:` passou a ter a **mesma expressão** do `return` da função, copiada literalmente por script, então a chave sai idêntica. Foram 14 linhas em 13 telas:
+  - `autoReloadKey` (11 telas): relatórios de vendas, produtos, destinos e clientes; cadastros de estados e cidades; follow-up (`operacao/acompanhamento`); fechamento de comissões; cálculo de comissões; ajustes de vendas; logs.
+  - `clienteSelecionado` em `vendas/nova` e `vendas/[id]/editar`: as informações do cliente mostradas abaixo do campo não acompanhavam a troca de cliente. Afetava só a exibição.
+  - `subdivisoesKey` em `cadastros/cidades`: a busca de subdivisões não recarregava.
+  - `relatorios/ranking` (`diasRestantesNoMes`) depende só da data de hoje e ficou como está.
+- **Dashboard de julho:** julho estava `ready` com **0 linhas** (montado em 01/07), então o dashboard mostrava julho vazio.
+  - `isStatusReady` (`reciboContribuicoesReadModel.ts`) agora trata como **não pronto** um mês já encerrado que foi montado antes de terminar. Na próxima abertura ele é refeito uma vez, e com isso o `rebuilt_at` fica depois do fim do mês e o mês volta a valer.
+  - Foi aplicada a mesma regra da rodada noturna. Teste: `readModelStatusReady.test.ts` (4 casos, incluindo o limite de meia-noite em Brasília).
+- **Situação no banco às 08:30 (leitura):**
+  - fevereiro a maio **refeitos às 07:45**, depois do deploy, já com a correção do `recibo_id`;
+  - os tempos do PostgREST caíram para 20 a 70 ms, o que confirma que o placement em us-west-2 está ativo.
+- **A cópia da nuvem estava desatualizada em `vendas/nova`:** o arquivo foi mudado no Mac e passou a usar `$lib/features/vendas/form`. A correção desse arquivo foi aplicada **direto no Mac**. Depois disso, a pasta `src` inteira ficou idêntica entre a nuvem e o Mac (conferido por hash).
+- **Verificação:** 657 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
+- **Achados, não corrigidos:**
+  - A RPC `check_security_rate_limit` **não existe** no banco e responde 404. O limite de tentativas cai para o contador em memória, que ainda protege, mas separado por instância do Worker.
+  - A tabela `companies` **não tem** a coluna `logo_url`, que é lida em `crm/library.ts`, `clientes/templates-send.ts` e `parametros/empresa.ts` e responde 400. É preciso conferir no vtur-app de onde vem o logo.
 
 **Plano (próximas etapas):**
 - ~~3.2 Kit `ui`~~ (feito). Pendentes do kit, para depois:

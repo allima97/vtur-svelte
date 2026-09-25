@@ -707,7 +707,9 @@
     }
   }
 
-  $: clienteSelecionado = getClienteSelecionado();
+  // O $: do modo legado só reage às variáveis escritas nesta linha (não enxerga dentro de
+  // getClienteSelecionado()). Por isso a mesma expressão da função fica aqui, idêntica.
+  $: clienteSelecionado = clientes.find((item) => item.id === venda.cliente_id) || null;
   $: if (venda.destino_cidade_id) {
     ensureCidadeLoaded(venda.destino_cidade_id);
   }

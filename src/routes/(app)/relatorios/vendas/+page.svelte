@@ -694,7 +694,20 @@
     if (dataFim !== range.end) dataFim = range.end;
   }
 
-  $: autoReloadKey = buildAutoReloadKey();
+  // O $: do modo legado só reage às variáveis escritas nesta linha (não enxerga dentro de
+  // buildAutoReloadKey()). Por isso a mesma expressão da função fica aqui, idêntica.
+  $: autoReloadKey = [
+    filtroPeriodoModo,
+    mesSelecionado,
+    dataInicio,
+    dataFim,
+    empresaSelecionada,
+    vendedorSelecionado,
+    clienteIdFiltro,
+    destinoFiltro,
+    produtoFiltro,
+    tipoProdutoFiltro
+    ].join('|');
 
   $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
     lastAutoReloadKey = autoReloadKey;

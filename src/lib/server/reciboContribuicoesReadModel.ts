@@ -559,10 +559,23 @@ function normalizeComprasResumoRow(row?: ComprasResumoRpcRow | null): ReadModelC
   };
 }
 
-function isStatusReady(row?: StatusRow | null) {
+/** Instante em que o mês termina em Brasília (dia 1 do mês seguinte, 00:00 -03:00). */
+function monthEndInstantBrazil(monthStart: string): number {
+  const [year, month] = String(monthStart).slice(0, 10).split("-").map(Number);
+  return Date.UTC(year, month, 1, 3, 0, 0);
+}
+
+export function isStatusReady(row?: StatusRow | null, nowMs: number = Date.now()) {
   if (!row || row.status !== "ready" || !row.rebuilt_at) return false;
+  const rebuiltAtMs = new Date(row.rebuilt_at).getTime();
+  // Mês já encerrado, mas montado ANTES de terminar (ex.: julho montado em 01/07,
+  // ainda vazio): não conta como pronto, para ser refeito uma vez. Depois disso o
+  // rebuilt_at fica posterior ao fim do mês e volta a valer. A rodada noturna usa a
+  // mesma regra (selectNightlyDirtyMonths em readModelRebuild.ts).
+  const monthEnd = monthEndInstantBrazil(row.mes);
+  if (nowMs >= monthEnd && rebuiltAtMs < monthEnd) return false;
   if (!row.dirty_at) return true;
-  return new Date(row.rebuilt_at).getTime() >= new Date(row.dirty_at).getTime();
+  return rebuiltAtMs >= new Date(row.dirty_at).getTime();
 }
 
 async function fetchStatusRows(

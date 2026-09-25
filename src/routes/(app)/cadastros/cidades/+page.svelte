@@ -209,13 +209,17 @@
     subdivisoesAutoReload.schedule();
   }
 
-  $: autoReloadKey = buildAutoReloadKey();
+  // O $: do modo legado só reage às variáveis escritas nesta linha (não enxerga dentro de
+  // buildAutoReloadKey()). Por isso a mesma expressão da função fica aqui, idêntica.
+  $: autoReloadKey = [busca.trim(), filtroSubdivisao].join('|');
   $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
     lastAutoReloadKey = autoReloadKey;
     scheduleAutoReload();
   }
 
-  $: subdivisoesKey = buildSubdivisoesKey();
+  // O $: do modo legado só reage às variáveis escritas nesta linha (não enxerga dentro de
+  // buildSubdivisoesKey()). Por isso a mesma expressão da função fica aqui, idêntica.
+  $: subdivisoesKey = buscaSubdivisao.trim();
   $: if (autoReloadEnabled && subdivisoesKey !== lastSubdivisoesKey) {
     lastSubdivisoesKey = subdivisoesKey;
     scheduleSubdivisoesReload();

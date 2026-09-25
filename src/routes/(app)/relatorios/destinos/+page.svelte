@@ -345,7 +345,18 @@
   $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) empresaSelecionada = '';
   $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) vendedorSelecionado = '';
 
-  $: autoReloadKey = buildAutoReloadKey();
+  // O $: do modo legado só reage às variáveis escritas nesta linha (não enxerga dentro de
+  // buildAutoReloadKey()). Por isso a mesma expressão da função fica aqui, idêntica.
+  $: autoReloadKey = [
+    filtroPeriodoModo,
+    mesSelecionado,
+    dataInicio,
+    dataFim,
+    empresaSelecionada,
+    vendedorSelecionado,
+    ordenacao,
+    recorte
+    ].join('|');
 
   $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
     lastAutoReloadKey = autoReloadKey;
