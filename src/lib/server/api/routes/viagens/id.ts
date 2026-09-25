@@ -257,111 +257,119 @@ export async function handleViagensIdGet(event: RequestEvent) {
       }
     }
 
-    const statusAtual = await syncViagemStatusIfNeeded(client, viagem as ViagemAccessRow);
-    const viagemComStatus = { ...viagem, status: statusAtual };
-
-    let cliente = null;
-    if (viagemComStatus.cliente_id) {
+    // Fase 3.4: as leituras abaixo não dependem umas das outras (só dos ids da
+    // viagem), então rodam em paralelo. Mesmas consultas e mesmo resultado da
+    // versão em fila — ver id.contract.test.ts.
+    const loadCliente = async () => {
+      if (!viagem.cliente_id) return null;
       const { data: clienteData } = await client
         .from("clientes")
         .select("id, nome, email, telefone, whatsapp")
-        .eq("id", viagemComStatus.cliente_id)
+        .eq("id", viagem.cliente_id)
         .single();
-      cliente = clienteData;
-    }
+      return clienteData;
+    };
 
-    let venda = null;
-    if (viagemComStatus.venda_id) {
+    const loadVenda = async () => {
+      if (!viagem.venda_id) return null;
       const { data: vendaData } = await client
         .from("vendas")
         .select("id, valor_total, valor_total_pago, status, data_venda")
-        .eq("id", viagemComStatus.venda_id)
+        .eq("id", viagem.venda_id)
         .single();
 
-      if (vendaData) {
-        venda = { ...vendaData } as ViagemVendaResumo;
+      if (!vendaData) return null;
+      const venda = { ...vendaData } as ViagemVendaResumo;
 
-        const { data: recibosData } = await client
-          .from("vendas_recibos")
-          .select(
-            `
-            id,
-            produto_id,
-            produto_resolvido_id,
-            numero_recibo,
-            numero_reserva,
-            tipo_pacote,
-            valor_total,
-            valor_taxas,
-            data_inicio,
-            data_fim,
-            contrato_url
-          `,
-          )
-          .eq("venda_id", viagemComStatus.venda_id);
+      const { data: recibosData } = await client
+        .from("vendas_recibos")
+        .select(
+          `
+          id,
+          produto_id,
+          produto_resolvido_id,
+          numero_recibo,
+          numero_reserva,
+          tipo_pacote,
+          valor_total,
+          valor_taxas,
+          data_inicio,
+          data_fim,
+          contrato_url
+        `,
+        )
+        .eq("venda_id", viagem.venda_id);
 
-        const produtoIds = [
-          ...new Set(
-            (recibosData || [])
-              .map((r) => r.produto_id || r.produto_resolvido_id)
-              .filter(Boolean),
-          ),
-        ];
+      const produtoIds = [
+        ...new Set(
+          (recibosData || [])
+            .map((r) => r.produto_id || r.produto_resolvido_id)
+            .filter(Boolean),
+        ),
+      ];
 
-        const produtosMap = new Map<string, string>();
-        if (produtoIds.length > 0) {
-          const { data: produtosData } = await client
-            .from("produtos")
-            .select("id, nome")
-            .in("id", produtoIds);
-          for (const p of produtosData || []) {
-            produtosMap.set(p.id, p.nome);
-          }
+      const produtosMap = new Map<string, string>();
+      if (produtoIds.length > 0) {
+        const { data: produtosData } = await client
+          .from("produtos")
+          .select("id, nome")
+          .in("id", produtoIds);
+        for (const p of produtosData || []) {
+          produtosMap.set(p.id, p.nome);
         }
-
-        venda.recibos = (recibosData || []).map((r) => ({
-          ...r,
-          produto_nome:
-            produtosMap.get(r.produto_id || r.produto_resolvido_id) ||
-            "Produto",
-        }));
       }
-    }
 
-    let recibo = null;
-    if (viagemComStatus.recibo_id) {
+      venda.recibos = (recibosData || []).map((r) => ({
+        ...r,
+        produto_nome:
+          produtosMap.get(r.produto_id || r.produto_resolvido_id) ||
+          "Produto",
+      }));
+      return venda;
+    };
+
+    const loadRecibo = async () => {
+      if (!viagem.recibo_id) return null;
       const { data: reciboData } = await client
         .from("vendas_recibos")
         .select(
           "id, numero_recibo, numero_reserva, valor_total, data_inicio, data_fim",
         )
-        .eq("id", viagemComStatus.recibo_id)
+        .eq("id", viagem.recibo_id)
         .single();
-      recibo = reciboData;
-    }
+      return reciboData;
+    };
 
-    // Vouchers vinculados especificamente a esta viagem (via vouchers.viagem_id).
-    // Antes o filtro era só por company_id, o que trazia até 20 vouchers de
-    // qualquer viagem da empresa — sem relação nenhuma com a viagem aberta.
-    const { data: vouchers } = await client
-      .from("vouchers")
-      .select(
-        "id, nome, provider, codigo_systur, codigo_fornecedor, data_inicio, data_fim, ativo",
-      )
-      .eq("viagem_id", id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    const { data: passageiros } = await client
-      .from("viagem_passageiros")
-      .select(
-        `
-        id, viagem_id, cliente_id, papel, observacoes, created_at,
-        cliente:clientes!cliente_id(id, nome, cpf, telefone, data_nascimento:nascimento)
-      `,
-      )
-      .eq("viagem_id", id)
-      .order("created_at", { ascending: true });
+    const [statusAtual, cliente, venda, recibo, vouchersResult, passageirosResult] = await Promise.all([
+      syncViagemStatusIfNeeded(client, viagem as ViagemAccessRow),
+      loadCliente(),
+      loadVenda(),
+      loadRecibo(),
+      // Vouchers vinculados especificamente a esta viagem (via vouchers.viagem_id).
+      // Antes o filtro era só por company_id, o que trazia até 20 vouchers de
+      // qualquer viagem da empresa — sem relação nenhuma com a viagem aberta.
+      client
+        .from("vouchers")
+        .select(
+          "id, nome, provider, codigo_systur, codigo_fornecedor, data_inicio, data_fim, ativo",
+        )
+        .eq("viagem_id", id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      client
+        .from("viagem_passageiros")
+        .select(
+          `
+          id, viagem_id, cliente_id, papel, observacoes, created_at,
+          cliente:clientes!cliente_id(id, nome, cpf, telefone, data_nascimento:nascimento)
+        `,
+        )
+        .eq("viagem_id", id)
+        .order("created_at", { ascending: true }),
+    ]);
+    const viagemComStatus = { ...viagem, status: statusAtual };
+    const vouchers = vouchersResult.data;
+    const passageiros = passageirosResult.data;
 
     return json({
       viagem: {

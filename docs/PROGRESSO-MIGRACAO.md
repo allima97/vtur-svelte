@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 24/09/2026, 23:59. Trabalho feito no Mac (`~/Documents/GitHub/vturapp`)._
+_Última atualização: 25/09/2026, 00:15. Trabalho feito no Mac (`~/Documents/GitHub/vturapp`)._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -11,11 +11,20 @@ _Última atualização: 24/09/2026, 23:59. Trabalho feito no Mac (`~/Documents/G
 - **Decisão do usuário (24/09/2026):** as rotas de login e autenticação em `src/routes/api/auth` (login, convite, set-session, turnstile e passkeys) **não serão migradas**. Elas continuam no SvelteKit, sem alteração.
 - **Fase 3.1:** com commit ("fase7"). O "Dados atualizados há X" do dashboard funciona, e o `svelte-check` está sem erros.
 - **Fase 3.2:** com commit ("telas_botoes").
-- **Fase 3.3 gravada no Mac, sem commit:** navegação e acessibilidade no layout: menu lateral, menu do celular, breadcrumbs e títulos.
-- **Próximo passo:** Fase 3.4, velocidade das APIs.
+- **Fase 3.3:** com commit ("breacrumbs").
+- **Fase 3.4 gravada no Mac, sem commit:**
+  - o `wrangler.toml` roda o Worker ao lado do banco (`[placement] region = "aws:us-west-2"`);
+  - o detalhe da viagem busca os dados em paralelo.
+- **Próximo passo:**
+  - publicar a 3.4 e medir o resultado;
+  - depois, Fase 3.5 (dividir telas gigantes).
 
 ## Pendências do usuário
-1. No Mac: `npm test` (623 testes), depois commit/push da Fase 3.3.
+1. No Mac: `npm test` (629 testes), depois commit/push da Fase 3.4.
+2. Publicar com `npm run cf:deploy`. Depois, conferir no DevTools (aba Rede, qualquer chamada `/api/v1/...`):
+   - o header `cf-placement` deve mostrar algo como `remote-PDX` ou `remote-SEA`;
+   - o `server-timing` deve cair.
+   Para desfazer: remover o bloco `[placement]` e publicar de novo.
 2. Em produção, conferir:
    - Lote 3: cadastros de cidades, países, subdivisões, tipos de produto e circuitos; consultorias (inclusive o .ics); convites (enviar e aceitar); CRM (biblioteca e assinatura); perfil e assinatura; menu; CEP; equipe; QR; vouchers (assets); e-mail de boas-vindas; aniversariantes.
    - As 3 rotas profundas: permissões por tipo de usuário, regra de comissão por id e acompanhante de cliente.
@@ -38,8 +47,9 @@ _Última atualização: 24/09/2026, 23:59. Trabalho feito no Mac (`~/Documents/G
 | 2.7: `api/auth` | 🚫 não migrar (decisão do usuário) | Login, convite, sessão, turnstile e passkeys continuam no SvelteKit. |
 | 3.1: indicação de atualização + `svelte-check` sem erros | ✅ commit | Ver seção Fase 3. |
 | 3.2: acessibilidade do kit `ui` | ✅ commit | Ver seção Fase 3. |
-| 3.3: navegação (menu, trilha, títulos) | ⏳ sem commit | Ver seção Fase 3. |
-| 3.4 e 3.5 | ⬜ | Ver plano abaixo. |
+| 3.3: navegação (menu, trilha, títulos) | ✅ commit | Ver seção Fase 3. |
+| 3.4: velocidade (placement + viagem em paralelo) | ⏳ sem commit | Ver seção Fase 3. |
+| 3.5: telas gigantes | ⬜ | Ver plano abaixo. |
 
 ## API no Hono
 Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os routers em `src/lib/server/api/routes/<dominio>/index.ts` e o registro em `src/lib/server/api/app.ts`.
@@ -122,13 +132,40 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - Atalhos globais de teclado ficaram de fora de propósito, para não conflitar com a digitação nos formulários.
   - A cópia de build da nuvem estava sem 8 arquivos de rotas profundas (os editar de cadastros e as passkeys). Foi completada, e agora é idêntica ao Mac.
 
+**3.4 (feito): diagnóstico medido, sem mudar o banco (só consultas de leitura).**
+- **As estatísticas do Postgres enganam.** O `pg_stat_statements` conta desde 12/2025. A lista de cidades aparecia com 1,3 s de média, mas era do tempo em que a tabela tinha cerca de 160 mil linhas. Medida hoje (`EXPLAIN ANALYZE`, como usuário `authenticated`), leva **3 ms**. A RLS não pesa.
+- **Logs dos últimos dias (tempo de resposta do PostgREST):** até consultas triviais levam cerca de **200 a 500 ms**. Exemplo: `quote`, com média de 210 ms.
+- **Causa:** o banco fica em **us-west-2 (Oregon)** e o Worker roda perto do usuário, em São Paulo (`colo GRU`). Cada consulta atravessa o continente. Toda API também chama o Supabase Auth (`getUser`), que fica na mesma região.
+- **Correção 1 (`wrangler.toml`):** `[placement] region = "aws:us-west-2"`.
+  - O Worker passa a rodar ao lado do banco. O usuário paga uma ida até Oregon por requisição, e as consultas ficam em poucos ms.
+  - Os arquivos estáticos continuam saindo do ponto mais próximo do usuário.
+  - O wrangler 4.87 aceita a opção, e o `wrangler deploy --dry-run` passou.
+  - Estimativa para uma API com 5 idas ao banco: de ~1 s para ~250 ms.
+  - Documentação: https://developers.cloudflare.com/workers/configuration/placement/
+- **Correção 2 (`viagens/id.ts`, GET):**
+  - Antes, depois do controle de acesso, todas as leituras rodavam em fila: status, cliente, venda → recibos → produtos, recibo, vouchers e passageiros.
+  - Agora essas leituras rodam em paralelo, e o caminho mais longo fica em 3 idas.
+  - O controle de acesso ficou **igual**, de propósito.
+  - **Prova:** `id.contract.test.ts`, com o banco falso `$lib/server/testing/fakeSupabase.ts`. São 5 cenários (admin completo, vendedor com acesso pela venda, vendedor sem acesso → 403, 404, e viagem sem venda nem cliente).
+  - Os snapshots foram gerados com o código **antigo** e passam iguais com o novo: mesmo status, mesmo corpo e o mesmo conjunto de consultas.
+  - Um teste extra confirma 1 consulta aberta por vez antes e 6 ao mesmo tempo agora.
+- **Verificado e não precisa mexer:** estes já buscam em paralelo e com cache:
+  - detalhe de venda, orçamento e voucher;
+  - base do cadastro de venda;
+  - listas de viagens e orçamentos;
+  - resumo admin;
+  - `user/context`.
+  O front também guarda os GETs por 15 s, e o servidor manda `private, max-age=30`.
+- **Opcional (banco, precisa da sua aprovação):** a tabela `cidades` tem 102 kB de dados em 17 MB de disco, mais 22 MB de índices, sobra das cerca de 160 mil cidades antigas. Um `VACUUM FULL public.cidades` recuperaria esse espaço. O ganho hoje é pequeno (poucos ms), por isso não fiz.
+- **Verificação:** 629 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
+
 **Plano (próximas etapas):**
 - ~~3.2 Kit `ui`~~ (feito). Pendentes do kit, para depois:
   - o `Dialog` (Flowbite `Modal`) não liga o título ao `role="dialog"`, porque o Flowbite não repassa atributos para esse elemento;
   - contraste no modo escuro;
   - padronizar os estados de carregando, vazio e erro.
 - ~~3.3 Navegação~~ (feito, ver acima).
-- **3.4 Velocidade:** com o header `server-timing`, medir a API de cada tela e atacar as mais lentas (cache, chamadas em paralelo), sem mudar os resultados. Prova com testes de contrato.
+- ~~3.4 Velocidade~~ (feito, ver acima). Plano original: com o header `server-timing`, medir a API de cada tela e atacar as mais lentas (cache, chamadas em paralelo), sem mudar os resultados. Prova com testes de contrato.
 - **3.5 Telas gigantes:** dividir em componentes, sem mudar o comportamento. As maiores são `financeiro/conciliacao` (3113 linhas), `orcamentos/roteiros/[id]` (2764), `operacao/vouchers/novo` (1605) e `vendas/[id]/editar` (1388).
 
 ## Problemas conhecidos (não corrigidos, fora do escopo atual)

@@ -13,6 +13,15 @@ compatibility_date = "2026-04-19"
 #
 # Nao fixe credenciais/projetos de producao neste arquivo.
 
+# Fase 3.4 (velocidade): o banco (Supabase) fica em us-west-2 (Oregon). Sem esta
+# opção o Worker roda perto do usuário (São Paulo) e CADA consulta ao banco
+# atravessa o continente (~200 ms). Com ela, o Worker roda ao lado do banco:
+# o usuário paga uma ida até lá por requisição e as consultas ficam em poucos ms.
+# Arquivos estáticos (assets) continuam saindo do ponto mais próximo do usuário.
+# Para desfazer: remova este bloco e publique de novo.
+[placement]
+region = "aws:us-west-2"
+
 [assets]
 directory = ".svelte-kit/cloudflare"
 binding = "ASSETS"
