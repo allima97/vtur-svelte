@@ -13,16 +13,6 @@ export { normalizeConciliacaoStatus, resolveConciliacaoStatus, isConciliacaoEfet
 // HELPERS LOCAIS (não fazem parte do business.ts mas são usados aqui)
 // ---------------------------------------------------------------------------
 
-const DEFAULT_NAO_COMISSIONAVEIS = [
-  'credito diversos',
-  'credito pax',
-  'credito passageiro',
-  'credito de viagem',
-  'credipax',
-  'vale viagem',
-  'carta de credito',
-  'credito'
-];
 
 type LegacyConciliacaoRow = {
   id?: string | null;
@@ -75,13 +65,8 @@ export function normalizeTerm(value?: string | null) {
     .trim();
 }
 
-export function isFormaNaoComissionavel(nome?: string | null, termos?: string[]) {
-  const normalized = normalizeTerm(nome);
-  if (!normalized) return false;
-  if (normalized.includes('cartao') && normalized.includes('credito')) return false;
-  const lista = termos && termos.length ? termos : DEFAULT_NAO_COMISSIONAVEIS;
-  return lista.some((termo) => termo && normalized.includes(termo));
-}
+// Regra única em $lib/naoComissionavel (Fase 2.3); re-export mantém os importadores atuais.
+export { isFormaNaoComissionavelOuPadrao as isFormaNaoComissionavel } from '$lib/naoComissionavel';
 
 // ---------------------------------------------------------------------------
 // DEDUPLICAÇÃO

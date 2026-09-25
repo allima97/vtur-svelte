@@ -18,20 +18,12 @@ import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { isSaleInScope } from '$lib/server/salesScope';
 import { safeJsonParse } from '$lib/utils/json';
-import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
+import { chunkArray } from '$lib/utils/array';
+import { isFormaNaoComissionavelOuPadrao } from '$lib/naoComissionavel';
+import { carregarTermosNaoComissionaveis } from '$lib/server/naoComissionavelTermos';
 
 const MAX_VENDA_MERGE_BODY_BYTES = 64 * 1024;
 
-const DEFAULT_NAO_COMISSIONAVEIS = [
-  'credito diversos',
-  'credito pax',
-  'credito passageiro',
-  'credito de viagem',
-  'credipax',
-  'vale viagem',
-  'carta de credito',
-  'credito'
-];
 
 type PagamentoParcelaRow = {
   valor?: number | string | null;
@@ -70,19 +62,7 @@ type SaleMergeRow = {
   company_id?: string | null;
 };
 
-type ParametroNaoComissionavelRow = {
-  termo?: string | null;
-  termo_normalizado?: string | null;
-};
 
-function normalizeText(value?: string | null) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
-}
 
 function normalizeMoneyKey(value: number | string | null | undefined) {
   const parsed = Number(value || 0);
@@ -159,32 +139,7 @@ function calcularTotalPagamentos(pagamentos: PagamentoMergeRow[]) {
   return pagamentos.reduce((acc, pagamento) => acc + calcularValorPagamento(pagamento), 0);
 }
 
-async function carregarTermosNaoComissionaveis(client: ReturnType<typeof getAdminClient>): Promise<string[]> {
-  try {
-    const { data, error } = await client
-      .from('parametros_pagamentos_nao_comissionaveis')
-      .select('termo, termo_normalizado, ativo')
-      .eq('ativo', true)
-      .order('termo', { ascending: true });
-    if (error) throw error;
 
-    const termos = (data || [])
-      .map((row: ParametroNaoComissionavelRow) => normalizeText(row?.termo_normalizado || row?.termo))
-      .filter(Boolean);
-
-    return termos.length > 0 ? uniqueCleanStrings(termos) : DEFAULT_NAO_COMISSIONAVEIS.map(normalizeText);
-  } catch {
-    return DEFAULT_NAO_COMISSIONAVEIS.map(normalizeText);
-  }
-}
-
-function isFormaNaoComissionavel(nome?: string | null, termos?: string[]) {
-  const normalized = normalizeText(nome);
-  if (!normalized) return false;
-  if (normalized.includes('cartao') && normalized.includes('credito')) return false;
-  const base = termos && termos.length > 0 ? termos : DEFAULT_NAO_COMISSIONAVEIS.map(normalizeText);
-  return base.some((termo) => termo && normalized.includes(termo));
-}
 
 function parseBodyIds(value: unknown) {
   const ids: string[] = [];
@@ -349,7 +304,7 @@ export async function handleVendasMergePost(event: RequestEvent) {
     const valorNaoComissionado = deduped.reduce((acc: number, pagamento) => {
       const naoComissiona =
         pagamento?.paga_comissao === false ||
-        isFormaNaoComissionavel(pagamento?.forma_nome, termosNaoComissionaveis);
+        isFormaNaoComissionavelOuPadrao(pagamento?.forma_nome, termosNaoComissionaveis);
       return naoComissiona ? acc + calcularValorPagamento(pagamento) : acc;
     }, 0);
     const valorComissionavel =

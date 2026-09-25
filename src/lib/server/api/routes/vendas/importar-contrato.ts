@@ -21,17 +21,14 @@ import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
-import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
+import { chunkArray } from '$lib/utils/array';
 import { toUserMessage } from '$lib/utils/errors';
+import { isFormaNaoComissionavelOuPadrao } from '$lib/naoComissionavel';
+import { carregarTermosNaoComissionaveis } from '$lib/server/naoComissionavelTermos';
 
 const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-type TermoNaoComissionavelRow = {
-  termo: string | null;
-  termo_normalizado: string | null;
-  ativo: boolean | null;
-};
 
 type TipoProdutoLookup = {
   id: string;
@@ -118,16 +115,6 @@ function deriveVendaStatus(dataEmbarque?: string | null, dataFinal?: string | nu
   return 'pendente';
 }
 
-const DEFAULT_NAO_COMISSIONAVEIS = [
-  'credito diversos',
-  'credito pax',
-  'credito passageiro',
-  'credito de viagem',
-  'credipax',
-  'vale viagem',
-  'carta de credito',
-  'credito'
-];
 
 function isISODate(value?: string | null) {
   return ISO_DATE_PATTERN.test(String(value || '').trim());
@@ -260,32 +247,7 @@ function calcularTotalPagamentos(pagamentos: PagamentoDraft[]) {
   }, 0);
 }
 
-async function carregarTermosNaoComissionaveis(client: SupabaseClient): Promise<string[]> {
-  try {
-    const { data, error } = await client
-      .from('parametros_pagamentos_nao_comissionaveis')
-      .select('termo, termo_normalizado, ativo')
-      .eq('ativo', true)
-      .order('termo', { ascending: true });
-    if (error) throw error;
 
-    const termos = ((data || []) as TermoNaoComissionavelRow[])
-      .map((row) => normalizeText(row.termo_normalizado || row.termo))
-      .filter(Boolean);
-
-    return termos.length > 0 ? uniqueCleanStrings(termos) : DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
-  } catch {
-    return DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
-  }
-}
-
-function isFormaNaoComissionavel(nome?: string | null, termos?: string[]) {
-  const normalized = normalizeText(nome || '');
-  if (!normalized) return false;
-  if (normalized.includes('cartao') && normalized.includes('credito')) return false;
-  const base = termos && termos.length > 0 ? termos : DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
-  return base.some((termo) => termo && normalized.includes(termo));
-}
 
 function isAllowedSellerTipo(tipoNome?: string | null) {
   const tipo = String(tipoNome || '').toUpperCase();
@@ -427,7 +389,7 @@ async function resolveProdutoOperacional(params: {
 function guessPagaComissaoDefault(forma: string, termosNaoComissionaveis?: string[]) {
   const normalized = normalizeText(forma || '');
   const isCartaoCredito = normalized.includes('cartao') && normalized.includes('credito');
-  if (isFormaNaoComissionavel(forma, termosNaoComissionaveis)) return false;
+  if (isFormaNaoComissionavelOuPadrao(forma, termosNaoComissionaveis)) return false;
   if (isCartaoCredito) return true;
   if (normalized.includes('credito')) return false;
   if (normalized.includes('credipax')) return false;
@@ -1089,7 +1051,7 @@ export async function handleVendasImportarContratoPost(event: RequestEvent) {
           : valorBruto > 0
             ? Math.max(valorBruto - descontoValor, 0)
             : 0;
-      const pagamentoComissionavel = isFormaNaoComissionavel(formaNome, termosNaoComissionaveis)
+      const pagamentoComissionavel = isFormaNaoComissionavelOuPadrao(formaNome, termosNaoComissionaveis)
         ? false
         : pagaComissao ?? true;
 

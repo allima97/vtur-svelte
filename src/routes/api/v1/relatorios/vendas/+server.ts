@@ -62,6 +62,8 @@ import {
   uniqueCleanStrings,
 } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
+import { isFormaNaoComissionavel } from '$lib/naoComissionavel';
+import { carregarTermosNaoComissionaveis as carregarTermosNaoComissionaveisBase } from '$lib/server/naoComissionavelTermos';
 
 const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
 const DEFAULT_ITEMS_LIMIT = 1000;
@@ -94,10 +96,6 @@ type VendedorLookupRow = {
   email?: string | null;
 };
 
-type ParametroNaoComissionavelRow = {
-  termo?: string | null;
-  termo_normalizado?: string | null;
-};
 
 type ReportSalesRowLike = {
   id?: string | null;
@@ -180,27 +178,7 @@ function isReportReceiptItem(
   return Boolean(recibo);
 }
 
-const DEFAULT_NAO_COMISSIONAVEIS = [
-  "credito diversos",
-  "credito pax",
-  "credito passageiro",
-  "credito de viagem",
-  "credipax",
-  "vale viagem",
-  "carta de credito",
-  "ficha cvc",
-  "cvc ficha",
-  "credito",
-];
 
-function normalizeTextValue(value?: string | null) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function hasConciliacaoOverride(recibo?: ReportReceiptRow | null) {
   return (
@@ -228,16 +206,6 @@ function getReciboTaxasExibicao(recibo?: ReportReceiptRow | null) {
   return Math.max(0, toNum(recibo.valor_taxas) - toNum(recibo.valor_du));
 }
 
-function isFormaNaoComissionavel(
-  nome?: string | null,
-  termos?: string[] | null,
-) {
-  const normalized = normalizeTextValue(nome);
-  if (!normalized) return false;
-  if (normalized.includes("cartao") && normalized.includes("credito"))
-    return false;
-  return (termos || []).some((termo) => termo && normalized.includes(termo));
-}
 
 function calcularValorPagamento(pagamento: PagamentoNaoComissionavelInput) {
   const total = toNum(pagamento.valor_total);
@@ -552,33 +520,14 @@ function calcularNaoComissionavelResumo(
   return { porVenda, porVendaSemRecibo, porRecibo };
 }
 
-async function carregarTermosNaoComissionaveis(client: AdminClient) {
-  try {
-    const { data, error } = await client
-      .from("parametros_pagamentos_nao_comissionaveis")
-      .select("termo, termo_normalizado, ativo")
-      .eq("ativo", true)
-      .order("termo", { ascending: true });
-    if (error) throw error;
-
-    const termos = ((data || []) as ParametroNaoComissionavelRow[])
-      .map((row) =>
-        normalizeTextValue(row?.termo_normalizado || row?.termo),
-      )
-      .filter(Boolean);
-
-    const unique = uniqueCleanStrings(termos);
-    if (unique.length > 0) return unique;
-  } catch (error) {
-    logServerError(
-      "[relatorios/vendas] falha ao carregar termos nao comissionaveis",
-      error,
-    );
-  }
-
-  return DEFAULT_NAO_COMISSIONAVEIS.map((termo) =>
-    normalizeTextValue(termo),
-  ).filter(Boolean);
+function carregarTermosNaoComissionaveis(client: AdminClient) {
+  return carregarTermosNaoComissionaveisBase(client, {
+    onError: (error) =>
+      logServerError(
+        "[relatorios/vendas] falha ao carregar termos nao comissionaveis",
+        error,
+      ),
+  });
 }
 
 async function fetchNaoComissionadoPorVenda(
@@ -1900,4 +1849,4 @@ export async function GET(event) {
 
 function roundToMoney(value: number) {
   return Number(value.toFixed(2));
-}
+}

@@ -9,6 +9,7 @@ import {
   calcularNaoComissionavelResumo,
   type PagamentoNaoComissionavelInput,
 } from "$lib/naoComissionavel";
+import { carregarTermosNaoComissionaveis as carregarTermosNaoComissionaveisBase } from "$lib/server/naoComissionavelTermos";
 import { calcularRankingComissionavel } from "$lib/server/rankingComissionavel";
 import { isRankingEligibleUser, logServerError } from "$lib/server/v1";
 import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
@@ -91,10 +92,6 @@ type ConciliacaoSourceRow = {
   venda_recibo_id?: string | null;
 };
 
-type ParametroPagamentoNaoComissionavelRow = {
-  termo?: string | null;
-  termo_normalizado?: string | null;
-};
 
 type DatabaseErrorLike = {
   code?: string | null;
@@ -217,40 +214,14 @@ function isSeguroPorComissao(valorComissao: unknown, valorBase: unknown) {
   return isSeguroPercentual((comissao / base) * 100);
 }
 
-const DEFAULT_NAO_COMISSIONAVEIS = [
-  "credito diversos",
-  "credito pax",
-  "credito passageiro",
-  "credito de viagem",
-  "credipax",
-  "vale viagem",
-  "carta de credito",
-  "ficha cvc",
-  "cvc ficha",
-  "credito",
-].map((termo) => normalizeTextValue(termo));
-
-async function carregarTermosNaoComissionaveis(client: SupabaseClient): Promise<string[]> {
-  try {
-    const { data, error } = await client
-      .from("parametros_pagamentos_nao_comissionaveis")
-      .select("termo, termo_normalizado, ativo")
-      .eq("ativo", true)
-      .order("termo", { ascending: true });
-    if (error) throw error;
-    const termos: string[] = ((data || []) as ParametroPagamentoNaoComissionavelRow[])
-      .map((row) =>
-        normalizeTextValue(row?.termo_normalizado || row?.termo),
-      )
-      .filter(Boolean);
-    return termos.length > 0 ? uniqueCleanStrings(termos) : DEFAULT_NAO_COMISSIONAVEIS;
-  } catch (error) {
-    logSourceWarning(
-      "[source] parametros_pagamentos_nao_comissionaveis indisponivel:",
-      error,
-    );
-    return DEFAULT_NAO_COMISSIONAVEIS;
-  }
+function carregarTermosNaoComissionaveis(client: SupabaseClient): Promise<string[]> {
+  return carregarTermosNaoComissionaveisBase(client, {
+    onError: (error) =>
+      logSourceWarning(
+        "[source] parametros_pagamentos_nao_comissionaveis indisponivel:",
+        error,
+      ),
+  });
 }
 
 export function pickConciliacaoSourceRow(rows: ConciliacaoSourceRow[]) {

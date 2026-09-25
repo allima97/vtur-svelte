@@ -15,7 +15,6 @@ import {
   isFormaNaoComissionavel,
   isRankingEligibleStatus,
   normalizeComputedFields,
-  normalizeTerm,
 } from '../../../../../routes/api/v1/conciliacao/_legacy';
 import { monthRangeFromKey } from '$lib/date';
 import {
@@ -25,18 +24,9 @@ import {
   scopeCacheTags,
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
+import { chunkArray } from '$lib/utils/array';
+import { carregarTermosNaoComissionaveis } from '$lib/server/naoComissionavelTermos';
 
-const DEFAULT_NAO_COMISSIONAVEIS = [
-  'credito diversos',
-  'credito pax',
-  'credito passageiro',
-  'credito de viagem',
-  'credipax',
-  'vale viagem',
-  'carta de credito',
-  'credito',
-];
 
 const SUPABASE_IN_BATCH_SIZE = 150;
 
@@ -317,23 +307,8 @@ export async function handleConciliacaoListGet(event: RequestEvent) {
         const flaggedVendas = new Set<string>();
 
         if (vendaIds.length > 0) {
-          let termosNaoComissionaveis: string[] = DEFAULT_NAO_COMISSIONAVEIS;
-          try {
-            const { data: termosData } = await client
-              .from('parametros_pagamentos_nao_comissionaveis')
-              .select('termo, termo_normalizado, ativo')
-              .eq('ativo', true)
-              .order('termo', { ascending: true });
-            const termos = (termosData || [])
-              .map((row) =>
-                normalizeTerm(row?.termo_normalizado || row?.termo),
-              )
-              .filter(Boolean);
-            if (termos.length > 0)
-              termosNaoComissionaveis = uniqueCleanStrings(termos);
-          } catch {
-            // Optional configuration may be absent; keep default terms.
-          }
+          // Termos ativos da tabela; sem termos/erro → lista padrão (Fase 2.3).
+          const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
 
           const pagamentos = await fetchBatched<PagamentoLookupRow>(
             vendaIds,

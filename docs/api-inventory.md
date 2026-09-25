@@ -2,8 +2,9 @@
 
 Gerado por `node scripts/api-inventory.mjs` — **não editar à mão**. JSON completo em `docs/api-inventory.json`.
 
-- Endpoints: **260** (128 gravam no banco)
-- Domínios: 50
+- Endpoints: **261** (127 gravam no banco)
+- Domínios: 51
+- Migrados para Hono: **42** (marcados com <sub>hono</sub>)
 
 ## Pontos de atenção (detectados automaticamente)
 
@@ -23,6 +24,12 @@ Desde a migration 20260924184114 o read model v4 é marcado dirty por trigger; a
 ## Endpoints por domínio
 
 Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope · **CSRF** = rejectCrossOriginRequest · **Body** = limite de tamanho do corpo
+
+### [...path] (1)
+
+| Rota | Métodos | Auth | Escopo | Perfis | CSRF | Body | Tabelas (operações) | RPC | Invalidação |
+|---|---|:-:|:-:|---|:-:|:-:|---|---|---|
+| `/v1/[...path]` <sub>hono</sub> | DELETE GET PATCH POST PUT |  |  |  |  |  | — | — | — |
 
 ### admin (25)
 
@@ -130,24 +137,24 @@ Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope ·
 
 | Rota | Métodos | Auth | Escopo | Perfis | CSRF | Body | Tabelas (operações) | RPC | Invalidação |
 |---|---|:-:|:-:|---|:-:|:-:|---|---|---|
-| `/v1/conciliacao` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_recibos(R) | — | — |
-| `/v1/conciliacao/assign` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_recibo_changes(C), conciliacao_recibos(R/U), master_empresas(R), users(R) | — | invalidateSalesReadModels |
-| `/v1/conciliacao/changes` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_recibo_changes(R) | — | — |
-| `/v1/conciliacao/delete` | DELETE | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ |  | conciliacao_recibos(D/R) | — | invalidateSalesReadModels |
-| `/v1/conciliacao/executions` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_execucoes(R) | — | — |
-| `/v1/conciliacao/existing` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_recibos(R) | — | — |
-| `/v1/conciliacao/fix-vinculos` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_recibos(R/U), users(R), vendas_recibos(R), vendas_recibos_rateio(R) | — | invalidateSalesReadModels |
-| `/v1/conciliacao/import` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_dias_sem_movimento(R), conciliacao_recibos(R/U), vendas(R), vendas_recibos(R) | — | invalidateSalesReadModels |
-| `/v1/conciliacao/list` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | clientes(R), conciliacao_recibos(R), parametros_pagamentos_nao_comissionaveis(R), users(R), vendas(R), vendas_pagamentos(R), vendas_recibos(R) | — | — |
-| `/v1/conciliacao/lookup` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | vendas(R), vendas_recibos(R) | — | — |
-| `/v1/conciliacao/options` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | tipo_produtos(R) | — | — |
-| `/v1/conciliacao/rateio-info` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_recibos(R), vendas_recibos(R) | — | — |
-| `/v1/conciliacao/revert` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_recibo_changes(R/U) | — | invalidateSalesReadModels |
-| `/v1/conciliacao/run` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | — | — | invalidateSalesReadModels |
-| `/v1/conciliacao/sem-movimento` | DELETE GET POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_dias_sem_movimento(D/R/UP), conciliacao_recibos(R) | — | invalidateSalesReadModels |
-| `/v1/conciliacao/status-cronologico` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | — | — | — |
-| `/v1/conciliacao/summary` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_recibos(R) | — | — |
-| `/v1/conciliacao/update-valores` | POST | ✔ | ✔ | Admin | ✔ | ✔ | conciliacao_recibos(R/U) | — | invalidateSalesReadModels |
+| `/v1/conciliacao` <sub>hono</sub> | GET |  |  |  |  |  | — | — | — |
+| `/v1/conciliacao/assign` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_recibo_changes(C), conciliacao_recibos(R/U), master_empresas(R), users(R) | — | invalidateSalesReadModels |
+| `/v1/conciliacao/changes` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_recibo_changes(R) | — | — |
+| `/v1/conciliacao/delete` <sub>hono</sub> | DELETE | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ |  | conciliacao_recibos(D/R) | — | invalidateSalesReadModels |
+| `/v1/conciliacao/executions` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_execucoes(R) | — | — |
+| `/v1/conciliacao/existing` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_recibos(R) | — | — |
+| `/v1/conciliacao/fix-vinculos` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_recibos(R/U), users(R), vendas_recibos(R), vendas_recibos_rateio(R) | — | invalidateSalesReadModels |
+| `/v1/conciliacao/import` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_dias_sem_movimento(R), conciliacao_recibos(R/U), vendas(R), vendas_recibos(R) | — | invalidateSalesReadModels |
+| `/v1/conciliacao/list` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | clientes(R), conciliacao_recibos(R), parametros_pagamentos_nao_comissionaveis(R), users(R), vendas(R), vendas_pagamentos(R), vendas_recibos(R) | — | — |
+| `/v1/conciliacao/lookup` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | vendas(R), vendas_recibos(R) | — | — |
+| `/v1/conciliacao/options` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | tipo_produtos(R) | — | — |
+| `/v1/conciliacao/rateio-info` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_recibos(R), vendas_recibos(R) | — | — |
+| `/v1/conciliacao/revert` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_recibo_changes(R/U) | — | invalidateSalesReadModels |
+| `/v1/conciliacao/run` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | — | — | invalidateSalesReadModels |
+| `/v1/conciliacao/sem-movimento` <sub>hono</sub> | DELETE GET POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | conciliacao_dias_sem_movimento(D/R/UP), conciliacao_recibos(R) | — | invalidateSalesReadModels |
+| `/v1/conciliacao/status-cronologico` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | — | — | — |
+| `/v1/conciliacao/summary` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | conciliacao_recibos(R) | — | — |
+| `/v1/conciliacao/update-valores` <sub>hono</sub> | POST | ✔ | ✔ | Admin | ✔ | ✔ | conciliacao_recibos(R/U) | — | invalidateSalesReadModels |
 
 ### consultorias (2)
 
@@ -262,7 +269,7 @@ Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope ·
 
 | Rota | Métodos | Auth | Escopo | Perfis | CSRF | Body | Tabelas (operações) | RPC | Invalidação |
 |---|---|:-:|:-:|---|:-:|:-:|---|---|---|
-| `/v1/health` | GET |  |  |  |  |  | — | — | — |
+| `/v1/health` <sub>hono</sub> | GET |  |  |  |  |  | — | — | — |
 
 ### importar-vendas (1)
 
@@ -475,28 +482,28 @@ Legenda: **Auth** = requireAuthenticatedUser · **Escopo** = resolveUserScope ·
 
 | Rota | Métodos | Auth | Escopo | Perfis | CSRF | Body | Tabelas (operações) | RPC | Invalidação |
 |---|---|:-:|:-:|---|:-:|:-:|---|---|---|
-| `/v1/vendas` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | vendas(R) | — | — |
-| `/v1/vendas/[id]` | DELETE GET PATCH | ✔ | ✔ | Admin Master | ✔ | ✔ | conciliacao_recibos(U), vendas(D/R/U), vendas_pagamentos(D), vendas_recibos(R), vendas_recibos_notas(D), vendas_recibos_rateio(D) | — | invalidateSalesReadModels |
-| `/v1/vendas/[id]/ranking-recibos` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | vendas(R), vendas_recibos(R) | — | — |
-| `/v1/vendas/cadastro-base` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | cidades(R), clientes(R), companies(R), produtos(R), tipo_pacotes(R), tipo_produtos(R) | — | — |
-| `/v1/vendas/cadastro-save` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | users(R), vendas(C/R/U) | — | invalidateSalesReadModels, publishKvInvalidationAsync, triggerRebuildAsync |
-| `/v1/vendas/cancel` | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas_recibos(D) | — | invalidateSalesReadModels, publishKvInvalidationAsync, triggerRebuildAsync |
-| `/v1/vendas/cidades-busca` | GET | ✔ | ✔ | Admin Master |  |  | cidades(R) | buscar_cidades | — |
-| `/v1/vendas/complementares` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | vendas(R), vendas_recibos(R), vendas_recibos_complementares(R) | — | — |
-| `/v1/vendas/create` | POST | ✔ | ✔ | Admin | ✔ | ✔ | users(R), vendas(C) | — | invalidateSalesReadModels |
-| `/v1/vendas/gestor-equipe` | GET | ✔ | ✔ | Admin Gestor |  |  | users(R) | — | — |
-| `/v1/vendas/importar-contrato` | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | cidades(R), cliente_acompanhantes(R), clientes(C/R/U), formas_pagamento(R), parametros_pagamentos_nao_comissionaveis(R), produtos(C/R), users(R), vendas(C/U), vendas_pagamentos(C), vendas_recibos(C), viagens(C) | — | invalidateSalesReadModels, markRankingReadModelDirty |
-| `/v1/vendas/kpis` | GET | ✔ | ✔ | Admin Master |  |  | — | — | — |
-| `/v1/vendas/list` | GET | ✔ | ✔ | Admin Master |  |  | cidades(R), clientes(R), produtos(R), users(R), vendas(R), vendas_recibos(R) | — | — |
-| `/v1/vendas/merge-candidates` | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | vendas(R), vendas_recibos(R) | — | — |
-| `/v1/vendas/merge` | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | parametros_pagamentos_nao_comissionaveis(R), vendas(R/U), vendas_pagamentos(D), vendas_recibos(R), vendas_recibos_notas(U), viagens(U) | — | invalidateSalesReadModels |
-| `/v1/vendas/recibo-complementar-link` | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas(R), vendas_recibos_complementares(D/UP) | — | invalidateSalesReadModels |
-| `/v1/vendas/recibo-complementar-remove` | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas_recibos_complementares(D/R) | — | invalidateSalesReadModels |
-| `/v1/vendas/recibo-delete` | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas_recibos(D) | — | invalidateSalesReadModels, publishKvInvalidationAsync, triggerRebuildAsync |
-| `/v1/vendas/recibo-edit` | PATCH | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas_recibos(R/U) | — | invalidateSalesReadModels, publishKvInvalidationAsync, triggerRebuildAsync |
-| `/v1/vendas/recibo-notas` | GET | ✔ | ✔ | Admin Master |  |  | vendas_recibos_notas(R) | — | — |
-| `/v1/vendas/recibo-principal` | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas(U), vendas_recibos(R) | — | invalidateSalesReadModels |
-| `/v1/vendas/status` | PATCH | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas(U) | — | invalidateSalesReadModels |
+| `/v1/vendas` <sub>hono</sub> | GET |  |  |  |  |  | — | — | — |
+| `/v1/vendas/[id]` <sub>hono</sub> | DELETE GET PATCH |  |  |  |  |  | — | — | — |
+| `/v1/vendas/[id]/ranking-recibos` <sub>hono</sub> | GET |  |  |  |  |  | — | — | — |
+| `/v1/vendas/cadastro-base` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | cidades(R), clientes(R), companies(R), produtos(R), tipo_pacotes(R), tipo_produtos(R) | — | — |
+| `/v1/vendas/cadastro-save` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | users(R), vendas(C/R/U) | — | invalidateSalesReadModels, publishKvInvalidationAsync, triggerRebuildAsync |
+| `/v1/vendas/cancel` <sub>hono</sub> | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas_recibos(D) | — | invalidateSalesReadModels, publishKvInvalidationAsync, triggerRebuildAsync |
+| `/v1/vendas/cidades-busca` <sub>hono</sub> | GET | ✔ | ✔ | Admin Master |  |  | cidades(R) | buscar_cidades | — |
+| `/v1/vendas/complementares` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | vendas(R), vendas_recibos(R), vendas_recibos_complementares(R) | — | — |
+| `/v1/vendas/create` <sub>hono</sub> | POST | ✔ | ✔ | Admin | ✔ | ✔ | users(R), vendas(C) | — | invalidateSalesReadModels |
+| `/v1/vendas/gestor-equipe` <sub>hono</sub> | GET | ✔ | ✔ | Admin Gestor |  |  | users(R) | — | — |
+| `/v1/vendas/importar-contrato` <sub>hono</sub> | POST | ✔ | ✔ | Admin Financeiro Gestor Master | ✔ | ✔ | cidades(R), cliente_acompanhantes(R), clientes(C/R/U), formas_pagamento(R), parametros_pagamentos_nao_comissionaveis(R), produtos(C/R), users(R), vendas(C/U), vendas_pagamentos(C), vendas_recibos(C), viagens(C) | — | invalidateSalesReadModels, markRankingReadModelDirty |
+| `/v1/vendas/kpis` <sub>hono</sub> | GET | ✔ | ✔ | Admin Master |  |  | — | — | — |
+| `/v1/vendas/list` <sub>hono</sub> | GET | ✔ | ✔ | Admin Master |  |  | cidades(R), clientes(R), produtos(R), users(R), vendas(R), vendas_recibos(R) | — | — |
+| `/v1/vendas/merge-candidates` <sub>hono</sub> | GET | ✔ | ✔ | Admin Financeiro Gestor Master |  |  | vendas(R), vendas_recibos(R) | — | — |
+| `/v1/vendas/merge` <sub>hono</sub> | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | parametros_pagamentos_nao_comissionaveis(R), vendas(R/U), vendas_pagamentos(D), vendas_recibos(R), vendas_recibos_notas(U), viagens(U) | — | invalidateSalesReadModels |
+| `/v1/vendas/recibo-complementar-link` <sub>hono</sub> | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas(R), vendas_recibos_complementares(D/UP) | — | invalidateSalesReadModels |
+| `/v1/vendas/recibo-complementar-remove` <sub>hono</sub> | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas_recibos_complementares(D/R) | — | invalidateSalesReadModels |
+| `/v1/vendas/recibo-delete` <sub>hono</sub> | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas_recibos(D) | — | invalidateSalesReadModels, publishKvInvalidationAsync, triggerRebuildAsync |
+| `/v1/vendas/recibo-edit` <sub>hono</sub> | PATCH | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas_recibos(R/U) | — | invalidateSalesReadModels, publishKvInvalidationAsync, triggerRebuildAsync |
+| `/v1/vendas/recibo-notas` <sub>hono</sub> | GET | ✔ | ✔ | Admin Master |  |  | vendas_recibos_notas(R) | — | — |
+| `/v1/vendas/recibo-principal` <sub>hono</sub> | POST | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas(U), vendas_recibos(R) | — | invalidateSalesReadModels |
+| `/v1/vendas/status` <sub>hono</sub> | PATCH | ✔ | ✔ | Admin Master | ✔ | ✔ | vendas(U) | — | invalidateSalesReadModels |
 
 ### viagens (10)
 

@@ -1,10 +1,11 @@
 {
   "generatedBy": "scripts/api-inventory.mjs",
-  "count": 260,
+  "count": 261,
   "endpoints": [
     {
       "route": "/api/auth/convite/activate",
       "file": "src/routes/api/auth/convite/activate/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -42,6 +43,7 @@
     {
       "route": "/api/auth/login",
       "file": "src/routes/api/auth/login/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -73,6 +75,7 @@
     {
       "route": "/api/auth/passkeys",
       "file": "src/routes/api/auth/passkeys/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET"
@@ -102,6 +105,7 @@
     {
       "route": "/api/auth/passkeys/login/options",
       "file": "src/routes/api/auth/passkeys/login/options/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -131,6 +135,7 @@
     {
       "route": "/api/auth/passkeys/login/verify",
       "file": "src/routes/api/auth/passkeys/login/verify/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -160,6 +165,7 @@
     {
       "route": "/api/auth/passkeys/register/options",
       "file": "src/routes/api/auth/passkeys/register/options/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -188,6 +194,7 @@
     {
       "route": "/api/auth/passkeys/register/verify",
       "file": "src/routes/api/auth/passkeys/register/verify/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -216,6 +223,7 @@
     {
       "route": "/api/auth/set-session",
       "file": "src/routes/api/auth/set-session/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -245,6 +253,7 @@
     {
       "route": "/api/auth/turnstile/verify",
       "file": "src/routes/api/auth/turnstile/verify/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -273,8 +282,40 @@
       "lines": 71
     },
     {
+      "route": "/api/v1/[...path]",
+      "file": "src/routes/api/v1/[...path]/+server.ts",
+      "hono": "src/routes/api/v1/[...path]/+server.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST",
+        "PUT"
+      ],
+      "guards": {
+        "requireAuthenticatedUser": false,
+        "resolveUserScope": false,
+        "roles": [],
+        "rejectCrossOrigin": false,
+        "bodyLimit": false,
+        "cronSecret": false,
+        "turnstile": false,
+        "adminClient": false,
+        "debugOnly": false
+      },
+      "tables": {},
+      "rpcs": [],
+      "invalidations": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
+      "mutates": false,
+      "lines": 12
+    },
+    {
       "route": "/api/v1/admin/auth/mfa-status",
       "file": "src/routes/api/v1/admin/auth/mfa-status/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -304,6 +345,7 @@
     {
       "route": "/api/v1/admin/auth/reset-mfa",
       "file": "src/routes/api/v1/admin/auth/reset-mfa/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -334,6 +376,7 @@
     {
       "route": "/api/v1/admin/auth/set-password",
       "file": "src/routes/api/v1/admin/auth/set-password/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -364,6 +407,7 @@
     {
       "route": "/api/v1/admin/avisos",
       "file": "src/routes/api/v1/admin/avisos/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -403,6 +447,7 @@
     {
       "route": "/api/v1/admin/avisos/send",
       "file": "src/routes/api/v1/admin/avisos/send/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -439,6 +484,7 @@
     {
       "route": "/api/v1/admin/crm",
       "file": "src/routes/api/v1/admin/crm/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -478,6 +524,7 @@
     {
       "route": "/api/v1/admin/email",
       "file": "src/routes/api/v1/admin/email/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -515,6 +562,7 @@
     {
       "route": "/api/v1/admin/email/test",
       "file": "src/routes/api/v1/admin/email/test/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -548,6 +596,7 @@
     {
       "route": "/api/v1/admin/empresas",
       "file": "src/routes/api/v1/admin/empresas/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -593,6 +642,7 @@
     {
       "route": "/api/v1/admin/empresas/[id]",
       "file": "src/routes/api/v1/admin/empresas/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "PATCH"
@@ -637,6 +687,7 @@
     {
       "route": "/api/v1/admin/fix-recibos",
       "file": "src/routes/api/v1/admin/fix-recibos/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -688,6 +739,7 @@
     {
       "route": "/api/v1/admin/logs",
       "file": "src/routes/api/v1/admin/logs/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -721,6 +773,7 @@
     {
       "route": "/api/v1/admin/maintenance",
       "file": "src/routes/api/v1/admin/maintenance/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -758,6 +811,7 @@
     {
       "route": "/api/v1/admin/master-empresas",
       "file": "src/routes/api/v1/admin/master-empresas/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -796,6 +850,7 @@
     {
       "route": "/api/v1/admin/modulos-sistema",
       "file": "src/routes/api/v1/admin/modulos-sistema/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -832,6 +887,7 @@
     {
       "route": "/api/v1/admin/permissoes",
       "file": "src/routes/api/v1/admin/permissoes/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -873,6 +929,7 @@
     {
       "route": "/api/v1/admin/permissoes/[id]",
       "file": "src/routes/api/v1/admin/permissoes/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -907,6 +964,7 @@
     {
       "route": "/api/v1/admin/planos",
       "file": "src/routes/api/v1/admin/planos/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -945,6 +1003,7 @@
     {
       "route": "/api/v1/admin/summary",
       "file": "src/routes/api/v1/admin/summary/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -987,6 +1046,7 @@
     {
       "route": "/api/v1/admin/system-modules",
       "file": "src/routes/api/v1/admin/system-modules/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -1023,6 +1083,7 @@
     {
       "route": "/api/v1/admin/tipos-usuario",
       "file": "src/routes/api/v1/admin/tipos-usuario/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -1064,6 +1125,7 @@
     {
       "route": "/api/v1/admin/tipos-usuario/[id]",
       "file": "src/routes/api/v1/admin/tipos-usuario/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1096,6 +1158,7 @@
     {
       "route": "/api/v1/admin/tipos-usuario/[id]/permissoes",
       "file": "src/routes/api/v1/admin/tipos-usuario/[id]/permissoes/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -1127,6 +1190,7 @@
     {
       "route": "/api/v1/admin/usuarios",
       "file": "src/routes/api/v1/admin/usuarios/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -1171,6 +1235,7 @@
     {
       "route": "/api/v1/admin/usuarios/[id]",
       "file": "src/routes/api/v1/admin/usuarios/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "PATCH"
@@ -1210,6 +1275,7 @@
     {
       "route": "/api/v1/agenda",
       "file": "src/routes/api/v1/agenda/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1242,6 +1308,7 @@
     {
       "route": "/api/v1/agenda/create",
       "file": "src/routes/api/v1/agenda/create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -1277,6 +1344,7 @@
     {
       "route": "/api/v1/agenda/delete",
       "file": "src/routes/api/v1/agenda/delete/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE"
       ],
@@ -1313,6 +1381,7 @@
     {
       "route": "/api/v1/agenda/range",
       "file": "src/routes/api/v1/agenda/range/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1351,6 +1420,7 @@
     {
       "route": "/api/v1/agenda/update",
       "file": "src/routes/api/v1/agenda/update/+server.ts",
+      "hono": null,
       "methods": [
         "PATCH",
         "POST"
@@ -1388,6 +1458,7 @@
     {
       "route": "/api/v1/cards/aniversario.svg",
       "file": "src/routes/api/v1/cards/aniversario.svg/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1415,6 +1486,7 @@
     {
       "route": "/api/v1/cards/render.png",
       "file": "src/routes/api/v1/cards/render.png/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1444,6 +1516,7 @@
     {
       "route": "/api/v1/cards/render.svg",
       "file": "src/routes/api/v1/cards/render.svg/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1472,6 +1545,7 @@
     {
       "route": "/api/v1/cards/render",
       "file": "src/routes/api/v1/cards/render/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1501,6 +1575,7 @@
     {
       "route": "/api/v1/cidades",
       "file": "src/routes/api/v1/cidades/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -1542,6 +1617,7 @@
     {
       "route": "/api/v1/cidades/[id]",
       "file": "src/routes/api/v1/cidades/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -1583,6 +1659,7 @@
     {
       "route": "/api/v1/circuitos",
       "file": "src/routes/api/v1/circuitos/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -1619,6 +1696,7 @@
     {
       "route": "/api/v1/circuitos/[id]",
       "file": "src/routes/api/v1/circuitos/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -1657,6 +1735,7 @@
     {
       "route": "/api/v1/client-error",
       "file": "src/routes/api/v1/client-error/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -1686,6 +1765,7 @@
     {
       "route": "/api/v1/clientes",
       "file": "src/routes/api/v1/clientes/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1721,6 +1801,7 @@
     {
       "route": "/api/v1/clientes/[id]",
       "file": "src/routes/api/v1/clientes/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -1772,6 +1853,7 @@
     {
       "route": "/api/v1/clientes/[id]/acompanhantes",
       "file": "src/routes/api/v1/clientes/[id]/acompanhantes/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -1812,6 +1894,7 @@
     {
       "route": "/api/v1/clientes/[id]/acompanhantes/[acompanhanteId]",
       "file": "src/routes/api/v1/clientes/[id]/acompanhantes/[acompanhanteId]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "PATCH"
@@ -1850,6 +1933,7 @@
     {
       "route": "/api/v1/clientes/avisos/history",
       "file": "src/routes/api/v1/clientes/avisos/history/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1884,6 +1968,7 @@
     {
       "route": "/api/v1/clientes/avisos/send",
       "file": "src/routes/api/v1/clientes/avisos/send/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -1928,6 +2013,7 @@
     {
       "route": "/api/v1/clientes/avisos/templates",
       "file": "src/routes/api/v1/clientes/avisos/templates/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -1966,6 +2052,7 @@
     {
       "route": "/api/v1/clientes/create",
       "file": "src/routes/api/v1/clientes/create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -2006,6 +2093,7 @@
     {
       "route": "/api/v1/clientes/delete",
       "file": "src/routes/api/v1/clientes/delete/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE"
       ],
@@ -2033,6 +2121,7 @@
     {
       "route": "/api/v1/clientes/historico",
       "file": "src/routes/api/v1/clientes/historico/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -2079,6 +2168,7 @@
     {
       "route": "/api/v1/clientes/list",
       "file": "src/routes/api/v1/clientes/list/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -2124,6 +2214,7 @@
     {
       "route": "/api/v1/clientes/resolve-import",
       "file": "src/routes/api/v1/clientes/resolve-import/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -2166,6 +2257,7 @@
     {
       "route": "/api/v1/clientes/template-dispatches",
       "file": "src/routes/api/v1/clientes/template-dispatches/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -2212,6 +2304,7 @@
     {
       "route": "/api/v1/clientes/templates/send",
       "file": "src/routes/api/v1/clientes/templates/send/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -2260,44 +2353,34 @@
     {
       "route": "/api/v1/conciliacao",
       "file": "src/routes/api/v1/conciliacao/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/index.ts",
       "methods": [
         "GET"
       ],
       "guards": {
-        "requireAuthenticatedUser": true,
-        "resolveUserScope": true,
-        "roles": [
-          "isAdmin",
-          "isFinanceiro",
-          "isGestor",
-          "isMaster"
-        ],
+        "requireAuthenticatedUser": false,
+        "resolveUserScope": false,
+        "roles": [],
         "rejectCrossOrigin": false,
         "bodyLimit": false,
         "cronSecret": false,
         "turnstile": false,
-        "adminClient": true,
+        "adminClient": false,
         "debugOnly": false
       },
-      "tables": {
-        "conciliacao_recibos": [
-          "select"
-        ]
-      },
+      "tables": {},
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/server/httpCache",
-        "$lib/server/readModelCache",
-        "$lib/server/v1",
-        "$lib/utils/array"
+        "$lib/server/api/sveltekit"
       ],
       "mutates": false,
-      "lines": 229
+      "lines": 50
     },
     {
       "route": "/api/v1/conciliacao/assign",
       "file": "src/routes/api/v1/conciliacao/assign/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/assign.ts",
       "methods": [
         "POST"
       ],
@@ -2339,6 +2422,7 @@
       "imports": [
         "$lib/conciliacao/baixaRac",
         "$lib/conciliacao/business",
+        "$lib/server/api/sveltekit",
         "$lib/server/emailSettings",
         "$lib/server/fetchWithTimeout",
         "$lib/server/httpCache",
@@ -2347,11 +2431,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 530
+      "lines": 538
     },
     {
       "route": "/api/v1/conciliacao/changes",
       "file": "src/routes/api/v1/conciliacao/changes/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/changes.ts",
       "methods": [
         "GET"
       ],
@@ -2379,15 +2464,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 52
+      "lines": 60
     },
     {
       "route": "/api/v1/conciliacao/delete",
       "file": "src/routes/api/v1/conciliacao/delete/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/delete.ts",
       "methods": [
         "DELETE"
       ],
@@ -2418,17 +2505,19 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 57
+      "lines": 65
     },
     {
       "route": "/api/v1/conciliacao/executions",
       "file": "src/routes/api/v1/conciliacao/executions/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/executions.ts",
       "methods": [
         "GET"
       ],
@@ -2456,15 +2545,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 34
+      "lines": 42
     },
     {
       "route": "/api/v1/conciliacao/existing",
       "file": "src/routes/api/v1/conciliacao/existing/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/existing.ts",
       "methods": [
         "POST"
       ],
@@ -2492,17 +2583,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 147
+      "lines": 155
     },
     {
       "route": "/api/v1/conciliacao/fix-vinculos",
       "file": "src/routes/api/v1/conciliacao/fix-vinculos/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/fix-vinculos.ts",
       "methods": [
         "POST"
       ],
@@ -2545,6 +2638,7 @@
         "$lib/conciliacao/business",
         "$lib/conciliacao/receiptNormalize",
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -2553,11 +2647,12 @@
         "$lib/utils/values"
       ],
       "mutates": true,
-      "lines": 962
+      "lines": 970
     },
     {
       "route": "/api/v1/conciliacao/import",
       "file": "src/routes/api/v1/conciliacao/import/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/import.ts",
       "methods": [
         "POST"
       ],
@@ -2599,6 +2694,7 @@
       "imports": [
         "$lib/conciliacao/baixaRac",
         "$lib/conciliacao/business",
+        "$lib/server/api/sveltekit",
         "$lib/server/conciliacaoReconcile",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -2608,11 +2704,12 @@
         "$lib/utils/errors"
       ],
       "mutates": true,
-      "lines": 1039
+      "lines": 1047
     },
     {
       "route": "/api/v1/conciliacao/list",
       "file": "src/routes/api/v1/conciliacao/list/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/list.ts",
       "methods": [
         "GET"
       ],
@@ -2659,17 +2756,19 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 566
+      "lines": 574
     },
     {
       "route": "/api/v1/conciliacao/lookup",
       "file": "src/routes/api/v1/conciliacao/lookup/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/lookup.ts",
       "methods": [
         "POST"
       ],
@@ -2700,17 +2799,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/requestGuards",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 333
+      "lines": 341
     },
     {
       "route": "/api/v1/conciliacao/options",
       "file": "src/routes/api/v1/conciliacao/options/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/options.ts",
       "methods": [
         "GET"
       ],
@@ -2738,15 +2839,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 61
+      "lines": 69
     },
     {
       "route": "/api/v1/conciliacao/rateio-info",
       "file": "src/routes/api/v1/conciliacao/rateio-info/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/rateio-info.ts",
       "methods": [
         "GET"
       ],
@@ -2777,15 +2880,17 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 206
+      "lines": 214
     },
     {
       "route": "/api/v1/conciliacao/revert",
       "file": "src/routes/api/v1/conciliacao/revert/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/revert.ts",
       "methods": [
         "POST"
       ],
@@ -2816,6 +2921,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -2823,11 +2929,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 210
+      "lines": 218
     },
     {
       "route": "/api/v1/conciliacao/run",
       "file": "src/routes/api/v1/conciliacao/run/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/run.ts",
       "methods": [
         "POST"
       ],
@@ -2853,6 +2960,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/conciliacaoReconcile",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -2860,11 +2968,12 @@
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 132
+      "lines": 140
     },
     {
       "route": "/api/v1/conciliacao/sem-movimento",
       "file": "src/routes/api/v1/conciliacao/sem-movimento/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/sem-movimento.ts",
       "methods": [
         "DELETE",
         "GET",
@@ -2901,17 +3010,19 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 196
+      "lines": 206
     },
     {
       "route": "/api/v1/conciliacao/status-cronologico",
       "file": "src/routes/api/v1/conciliacao/status-cronologico/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/status-cronologico.ts",
       "methods": [
         "GET"
       ],
@@ -2935,16 +3046,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/conciliacaoReconcile",
         "$lib/server/httpCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 74
+      "lines": 82
     },
     {
       "route": "/api/v1/conciliacao/summary",
       "file": "src/routes/api/v1/conciliacao/summary/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/summary.ts",
       "methods": [
         "GET"
       ],
@@ -2973,6 +3086,7 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/conciliacaoReconcile",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -2980,11 +3094,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 170
+      "lines": 178
     },
     {
       "route": "/api/v1/conciliacao/update-valores",
       "file": "src/routes/api/v1/conciliacao/update-valores/+server.ts",
+      "hono": "src/lib/server/api/routes/conciliacao/update-valores.ts",
       "methods": [
         "POST"
       ],
@@ -3012,6 +3127,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -3019,11 +3135,12 @@
         "$lib/utils/array"
       ],
       "mutates": true,
-      "lines": 183
+      "lines": 190
     },
     {
       "route": "/api/v1/consultorias",
       "file": "src/routes/api/v1/consultorias/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "PATCH",
@@ -3067,6 +3184,7 @@
     {
       "route": "/api/v1/consultorias/ics",
       "file": "src/routes/api/v1/consultorias/ics/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3099,6 +3217,7 @@
     {
       "route": "/api/v1/convites/accept",
       "file": "src/routes/api/v1/convites/accept/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -3137,6 +3256,7 @@
     {
       "route": "/api/v1/convites/send",
       "file": "src/routes/api/v1/convites/send/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -3195,6 +3315,7 @@
     {
       "route": "/api/v1/crm/library",
       "file": "src/routes/api/v1/crm/library/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3246,6 +3367,7 @@
     {
       "route": "/api/v1/crm/signature",
       "file": "src/routes/api/v1/crm/signature/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -3278,6 +3400,7 @@
     {
       "route": "/api/v1/cron/alerta-comissao",
       "file": "src/routes/api/v1/cron/alerta-comissao/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -3306,6 +3429,7 @@
     {
       "route": "/api/v1/cron/lembretes-consultoria",
       "file": "src/routes/api/v1/cron/lembretes-consultoria/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -3333,6 +3457,7 @@
     {
       "route": "/api/v1/dashboard/aniversariantes",
       "file": "src/routes/api/v1/dashboard/aniversariantes/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3376,6 +3501,7 @@
     {
       "route": "/api/v1/dashboard/base",
       "file": "src/routes/api/v1/dashboard/base/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3417,6 +3543,7 @@
     {
       "route": "/api/v1/dashboard/comparativo-empresas",
       "file": "src/routes/api/v1/dashboard/comparativo-empresas/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3462,6 +3589,7 @@
     {
       "route": "/api/v1/dashboard/consultorias",
       "file": "src/routes/api/v1/dashboard/consultorias/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3501,6 +3629,7 @@
     {
       "route": "/api/v1/dashboard/debug-aggregates",
       "file": "src/routes/api/v1/dashboard/debug-aggregates/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3538,6 +3667,7 @@
     {
       "route": "/api/v1/dashboard/evolucao-anual",
       "file": "src/routes/api/v1/dashboard/evolucao-anual/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3575,6 +3705,7 @@
     {
       "route": "/api/v1/dashboard/follow-ups",
       "file": "src/routes/api/v1/dashboard/follow-ups/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3614,6 +3745,7 @@
     {
       "route": "/api/v1/dashboard/summary",
       "file": "src/routes/api/v1/dashboard/summary/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3664,6 +3796,7 @@
     {
       "route": "/api/v1/dashboard/ultimas-compras",
       "file": "src/routes/api/v1/dashboard/ultimas-compras/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3715,6 +3848,7 @@
     {
       "route": "/api/v1/dashboard/viagens",
       "file": "src/routes/api/v1/dashboard/viagens/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3762,6 +3896,7 @@
     {
       "route": "/api/v1/dashboard/widgets",
       "file": "src/routes/api/v1/dashboard/widgets/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -3801,6 +3936,7 @@
     {
       "route": "/api/v1/debug-comissao",
       "file": "src/routes/api/v1/debug-comissao/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3834,6 +3970,7 @@
     {
       "route": "/api/v1/debug/permissions",
       "file": "src/routes/api/v1/debug/permissions/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3873,6 +4010,7 @@
     {
       "route": "/api/v1/debug/vendas-recibos-diff",
       "file": "src/routes/api/v1/debug/vendas-recibos-diff/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -3904,6 +4042,7 @@
     {
       "route": "/api/v1/documentacao",
       "file": "src/routes/api/v1/documentacao/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -3946,6 +4085,7 @@
     {
       "route": "/api/v1/documentos-viagens/create",
       "file": "src/routes/api/v1/documentos-viagens/create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -3980,6 +4120,7 @@
     {
       "route": "/api/v1/documentos-viagens/delete",
       "file": "src/routes/api/v1/documentos-viagens/delete/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -4016,6 +4157,7 @@
     {
       "route": "/api/v1/documentos-viagens/list",
       "file": "src/routes/api/v1/documentos-viagens/list/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -4040,6 +4182,7 @@
     {
       "route": "/api/v1/documentos-viagens/save-template",
       "file": "src/routes/api/v1/documentos-viagens/save-template/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -4076,6 +4219,7 @@
     {
       "route": "/api/v1/documentos-viagens/update",
       "file": "src/routes/api/v1/documentos-viagens/update/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -4112,6 +4256,7 @@
     {
       "route": "/api/v1/enderecos/cep",
       "file": "src/routes/api/v1/enderecos/cep/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -4141,6 +4286,7 @@
     {
       "route": "/api/v1/equipe/relacao",
       "file": "src/routes/api/v1/equipe/relacao/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -4179,6 +4325,7 @@
     {
       "route": "/api/v1/financeiro/ajustes-vendas",
       "file": "src/routes/api/v1/financeiro/ajustes-vendas/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -4232,6 +4379,7 @@
     {
       "route": "/api/v1/financeiro/ajustes-vendas/list",
       "file": "src/routes/api/v1/financeiro/ajustes-vendas/list/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -4275,6 +4423,7 @@
     {
       "route": "/api/v1/financeiro/ajustes-vendas/save",
       "file": "src/routes/api/v1/financeiro/ajustes-vendas/save/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -4329,6 +4478,7 @@
     {
       "route": "/api/v1/financeiro/caixa",
       "file": "src/routes/api/v1/financeiro/caixa/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -4373,6 +4523,7 @@
     {
       "route": "/api/v1/financeiro/comissoes",
       "file": "src/routes/api/v1/financeiro/comissoes/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -4412,6 +4563,7 @@
     {
       "route": "/api/v1/financeiro/comissoes/calcular",
       "file": "src/routes/api/v1/financeiro/comissoes/calcular/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -4453,6 +4605,7 @@
     {
       "route": "/api/v1/financeiro/comissoes/pagamento",
       "file": "src/routes/api/v1/financeiro/comissoes/pagamento/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "POST",
@@ -4502,6 +4655,7 @@
     {
       "route": "/api/v1/financeiro/comissoes/regras",
       "file": "src/routes/api/v1/financeiro/comissoes/regras/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -4550,6 +4704,7 @@
     {
       "route": "/api/v1/financeiro/comissoes/regras/[id]",
       "file": "src/routes/api/v1/financeiro/comissoes/regras/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -4596,6 +4751,7 @@
     {
       "route": "/api/v1/financeiro/comissoes/vendedores",
       "file": "src/routes/api/v1/financeiro/comissoes/vendedores/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -4631,6 +4787,7 @@
     {
       "route": "/api/v1/financeiro/formas-pagamento",
       "file": "src/routes/api/v1/financeiro/formas-pagamento/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -4678,6 +4835,7 @@
     {
       "route": "/api/v1/fornecedores",
       "file": "src/routes/api/v1/fornecedores/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -4708,6 +4866,7 @@
     {
       "route": "/api/v1/fornecedores/[id]",
       "file": "src/routes/api/v1/fornecedores/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -4752,6 +4911,7 @@
     {
       "route": "/api/v1/fornecedores/create",
       "file": "src/routes/api/v1/fornecedores/create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -4790,6 +4950,7 @@
     {
       "route": "/api/v1/health",
       "file": "src/routes/api/v1/health/+server.ts",
+      "hono": "src/lib/server/api/routes/health.ts",
       "methods": [
         "GET"
       ],
@@ -4808,14 +4969,16 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache"
       ],
       "mutates": false,
-      "lines": 8
+      "lines": 15
     },
     {
       "route": "/api/v1/importar-vendas",
       "file": "src/routes/api/v1/importar-vendas/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -4843,6 +5006,7 @@
     {
       "route": "/api/v1/menu/prefs",
       "file": "src/routes/api/v1/menu/prefs/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -4880,6 +5044,7 @@
     {
       "route": "/api/v1/mural/bootstrap",
       "file": "src/routes/api/v1/mural/bootstrap/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -4914,6 +5079,7 @@
     {
       "route": "/api/v1/mural/company",
       "file": "src/routes/api/v1/mural/company/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -4941,6 +5107,7 @@
     {
       "route": "/api/v1/mural/read",
       "file": "src/routes/api/v1/mural/read/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -4978,6 +5145,7 @@
     {
       "route": "/api/v1/mural/recados",
       "file": "src/routes/api/v1/mural/recados/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -5021,6 +5189,7 @@
     {
       "route": "/api/v1/operacao/campanhas",
       "file": "src/routes/api/v1/operacao/campanhas/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -5063,6 +5232,7 @@
     {
       "route": "/api/v1/operacao/documentos-viagens",
       "file": "src/routes/api/v1/operacao/documentos-viagens/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET"
@@ -5100,6 +5270,7 @@
     {
       "route": "/api/v1/operacao/preferencias",
       "file": "src/routes/api/v1/operacao/preferencias/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -5152,6 +5323,7 @@
     {
       "route": "/api/v1/operacao/recados",
       "file": "src/routes/api/v1/operacao/recados/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -5194,6 +5366,7 @@
     {
       "route": "/api/v1/operacao/sac",
       "file": "src/routes/api/v1/operacao/sac/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -5233,6 +5406,7 @@
     {
       "route": "/api/v1/orcamentos/[id]",
       "file": "src/routes/api/v1/orcamentos/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -5284,6 +5458,7 @@
     {
       "route": "/api/v1/orcamentos/[id]/resumo-venda",
       "file": "src/routes/api/v1/orcamentos/[id]/resumo-venda/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -5322,6 +5497,7 @@
     {
       "route": "/api/v1/orcamentos/cidades-busca",
       "file": "src/routes/api/v1/orcamentos/cidades-busca/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -5359,6 +5535,7 @@
     {
       "route": "/api/v1/orcamentos/cliente-create",
       "file": "src/routes/api/v1/orcamentos/cliente-create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -5397,6 +5574,7 @@
     {
       "route": "/api/v1/orcamentos/clientes",
       "file": "src/routes/api/v1/orcamentos/clientes/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -5433,6 +5611,7 @@
     {
       "route": "/api/v1/orcamentos/create",
       "file": "src/routes/api/v1/orcamentos/create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -5476,6 +5655,7 @@
     {
       "route": "/api/v1/orcamentos/delete",
       "file": "src/routes/api/v1/orcamentos/delete/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -5514,6 +5694,7 @@
     {
       "route": "/api/v1/orcamentos/importar",
       "file": "src/routes/api/v1/orcamentos/importar/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -5565,6 +5746,7 @@
     {
       "route": "/api/v1/orcamentos/interacao",
       "file": "src/routes/api/v1/orcamentos/interacao/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -5605,6 +5787,7 @@
     {
       "route": "/api/v1/orcamentos/interaction",
       "file": "src/routes/api/v1/orcamentos/interaction/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -5630,6 +5813,7 @@
     {
       "route": "/api/v1/orcamentos/list",
       "file": "src/routes/api/v1/orcamentos/list/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -5676,6 +5860,7 @@
     {
       "route": "/api/v1/orcamentos/produtos",
       "file": "src/routes/api/v1/orcamentos/produtos/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -5710,6 +5895,7 @@
     {
       "route": "/api/v1/orcamentos/save",
       "file": "src/routes/api/v1/orcamentos/save/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -5768,6 +5954,7 @@
     {
       "route": "/api/v1/orcamentos/status",
       "file": "src/routes/api/v1/orcamentos/status/+server.ts",
+      "hono": null,
       "methods": [
         "PATCH"
       ],
@@ -5807,6 +5994,7 @@
     {
       "route": "/api/v1/orcamentos/tipos",
       "file": "src/routes/api/v1/orcamentos/tipos/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -5842,6 +6030,7 @@
     {
       "route": "/api/v1/pagamentos",
       "file": "src/routes/api/v1/pagamentos/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -5886,6 +6075,7 @@
     {
       "route": "/api/v1/pagamentos/[id]",
       "file": "src/routes/api/v1/pagamentos/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -5928,6 +6118,7 @@
     {
       "route": "/api/v1/pagamentos/[id]/conciliar",
       "file": "src/routes/api/v1/pagamentos/[id]/conciliar/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -5967,6 +6158,7 @@
     {
       "route": "/api/v1/pagamentos/upload",
       "file": "src/routes/api/v1/pagamentos/upload/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -6007,6 +6199,7 @@
     {
       "route": "/api/v1/paises",
       "file": "src/routes/api/v1/paises/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6048,6 +6241,7 @@
     {
       "route": "/api/v1/parametros/cambios",
       "file": "src/routes/api/v1/parametros/cambios/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6089,6 +6283,7 @@
     {
       "route": "/api/v1/parametros/commission-rules",
       "file": "src/routes/api/v1/parametros/commission-rules/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6138,6 +6333,7 @@
     {
       "route": "/api/v1/parametros/empresa",
       "file": "src/routes/api/v1/parametros/empresa/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "PATCH"
@@ -6177,6 +6373,7 @@
     {
       "route": "/api/v1/parametros/equipe",
       "file": "src/routes/api/v1/parametros/equipe/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -6226,6 +6423,7 @@
     {
       "route": "/api/v1/parametros/escalas",
       "file": "src/routes/api/v1/parametros/escalas/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -6288,6 +6486,7 @@
     {
       "route": "/api/v1/parametros/metas",
       "file": "src/routes/api/v1/parametros/metas/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6342,6 +6541,7 @@
     {
       "route": "/api/v1/parametros/nao-comissionaveis",
       "file": "src/routes/api/v1/parametros/nao-comissionaveis/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6383,6 +6583,7 @@
     {
       "route": "/api/v1/parametros/orcamentos-pdf",
       "file": "src/routes/api/v1/parametros/orcamentos-pdf/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -6424,6 +6625,7 @@
     {
       "route": "/api/v1/parametros/regras-produto-pacote",
       "file": "src/routes/api/v1/parametros/regras-produto-pacote/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6465,6 +6667,7 @@
     {
       "route": "/api/v1/parametros/regras-produto",
       "file": "src/routes/api/v1/parametros/regras-produto/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6506,6 +6709,7 @@
     {
       "route": "/api/v1/parametros/sistema",
       "file": "src/routes/api/v1/parametros/sistema/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -6549,6 +6753,7 @@
     {
       "route": "/api/v1/parametros/tipo-pacotes",
       "file": "src/routes/api/v1/parametros/tipo-pacotes/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6590,6 +6795,7 @@
     {
       "route": "/api/v1/preferencias/base",
       "file": "src/routes/api/v1/preferencias/base/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -6616,6 +6822,7 @@
     {
       "route": "/api/v1/preferencias/cidades-busca",
       "file": "src/routes/api/v1/preferencias/cidades-busca/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -6648,6 +6855,7 @@
     {
       "route": "/api/v1/preferencias/delete",
       "file": "src/routes/api/v1/preferencias/delete/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -6684,6 +6892,7 @@
     {
       "route": "/api/v1/preferencias/list",
       "file": "src/routes/api/v1/preferencias/list/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -6717,6 +6926,7 @@
     {
       "route": "/api/v1/preferencias/save",
       "file": "src/routes/api/v1/preferencias/save/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -6754,6 +6964,7 @@
     {
       "route": "/api/v1/preferencias/share-accept",
       "file": "src/routes/api/v1/preferencias/share-accept/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -6788,6 +6999,7 @@
     {
       "route": "/api/v1/preferencias/share-revoke",
       "file": "src/routes/api/v1/preferencias/share-revoke/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -6822,6 +7034,7 @@
     {
       "route": "/api/v1/preferencias/share",
       "file": "src/routes/api/v1/preferencias/share/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -6864,6 +7077,7 @@
     {
       "route": "/api/v1/produtos",
       "file": "src/routes/api/v1/produtos/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -6894,6 +7108,7 @@
     {
       "route": "/api/v1/produtos/[id]",
       "file": "src/routes/api/v1/produtos/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -6937,6 +7152,7 @@
     {
       "route": "/api/v1/produtos/base",
       "file": "src/routes/api/v1/produtos/base/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -6967,6 +7183,7 @@
     {
       "route": "/api/v1/produtos/create",
       "file": "src/routes/api/v1/produtos/create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -7005,6 +7222,7 @@
     {
       "route": "/api/v1/produtos/tarifas",
       "file": "src/routes/api/v1/produtos/tarifas/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -7044,6 +7262,7 @@
     {
       "route": "/api/v1/profile/signature",
       "file": "src/routes/api/v1/profile/signature/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "PATCH"
@@ -7080,6 +7299,7 @@
     {
       "route": "/api/v1/push/subscribe",
       "file": "src/routes/api/v1/push/subscribe/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -7112,6 +7332,7 @@
     {
       "route": "/api/v1/push/unsubscribe",
       "file": "src/routes/api/v1/push/unsubscribe/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -7144,6 +7365,7 @@
     {
       "route": "/api/v1/qr",
       "file": "src/routes/api/v1/qr/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7173,6 +7395,7 @@
     {
       "route": "/api/v1/read-model/rebuild",
       "file": "src/routes/api/v1/read-model/rebuild/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -7206,6 +7429,7 @@
     {
       "route": "/api/v1/relatorios/base",
       "file": "src/routes/api/v1/relatorios/base/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7245,6 +7469,7 @@
     {
       "route": "/api/v1/relatorios/cidades-busca",
       "file": "src/routes/api/v1/relatorios/cidades-busca/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7277,6 +7502,7 @@
     {
       "route": "/api/v1/relatorios/clientes",
       "file": "src/routes/api/v1/relatorios/clientes/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7316,6 +7542,7 @@
     {
       "route": "/api/v1/relatorios/destinos",
       "file": "src/routes/api/v1/relatorios/destinos/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7350,6 +7577,7 @@
     {
       "route": "/api/v1/relatorios/produtos-recibos",
       "file": "src/routes/api/v1/relatorios/produtos-recibos/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7381,6 +7609,7 @@
     {
       "route": "/api/v1/relatorios/produtos",
       "file": "src/routes/api/v1/relatorios/produtos/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7415,6 +7644,7 @@
     {
       "route": "/api/v1/relatorios/ranking-debug",
       "file": "src/routes/api/v1/relatorios/ranking-debug/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -7466,6 +7696,7 @@
     {
       "route": "/api/v1/relatorios/ranking-vendas",
       "file": "src/routes/api/v1/relatorios/ranking-vendas/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7490,6 +7721,7 @@
     {
       "route": "/api/v1/relatorios/ranking",
       "file": "src/routes/api/v1/relatorios/ranking/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7537,6 +7769,7 @@
     {
       "route": "/api/v1/relatorios/vendas-por-cliente",
       "file": "src/routes/api/v1/relatorios/vendas-por-cliente/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7561,6 +7794,7 @@
     {
       "route": "/api/v1/relatorios/vendas-por-destino",
       "file": "src/routes/api/v1/relatorios/vendas-por-destino/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7585,6 +7819,7 @@
     {
       "route": "/api/v1/relatorios/vendas-por-produto",
       "file": "src/routes/api/v1/relatorios/vendas-por-produto/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7609,6 +7844,7 @@
     {
       "route": "/api/v1/relatorios/vendas",
       "file": "src/routes/api/v1/relatorios/vendas/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7675,6 +7911,7 @@
     {
       "route": "/api/v1/roteiros",
       "file": "src/routes/api/v1/roteiros/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -7729,6 +7966,7 @@
     {
       "route": "/api/v1/roteiros/[id]",
       "file": "src/routes/api/v1/roteiros/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7773,6 +8011,7 @@
     {
       "route": "/api/v1/roteiros/delete",
       "file": "src/routes/api/v1/roteiros/delete/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE"
       ],
@@ -7810,6 +8049,7 @@
     {
       "route": "/api/v1/roteiros/dias-busca",
       "file": "src/routes/api/v1/roteiros/dias-busca/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7845,6 +8085,7 @@
     {
       "route": "/api/v1/roteiros/gerar-orcamento",
       "file": "src/routes/api/v1/roteiros/gerar-orcamento/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -7892,6 +8133,7 @@
     {
       "route": "/api/v1/roteiros/list",
       "file": "src/routes/api/v1/roteiros/list/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -7927,6 +8169,7 @@
     {
       "route": "/api/v1/roteiros/save",
       "file": "src/routes/api/v1/roteiros/save/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -7985,6 +8228,7 @@
     {
       "route": "/api/v1/roteiros/sugestoes-busca",
       "file": "src/routes/api/v1/roteiros/sugestoes-busca/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -8016,6 +8260,7 @@
     {
       "route": "/api/v1/roteiros/sugestoes-remover",
       "file": "src/routes/api/v1/roteiros/sugestoes-remover/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -8048,6 +8293,7 @@
     {
       "route": "/api/v1/roteiros/sugestoes-salvar",
       "file": "src/routes/api/v1/roteiros/sugestoes-salvar/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -8081,6 +8327,7 @@
     {
       "route": "/api/v1/subdivisoes",
       "file": "src/routes/api/v1/subdivisoes/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -8122,6 +8369,7 @@
     {
       "route": "/api/v1/tarefas",
       "file": "src/routes/api/v1/tarefas/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -8159,6 +8407,7 @@
     {
       "route": "/api/v1/tarefas/clientes",
       "file": "src/routes/api/v1/tarefas/clientes/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -8194,6 +8443,7 @@
     {
       "route": "/api/v1/tarefas/usuarios",
       "file": "src/routes/api/v1/tarefas/usuarios/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -8229,6 +8479,7 @@
     {
       "route": "/api/v1/tipo-produtos",
       "file": "src/routes/api/v1/tipo-produtos/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -8268,6 +8519,7 @@
     {
       "route": "/api/v1/todo/batch",
       "file": "src/routes/api/v1/todo/batch/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -8308,6 +8560,7 @@
     {
       "route": "/api/v1/todo/board",
       "file": "src/routes/api/v1/todo/board/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -8341,6 +8594,7 @@
     {
       "route": "/api/v1/todo/category",
       "file": "src/routes/api/v1/todo/category/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "POST"
@@ -8385,6 +8639,7 @@
     {
       "route": "/api/v1/todo/item",
       "file": "src/routes/api/v1/todo/item/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "PATCH",
@@ -8430,6 +8685,7 @@
     {
       "route": "/api/v1/todo/item/[id]",
       "file": "src/routes/api/v1/todo/item/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -8468,6 +8724,7 @@
     {
       "route": "/api/v1/user/context",
       "file": "src/routes/api/v1/user/context/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -8507,6 +8764,7 @@
     {
       "route": "/api/v1/user/profile",
       "file": "src/routes/api/v1/user/profile/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "PATCH"
@@ -8541,6 +8799,7 @@
     {
       "route": "/api/v1/users/aniversariantes",
       "file": "src/routes/api/v1/users/aniversariantes/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -8574,148 +8833,90 @@
     {
       "route": "/api/v1/vendas",
       "file": "src/routes/api/v1/vendas/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/index.ts",
       "methods": [
         "GET"
       ],
       "guards": {
-        "requireAuthenticatedUser": true,
-        "resolveUserScope": true,
-        "roles": [
-          "isAdmin",
-          "isFinanceiro",
-          "isGestor",
-          "isMaster"
-        ],
+        "requireAuthenticatedUser": false,
+        "resolveUserScope": false,
+        "roles": [],
         "rejectCrossOrigin": false,
         "bodyLimit": false,
         "cronSecret": false,
         "turnstile": false,
-        "adminClient": true,
+        "adminClient": false,
         "debugOnly": false
       },
-      "tables": {
-        "vendas": [
-          "select"
-        ]
-      },
+      "tables": {},
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/date",
-        "$lib/server/httpCache",
-        "$lib/server/readModelCache",
-        "$lib/server/v1",
-        "$lib/utils/array"
+        "$lib/server/api/sveltekit"
       ],
       "mutates": false,
-      "lines": 191
+      "lines": 59
     },
     {
       "route": "/api/v1/vendas/[id]",
       "file": "src/routes/api/v1/vendas/[id]/+server.ts",
+      "hono": "src/routes/api/v1/vendas/[id]/+server.ts",
       "methods": [
         "DELETE",
         "GET",
         "PATCH"
       ],
       "guards": {
-        "requireAuthenticatedUser": true,
-        "resolveUserScope": true,
-        "roles": [
-          "isAdmin",
-          "isMaster"
-        ],
-        "rejectCrossOrigin": true,
-        "bodyLimit": true,
-        "cronSecret": false,
-        "turnstile": false,
-        "adminClient": true,
-        "debugOnly": false
-      },
-      "tables": {
-        "conciliacao_recibos": [
-          "update"
-        ],
-        "vendas": [
-          "delete",
-          "select",
-          "update"
-        ],
-        "vendas_pagamentos": [
-          "delete"
-        ],
-        "vendas_recibos": [
-          "select"
-        ],
-        "vendas_recibos_notas": [
-          "delete"
-        ],
-        "vendas_recibos_rateio": [
-          "delete"
-        ]
-      },
-      "rpcs": [],
-      "invalidations": [
-        "invalidateSalesReadModels"
-      ],
-      "imports": [
-        "$lib/server/auditLog",
-        "$lib/server/clientes",
-        "$lib/server/httpCache",
-        "$lib/server/readModelCache",
-        "$lib/server/requestGuards",
-        "$lib/server/salesScope",
-        "$lib/server/v1",
-        "$lib/server/vendasSave",
-        "$lib/utils/array",
-        "$lib/utils/errors"
-      ],
-      "mutates": true,
-      "lines": 803
-    },
-    {
-      "route": "/api/v1/vendas/[id]/ranking-recibos",
-      "file": "src/routes/api/v1/vendas/[id]/ranking-recibos/+server.ts",
-      "methods": [
-        "GET"
-      ],
-      "guards": {
-        "requireAuthenticatedUser": true,
-        "resolveUserScope": true,
-        "roles": [
-          "isAdmin",
-          "isFinanceiro",
-          "isGestor",
-          "isMaster"
-        ],
+        "requireAuthenticatedUser": false,
+        "resolveUserScope": false,
+        "roles": [],
         "rejectCrossOrigin": false,
         "bodyLimit": false,
         "cronSecret": false,
         "turnstile": false,
-        "adminClient": true,
+        "adminClient": false,
         "debugOnly": false
       },
-      "tables": {
-        "vendas": [
-          "select"
-        ],
-        "vendas_recibos": [
-          "select"
-        ]
-      },
+      "tables": {},
       "rpcs": [],
       "invalidations": [],
       "imports": [
-        "$lib/conciliacao/vendaRanking",
-        "$lib/server/httpCache",
-        "$lib/server/v1"
+        "$lib/server/api/sveltekit"
       ],
       "mutates": false,
-      "lines": 120
+      "lines": 7
+    },
+    {
+      "route": "/api/v1/vendas/[id]/ranking-recibos",
+      "file": "src/routes/api/v1/vendas/[id]/ranking-recibos/+server.ts",
+      "hono": "src/routes/api/v1/vendas/[id]/ranking-recibos/+server.ts",
+      "methods": [
+        "GET"
+      ],
+      "guards": {
+        "requireAuthenticatedUser": false,
+        "resolveUserScope": false,
+        "roles": [],
+        "rejectCrossOrigin": false,
+        "bodyLimit": false,
+        "cronSecret": false,
+        "turnstile": false,
+        "adminClient": false,
+        "debugOnly": false
+      },
+      "tables": {},
+      "rpcs": [],
+      "invalidations": [],
+      "imports": [
+        "$lib/server/api/sveltekit"
+      ],
+      "mutates": false,
+      "lines": 5
     },
     {
       "route": "/api/v1/vendas/cadastro-base",
       "file": "src/routes/api/v1/vendas/cadastro-base/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/cadastro-base.ts",
       "methods": [
         "GET"
       ],
@@ -8758,6 +8959,7 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/clientes",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -8765,11 +8967,12 @@
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 461
+      "lines": 468
     },
     {
       "route": "/api/v1/vendas/cadastro-save",
       "file": "src/routes/api/v1/vendas/cadastro-save/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/cadastro-save.ts",
       "methods": [
         "POST"
       ],
@@ -8806,6 +9009,7 @@
         "triggerRebuildAsync"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/kvInvalidation",
@@ -8818,11 +9022,12 @@
         "$lib/utils/errors"
       ],
       "mutates": true,
-      "lines": 287
+      "lines": 294
     },
     {
       "route": "/api/v1/vendas/cancel",
       "file": "src/routes/api/v1/vendas/cancel/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/cancel.ts",
       "methods": [
         "POST"
       ],
@@ -8852,6 +9057,7 @@
         "triggerRebuildAsync"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/kvInvalidation",
@@ -8863,11 +9069,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 99
+      "lines": 107
     },
     {
       "route": "/api/v1/vendas/cidades-busca",
       "file": "src/routes/api/v1/vendas/cidades-busca/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/cidades-busca.ts",
       "methods": [
         "GET"
       ],
@@ -8895,16 +9102,18 @@
       ],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 226
+      "lines": 234
     },
     {
       "route": "/api/v1/vendas/complementares",
       "file": "src/routes/api/v1/vendas/complementares/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/complementares.ts",
       "methods": [
         "GET"
       ],
@@ -8938,17 +9147,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/salesScope",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 409
+      "lines": 416
     },
     {
       "route": "/api/v1/vendas/create",
       "file": "src/routes/api/v1/vendas/create/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/create.ts",
       "methods": [
         "POST"
       ],
@@ -8978,6 +9189,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/clientes",
         "$lib/server/httpCache",
@@ -8988,11 +9200,12 @@
         "$lib/utils/errors"
       ],
       "mutates": true,
-      "lines": 253
+      "lines": 261
     },
     {
       "route": "/api/v1/vendas/gestor-equipe",
       "file": "src/routes/api/v1/vendas/gestor-equipe/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/gestor-equipe.ts",
       "methods": [
         "GET"
       ],
@@ -9018,16 +9231,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 67
+      "lines": 75
     },
     {
       "route": "/api/v1/vendas/importar-contrato",
       "file": "src/routes/api/v1/vendas/importar-contrato/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/importar-contrato.ts",
       "methods": [
         "POST"
       ],
@@ -9095,6 +9310,7 @@
         "$lib/date",
         "$lib/features/clientes/form",
         "$lib/normalizeText",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -9105,11 +9321,12 @@
         "$lib/vendas/contratoCvcExtractor"
       ],
       "mutates": true,
-      "lines": 1136
+      "lines": 1144
     },
     {
       "route": "/api/v1/vendas/kpis",
       "file": "src/routes/api/v1/vendas/kpis/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/kpis.ts",
       "methods": [
         "GET"
       ],
@@ -9131,17 +9348,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelRebuild",
         "$lib/server/v1",
         "$lib/server/vendas-kpis"
       ],
       "mutates": false,
-      "lines": 116
+      "lines": 123
     },
     {
       "route": "/api/v1/vendas/list",
       "file": "src/routes/api/v1/vendas/list/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/list.ts",
       "methods": [
         "GET"
       ],
@@ -9183,17 +9402,19 @@
       "invalidations": [],
       "imports": [
         "$lib/date",
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 1126
+      "lines": 1134
     },
     {
       "route": "/api/v1/vendas/merge-candidates",
       "file": "src/routes/api/v1/vendas/merge-candidates/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/merge-candidates.ts",
       "methods": [
         "GET"
       ],
@@ -9224,17 +9445,19 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/salesScope",
         "$lib/server/v1",
         "$lib/utils/array"
       ],
       "mutates": false,
-      "lines": 175
+      "lines": 183
     },
     {
       "route": "/api/v1/vendas/merge",
       "file": "src/routes/api/v1/vendas/merge/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/merge.ts",
       "methods": [
         "POST"
       ],
@@ -9278,6 +9501,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -9288,11 +9512,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 410
+      "lines": 418
     },
     {
       "route": "/api/v1/vendas/recibo-complementar-link",
       "file": "src/routes/api/v1/vendas/recibo-complementar-link/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/recibo-complementar-link.ts",
       "methods": [
         "POST"
       ],
@@ -9324,6 +9549,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -9333,11 +9559,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 191
+      "lines": 198
     },
     {
       "route": "/api/v1/vendas/recibo-complementar-remove",
       "file": "src/routes/api/v1/vendas/recibo-complementar-remove/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/recibo-complementar-remove.ts",
       "methods": [
         "POST"
       ],
@@ -9366,6 +9593,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -9375,11 +9603,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 103
+      "lines": 110
     },
     {
       "route": "/api/v1/vendas/recibo-delete",
       "file": "src/routes/api/v1/vendas/recibo-delete/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/recibo-delete.ts",
       "methods": [
         "POST"
       ],
@@ -9409,6 +9638,7 @@
         "triggerRebuildAsync"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/kvInvalidation",
@@ -9420,11 +9650,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 92
+      "lines": 99
     },
     {
       "route": "/api/v1/vendas/recibo-edit",
       "file": "src/routes/api/v1/vendas/recibo-edit/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/recibo-edit.ts",
       "methods": [
         "PATCH"
       ],
@@ -9455,6 +9686,7 @@
         "triggerRebuildAsync"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/kvInvalidation",
         "$lib/server/readModelCache",
@@ -9465,11 +9697,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 168
+      "lines": 175
     },
     {
       "route": "/api/v1/vendas/recibo-notas",
       "file": "src/routes/api/v1/vendas/recibo-notas/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/recibo-notas.ts",
       "methods": [
         "GET"
       ],
@@ -9495,16 +9728,18 @@
       "rpcs": [],
       "invalidations": [],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/salesScope",
         "$lib/server/v1"
       ],
       "mutates": false,
-      "lines": 55
+      "lines": 62
     },
     {
       "route": "/api/v1/vendas/recibo-principal",
       "file": "src/routes/api/v1/vendas/recibo-principal/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/recibo-principal.ts",
       "methods": [
         "POST"
       ],
@@ -9535,6 +9770,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/auditLog",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
@@ -9544,11 +9780,12 @@
         "$lib/utils/json"
       ],
       "mutates": true,
-      "lines": 109
+      "lines": 116
     },
     {
       "route": "/api/v1/vendas/status",
       "file": "src/routes/api/v1/vendas/status/+server.ts",
+      "hono": "src/lib/server/api/routes/vendas/status.ts",
       "methods": [
         "PATCH"
       ],
@@ -9576,6 +9813,7 @@
         "invalidateSalesReadModels"
       ],
       "imports": [
+        "$lib/server/api/sveltekit",
         "$lib/server/httpCache",
         "$lib/server/readModelCache",
         "$lib/server/requestGuards",
@@ -9583,11 +9821,12 @@
         "$lib/server/v1"
       ],
       "mutates": true,
-      "lines": 78
+      "lines": 85
     },
     {
       "route": "/api/v1/viagens",
       "file": "src/routes/api/v1/viagens/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -9640,6 +9879,7 @@
     {
       "route": "/api/v1/viagens/[id]",
       "file": "src/routes/api/v1/viagens/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -9702,6 +9942,7 @@
     {
       "route": "/api/v1/viagens/cidades-busca",
       "file": "src/routes/api/v1/viagens/cidades-busca/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -9738,6 +9979,7 @@
     {
       "route": "/api/v1/viagens/cliente/[id]",
       "file": "src/routes/api/v1/viagens/cliente/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -9782,6 +10024,7 @@
     {
       "route": "/api/v1/viagens/clientes",
       "file": "src/routes/api/v1/viagens/clientes/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -9818,6 +10061,7 @@
     {
       "route": "/api/v1/viagens/create",
       "file": "src/routes/api/v1/viagens/create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -9859,6 +10103,7 @@
     {
       "route": "/api/v1/viagens/delete",
       "file": "src/routes/api/v1/viagens/delete/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -9899,6 +10144,7 @@
     {
       "route": "/api/v1/viagens/dossie-batch",
       "file": "src/routes/api/v1/viagens/dossie-batch/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -9953,6 +10199,7 @@
     {
       "route": "/api/v1/viagens/dossie",
       "file": "src/routes/api/v1/viagens/dossie/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -9991,6 +10238,7 @@
     {
       "route": "/api/v1/viagens/list",
       "file": "src/routes/api/v1/viagens/list/+server.ts",
+      "hono": null,
       "methods": [
         "GET"
       ],
@@ -10015,6 +10263,7 @@
     {
       "route": "/api/v1/voucher-assets",
       "file": "src/routes/api/v1/voucher-assets/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -10059,6 +10308,7 @@
     {
       "route": "/api/v1/vouchers",
       "file": "src/routes/api/v1/vouchers/+server.ts",
+      "hono": null,
       "methods": [
         "GET",
         "POST"
@@ -10104,6 +10354,7 @@
     {
       "route": "/api/v1/vouchers/[id]",
       "file": "src/routes/api/v1/vouchers/[id]/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE",
         "GET",
@@ -10148,6 +10399,7 @@
     {
       "route": "/api/v1/vouchers/create",
       "file": "src/routes/api/v1/vouchers/create/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],
@@ -10182,6 +10434,7 @@
     {
       "route": "/api/v1/vouchers/delete",
       "file": "src/routes/api/v1/vouchers/delete/+server.ts",
+      "hono": null,
       "methods": [
         "DELETE"
       ],
@@ -10216,6 +10469,7 @@
     {
       "route": "/api/v1/welcome-email",
       "file": "src/routes/api/v1/welcome-email/+server.ts",
+      "hono": null,
       "methods": [
         "POST"
       ],

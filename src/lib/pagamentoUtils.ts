@@ -4,21 +4,11 @@ import { supabase as supabaseBrowser } from '$lib/db/supabase';
 import {
   calcularNaoComissionavelPorVenda as calcularNaoComissionavelPorVendaShared,
   calcularNaoComissionavelResumo,
+  DEFAULT_NAO_COMISSIONAVEIS,
+  isFormaNaoComissionavel as isFormaNaoComissionavelBase,
 } from '$lib/naoComissionavel';
 import { uniqueCleanStrings } from '$lib/utils/array';
 
-const DEFAULT_NAO_COMISSIONAVEIS = [
-  "credito diversos",
-  "credito pax",
-  "credito passageiro",
-  "credito de viagem",
-  "credipax",
-  "vale viagem",
-  "carta de credito",
-  "ficha cvc",
-  "cvc ficha",
-  "credito",
-];
 
 const DEFAULT_NAO_COMISSIONAVEIS_NORMALIZED = DEFAULT_NAO_COMISSIONAVEIS.reduce<string[]>((items, termo) => {
   const normalized = normalizeText(termo, { trim: true, collapseWhitespace: true });
@@ -73,14 +63,11 @@ export async function carregarTermosNaoComissionaveis(options: { force?: boolean
 }
 
 export function isFormaNaoComissionavel(nome?: string | null, termos?: string[] | null) {
-  const normalized = normalizeTerm(nome);
-  if (!normalized) return false;
-  if (normalized.includes("cartao") && normalized.includes("credito")) return false;
   const lista =
     termos && termos.length
       ? termos
       : cachedTermosNaoComissionaveis || DEFAULT_NAO_COMISSIONAVEIS_NORMALIZED;
-  return lista.some((termo) => termo && normalized.includes(termo));
+  return isFormaNaoComissionavelBase(nome, lista);
 }
 
 export function calcularNaoComissionavelPorVenda(

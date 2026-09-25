@@ -28,6 +28,30 @@ function addToMap(map: Map<string, number>, key: string, value: number) {
   map.set(key, (map.get(key) || 0) + value);
 }
 
+/**
+ * Termos padrão de formas de pagamento NÃO comissionáveis. Só são usados quando
+ * a tabela `parametros_pagamentos_nao_comissionaveis` não pode ser lida ou está
+ * vazia (em produção ela tem os termos ativos). Fonte única desde a Fase 2.3 —
+ * antes havia 6 cópias desta lista/regra espalhadas pelo código.
+ */
+export const DEFAULT_NAO_COMISSIONAVEIS: readonly string[] = [
+  "credito diversos",
+  "credito pax",
+  "credito passageiro",
+  "credito de viagem",
+  "credipax",
+  "vale viagem",
+  "carta de credito",
+  "ficha cvc",
+  "cvc ficha",
+  "credito",
+];
+
+/**
+ * Regra única: a forma é não comissionável se o nome normalizado contém algum
+ * dos termos — exceto "cartão de crédito", que sempre comissiona.
+ * Sem termos → false (quem chama é responsável por carregar os termos).
+ */
 export function isFormaNaoComissionavel(nome?: string | null, termos?: string[] | null) {
   const normalized = normalizeTerm(nome);
   if (!normalized) return false;
@@ -95,4 +119,9 @@ export function calcularNaoComissionavelPorVenda(
   termos?: string[] | null
 ) {
   return calcularNaoComissionavelResumo(pagamentos, termos).porVenda;
+}
+
+/** Igual a isFormaNaoComissionavel, mas usa DEFAULT_NAO_COMISSIONAVEIS quando `termos` vier vazio. */
+export function isFormaNaoComissionavelOuPadrao(nome?: string | null, termos?: readonly string[] | null) {
+  return isFormaNaoComissionavel(nome, termos && termos.length > 0 ? [...termos] : [...DEFAULT_NAO_COMISSIONAVEIS]);
 }

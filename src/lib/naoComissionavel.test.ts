@@ -1,8 +1,8 @@
 // Testes de caracterização: pagamentos não comissionáveis (Fase 1).
-// Atenção: a mesma regra isFormaNaoComissionavel existe copiada em
-// vendas-kpis.ts, relatorios/vendas, vendas/merge, vendas/importar-contrato e
-// pagamentoUtils.ts. Estes testes descrevem a versão de referência
-// ($lib/naoComissionavel); a consolidação das cópias fica para a Fase 2.
+// Desde a Fase 2.3 esta é a ÚNICA implementação da regra (antes havia cópias
+// em vendas-kpis, relatorios/vendas, vendas/merge, vendas/importar-contrato,
+// conciliacao/_legacy e pagamentoUtils). O carregamento dos termos no servidor
+// está em $lib/server/naoComissionavelTermos.
 import { describe, expect, it } from 'vitest';
 import {
   calcularNaoComissionavelPorVenda,

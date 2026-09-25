@@ -36,6 +36,8 @@ import {
 import { normalizeReceiptNumber } from "$lib/conciliacao/receiptNumber";
 import { cleanStringSet, chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
+import { isFormaNaoComissionavel } from '$lib/naoComissionavel';
+import { carregarTermosNaoComissionaveis as carregarTermosNaoComissionaveisBase } from '$lib/server/naoComissionavelTermos';
 
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
@@ -93,10 +95,6 @@ type CompanyIdOnlyRow = {
   company_id?: string | null;
 };
 
-type TermoNaoComissionavelRow = {
-  termo?: string | null;
-  termo_normalizado?: string | null;
-};
 
 type VendaRowWithReceiptAliases = ReportVendaRow & {
   recibos?: ReportReceiptRow[] | null;
@@ -222,31 +220,11 @@ export type VendasKpiReciboContribution = {
   origem?: string | null;
 };
 
-const DEFAULT_NAO_COMISSIONAVEIS = [
-  "credito diversos",
-  "credito pax",
-  "credito passageiro",
-  "credito de viagem",
-  "credipax",
-  "vale viagem",
-  "carta de credito",
-  "ficha cvc",
-  "cvc ficha",
-  "credito",
-];
 
 function toDateKey(value?: string | null) {
   return String(value || "").slice(0, 10);
 }
 
-function normalizeTextValue(value?: string | null) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function normalizeCompanyScopeIds(companyIds?: string[] | null) {
   return uniqueCleanStrings(companyIds || []);
@@ -274,19 +252,6 @@ function buildVendaIdsFromRows(rows: VendaAggregateRow[]) {
   return Array.from(ids);
 }
 
-function isFormaNaoComissionavel(
-  nome?: string | null,
-  termos?: string[] | null,
-) {
-  const normalized = normalizeTextValue(nome);
-  if (!normalized) return false;
-  if (normalized.includes("cartao") && normalized.includes("credito"))
-    return false;
-  const lista = (termos || [])
-    .map((termo) => normalizeTextValue(termo))
-    .filter(Boolean);
-  return lista.some((termo) => termo && normalized.includes(termo));
-}
 
 function calcularValorPagamento(pagamento: PagamentoNaoComissionavelInput) {
   const total = Number(pagamento.valor_total || 0);
@@ -523,31 +488,11 @@ async function carregarTermosNaoComissionaveis(
     tags: [READ_MODEL_TAGS.sales, READ_MODEL_TAGS.finance],
     ttlMs: 300_000,
     staleTtlMs: 1_800_000,
-    loader: async () => {
-      try {
-        const { data, error } = await client
-          .from("parametros_pagamentos_nao_comissionaveis")
-          .select("termo, termo_normalizado, ativo")
-          .eq("ativo", true)
-          .order("termo", { ascending: true });
-        if (error) throw error;
-
-        const termos = ((data || []) as TermoNaoComissionavelRow[])
-          .map((row) =>
-            normalizeTextValue(row?.termo_normalizado || row?.termo),
-          )
-          .filter(Boolean);
-
-        const unique = uniqueCleanStrings(termos);
-        if (unique.length > 0) return unique;
-      } catch (error) {
-        logServerError("[vendas-kpis] falha ao carregar termos nao comissionaveis", error);
-      }
-
-      return DEFAULT_NAO_COMISSIONAVEIS.map((termo) =>
-        normalizeTextValue(termo),
-      ).filter(Boolean);
-    },
+    loader: () =>
+      carregarTermosNaoComissionaveisBase(client, {
+        onError: (error) =>
+          logServerError("[vendas-kpis] falha ao carregar termos nao comissionaveis", error),
+      }),
   });
 }
 

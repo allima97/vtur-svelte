@@ -1,9 +1,8 @@
 // Testes de caracterização: rateio de recibos entre vendedores (Fase 1).
-// Também garante que as duas cópias do módulo ($lib/vendas/rateio e
-// $lib/vendasRateio) continuam equivalentes até serem unificadas.
+// A cópia antiga não usada ($lib/vendasRateio) foi removida na Fase 2.3,
+// depois de confirmada a equivalência com este módulo.
 import { describe, expect, it } from 'vitest';
 import * as rateio from './rateio';
-import * as rateioLegado from '../vendasRateio';
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -86,13 +85,5 @@ describe('applyRateioToSalesForScopedVendedores', () => {
     const out = rateio.applyRateioToSalesForScopedVendedores([venda], inativo);
     expect(out).toHaveLength(1);
     expect(out[0].vendas_recibos!.map((r) => r.id)).toEqual(['rec-1', 'rec-2']);
-  });
-});
-
-describe('equivalência entre as duas cópias do módulo de rateio', () => {
-  it.each([[undefined], [[A]], [[B]], [[C]]])('escopo %o', (escopo) => {
-    expect(rateioLegado.applyRateioToSalesForScopedVendedores([venda], rateioMap, escopo)).toEqual(
-      rateio.applyRateioToSalesForScopedVendedores([venda], rateioMap, escopo),
-    );
   });
 });
