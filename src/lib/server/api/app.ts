@@ -28,6 +28,18 @@ import { orcamentosRoutes } from './routes/orcamentos';
 import { parametrosRoutes } from './routes/parametros';
 import { roteirosRoutes } from './routes/roteiros';
 import { viagensRoutes } from './routes/viagens';
+import { preferenciasRoutes } from './routes/preferencias';
+import { agendaRoutes } from './routes/agenda';
+import { documentosViagensRoutes } from './routes/documentos-viagens';
+import { operacaoRoutes } from './routes/operacao';
+import { produtosRoutes } from './routes/produtos';
+import { cardsRoutes } from './routes/cards';
+import { muralRoutes } from './routes/mural';
+import { todoRoutes } from './routes/todo';
+import { vouchersRoutes } from './routes/vouchers';
+import { fornecedoresRoutes } from './routes/fornecedores';
+import { pagamentosRoutes } from './routes/pagamentos';
+import { tarefasRoutes } from './routes/tarefas';
 
 export function createApiApp() {
   const app = new Hono<ApiEnv>().basePath('/api/v1');
@@ -51,6 +63,18 @@ export function createApiApp() {
   app.route('/parametros', parametrosRoutes);
   app.route('/roteiros', roteirosRoutes);
   app.route('/viagens', viagensRoutes);
+  app.route('/preferencias', preferenciasRoutes);
+  app.route('/agenda', agendaRoutes);
+  app.route('/documentos-viagens', documentosViagensRoutes);
+  app.route('/operacao', operacaoRoutes);
+  app.route('/produtos', produtosRoutes);
+  app.route('/cards', cardsRoutes);
+  app.route('/mural', muralRoutes);
+  app.route('/todo', todoRoutes);
+  app.route('/vouchers', vouchersRoutes);
+  app.route('/fornecedores', fornecedoresRoutes);
+  app.route('/pagamentos', pagamentosRoutes);
+  app.route('/tarefas', tarefasRoutes);
 
   return app;
 }

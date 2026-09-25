@@ -15,7 +15,13 @@ for dom in doms:
     # métodos não exportados: para cada rota, um método que ela não tem
     neg=[]
     for r in rs:
-        missing=[m for m in ['PUT','PATCH','DELETE','POST','GET'] if m not in r['methods']]
+        # Evita métodos de rotas /:param com o mesmo nº de segmentos: chamado direto no
+        # Hono, '/create' com esse método cairia em '/:id'. Em produção isso não ocorre,
+        # porque a ponte +server.ts só exporta os métodos da rota e o SvelteKit
+        # responde 405 antes de chegar ao Hono.
+        nseg=len([x for x in r['hono'].split('/') if x])
+        colide=set() if r['param'] else {m for o in rs if o['param'] and len([x for x in o['hono'].split('/') if x])==nseg for m in o['methods']}
+        missing=[m for m in ['PUT','PATCH','DELETE','POST','GET'] if m not in r['methods'] and m not in colide]
         if missing:
             url='/api/v1/'+dom+('' if r['hono']=='/' else r['hono'].replace(':id','id-123'))
             neg.append(f"  ['{missing[0]}', '{url}'],")

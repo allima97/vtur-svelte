@@ -22,7 +22,7 @@ for dom in DOMAINS:
     for rel in files:
         rel='' if rel=='.' else rel.replace(os.sep,'/')
         segs=[s for s in rel.split('/') if s]
-        mod='-'.join(s.strip('[]') for s in segs) or 'root'
+        mod='-'.join(s.strip('[]').replace('.','-') for s in segs) or 'root'
         prefix=camel(dom)+''.join(camel(s) for s in segs)
         hono='/'+'/'.join((':'+s[1:-1]) if s.startswith('[') else s for s in segs)
         hasParam=any(s.startswith('[') for s in segs)
@@ -32,6 +32,10 @@ for dom in DOMAINS:
         def repl_fn(m):
             methods.append(m.group(1)); return f'export async function handle{prefix}{MC[m.group(1)]}(event: RequestEvent) {{'
         new=re.sub(r'export async function (GET|POST|PUT|PATCH|DELETE)\(event(?:: RequestEvent)?\) \{',repl_fn,s)
+        # variante com tipo inline: (event: import('@sveltejs/kit').RequestEvent) — assinatura preservada
+        def repl_fn_inline(m):
+            methods.append(m.group(1)); return f'export async function handle{prefix}{MC[m.group(1)]}(event: {m.group(2)}) {{'
+        new=re.sub(r"export async function (GET|POST|PUT|PATCH|DELETE)\(event: (import\('@sveltejs/kit'\)\.RequestEvent)\) \{",repl_fn_inline,new)
         def repl_const(m):
             methods.append(m.group(1)); arg=m.group(2)
             arg = f'{arg}: RequestEvent' if ':' not in arg else arg
@@ -63,7 +67,7 @@ for dom in DOMAINS:
             meth,alias,q,path=m.group(1),m.group(2),m.group(3),m.group(4)
             tsegs=[x for x in os.path.normpath(os.path.join(rel,path)).split('/') if x and x!='+server']
             tprefix=camel(dom)+''.join(camel(x) for x in tsegs)
-            tmod='-'.join(x.strip('[]') for x in tsegs) or 'root'
+            tmod='-'.join(x.strip('[]').replace('.','-') for x in tsegs) or 'root'
             orig=m.group(0); rep=f'import {{ handle{tprefix}{MC[meth]} as {alias} }} from {q}./{tmod}{q};'
             relfix.append((orig,rep)); return rep
         new=re.sub(r"(?<=from )(['\"])(\.{1,2}/[^'\"]+)\1",lambda m: fix_rel(m) or m.group(0),new)
@@ -79,7 +83,7 @@ for dom in DOMAINS:
                 if rh_line: t=rh_line+t
             else:
                 if rh_line: t=rh_line+t.replace(rh_line,'',1)
-            t=re.sub(r'export async function \w+\(event(?:: RequestEvent)?\) \{','export H {',t)
+            t=re.sub(r"export async function \w+\(event(?:: RequestEvent|: import\('@sveltejs/kit'\)\.RequestEvent)?\) \{",'export H {',t)
             t=re.sub(r'export const \w+(?:: RequestHandler)? = async \((event|\{[^)]*?\})(?:: RequestEvent)?\) => \{','export H {',t)
             return t
         same=norm(new,True)==norm(s,False)
