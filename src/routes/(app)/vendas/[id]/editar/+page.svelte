@@ -7,8 +7,34 @@
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
-  import { addMonthsISODate, todayISODateLocal } from '$lib/date';
+  import { todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
+  import {
+    adicionarParcela,
+    createPagamento,
+    filtrarProdutosPorTipo,
+    filtrarProdutosPorTipoCidade,
+    formatMoney,
+    gerarParcelas,
+    getCidadeImportanceRank,
+    getCidadeLabel,
+    getCidadeSearchScore,
+    getClienteLabel,
+    getSelectValue,
+    getValeViagemProdutoVirtual as getValeViagemProdutoVirtualBase,
+    isProdutoCompativelCidade as isProdutoCompativelCidadeBase,
+    isValeViagemProduto,
+    isValeViagemTipo as isValeViagemTipoBase,
+    mergeCidadesById,
+    mergeClientesById,
+    normalizeLookup,
+    normalizeText,
+    parseMoney,
+    produtoMatchesTipo as produtoMatchesTipoBase,
+    removerParcela,
+    sortCidades,
+    valoresDaCalculadora
+  } from '$lib/features/vendas/form';
   import { ApiError, apiFetch, apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
 
@@ -154,10 +180,6 @@
 
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
-  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  });
   const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
   let loading = true;
@@ -233,80 +255,16 @@
     };
   }
 
-  function createPagamento() {
-    return {
-      forma_pagamento_id: '',
-      forma_nome: '',
-      operacao: '',
-      plano: '',
-      valor_bruto: '',
-      desconto_valor: '',
-      valor_total: '',
-      parcelas_qtd: 1,
-      parcelas_valor: '',
-      vencimento_primeira: '',
-      paga_comissao: true,
-      parcelas: [] as Array<{ numero: string; valor: string; vencimento: string }>
-    };
-  }
-
-  function parseMoney(value: string | number | null | undefined) {
-    const raw = String(value ?? '').trim().replace(/[^\d,.-]/g, '');
-    const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw;
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  function formatMoney(value: number) {
-    return BRL_CURRENCY_FORMATTER.format(value || 0);
-  }
-
-  function normalizeText(value: string | null | undefined) {
-    return String(value || '')
-      .normalize('NFD')
-      .replace(DIACRITICS_RE, '')
-      .toLowerCase()
-      .trim();
-  }
-
   function isValeViagemTipo(tipoId: string) {
-    if (!tipoId) return false;
-    const tipoSelecionado = tipos.find((item) => String(item.id) === String(tipoId));
-    return [
-      tipoId,
-      String(tipoSelecionado?.nome || ''),
-      String(tipoSelecionado?.tipo || '')
-    ].some((value) => normalizeText(value).includes('vale viagem'));
-  }
-
-  function isValeViagemProduto(item: Option) {
-    const nome = normalizeText(String(item.nome || ''));
-    return nome.includes('vale viagem');
+    return isValeViagemTipoBase(tipos, tipoId);
   }
 
   function getValeViagemProdutoVirtual(tipoId: string): Option | null {
-    if (!isValeViagemTipo(tipoId)) return null;
-    const tipoSelecionado = tipos.find((item) => String(item.id) === String(tipoId));
-    return {
-      id: tipoId,
-      nome: String(tipoSelecionado?.nome || 'Vale Viagem'),
-      tipo: tipoId,
-      tipo_produto: tipoId,
-      todas_as_cidades: true,
-      ativo: true
-    };
+    return getValeViagemProdutoVirtualBase(tipos, tipoId);
   }
 
   function produtoMatchesTipo(item: Option, tipoId: string) {
-    if (!tipoId) return true;
-    const selectedType = tipos.find((tipo) => String(tipo.id) === String(tipoId));
-    const tipoSelecionadoNome = normalizeText(String(selectedType?.nome || selectedType?.tipo || ''));
-    const tipoProduto = normalizeText(String(item.tipo_produto || item.tipo || ''));
-    return (
-      String(item.tipo) === String(tipoId) ||
-      String(item.tipo_produto) === String(tipoId) ||
-      (tipoSelecionadoNome && tipoProduto === tipoSelecionadoNome)
-    );
+    return produtoMatchesTipoBase(tipos, item, tipoId);
   }
 
   function ensurePrincipalRecibo() {
@@ -574,10 +532,7 @@
   }
 
   function getProdutosByTipo(tipoId: string) {
-    return produtos.filter((item) => {
-      const matchesTipo = produtoMatchesTipo(item, tipoId);
-      return matchesTipo && isProdutoCompativelCidade(item);
-    });
+    return filtrarProdutosPorTipo(produtos, tipos, tipoId, venda.destino_cidade_id);
   }
 
   function getCidadeById(cidadeId: string) {
@@ -642,27 +597,11 @@
   }
 
   function isProdutoCompativelCidade(produto: Option, cidadeId = venda.destino_cidade_id) {
-    if (!cidadeId) return produto.todas_as_cidades === true;
-    if (produto.todas_as_cidades === true) return true;
-    return String(produto.cidade_id) === String(cidadeId);
+    return isProdutoCompativelCidadeBase(produto, cidadeId);
   }
 
-  function getProdutosByTipoCidade(tipoId: string, cidadeId: string) {
-    const filtered = produtos.filter((item) => {
-      const matchesTipo = produtoMatchesTipo(item, tipoId);
-      if (isValeViagemTipo(tipoId)) return matchesTipo || isValeViagemProduto(item);
-      return matchesTipo && isProdutoCompativelCidade(item, cidadeId);
-    });
-    const valeViagemVirtual = getValeViagemProdutoVirtual(tipoId);
-    if (!valeViagemVirtual) return filtered;
-    if (filtered.some((item) => String(item.id) === String(valeViagemVirtual.id) || isValeViagemProduto(item))) {
-      return filtered;
-    }
-    return [valeViagemVirtual, ...filtered];
-  }
-
-  function getSelectValue(event: Event) {
-    return String((event.target as HTMLSelectElement | null)?.value || '');
+  function getProdutosByTipoCidade(tipoId: string, cidadeId: string): Option[] {
+    return filtrarProdutosPorTipoCidade(produtos, tipos, tipoId, cidadeId);
   }
 
   function syncReciboTipoProduto(index: number, event?: Event) {
@@ -756,47 +695,25 @@
 
   function rebuildParcelas(index: number) {
     const pagamento = pagamentos[index];
-    const quantidade = Math.max(1, Number(pagamento.parcelas_qtd || 1));
-    const valorTotal = parseMoney(pagamento.valor_total);
-    const valorParcela = quantidade > 0 ? valorTotal / quantidade : 0;
-    const inicio = pagamento.vencimento_primeira || '';
-
-    pagamento.parcelas = Array.from({ length: quantidade }).map((_, parcelaIndex) => {
-      const vencimento = inicio ? addMonthsISODate(inicio, parcelaIndex) : '';
-
-      return {
-        numero: String(parcelaIndex + 1),
-        valor: valorParcela ? valorParcela.toFixed(2) : '',
-        vencimento
-      };
-    });
-
-    pagamento.parcelas_valor = valorParcela ? valorParcela.toFixed(2) : '';
+    const { parcelas, parcelas_valor } = gerarParcelas(pagamento);
+    pagamento.parcelas = parcelas;
+    pagamento.parcelas_valor = parcelas_valor;
     pagamentos = pagamentos;
   }
 
   function addParcela(index: number) {
     const pagamento = pagamentos[index];
-    pagamento.parcelas = [
-      ...pagamento.parcelas,
-      {
-        numero: String(pagamento.parcelas.length + 1),
-        valor: '',
-        vencimento: ''
-      }
-    ];
-    pagamento.parcelas_qtd = pagamento.parcelas.length;
+    const { parcelas, parcelas_qtd } = adicionarParcela(pagamento.parcelas);
+    pagamento.parcelas = parcelas;
+    pagamento.parcelas_qtd = parcelas_qtd;
     pagamentos = pagamentos;
   }
 
   function removeParcela(index: number, parcelaIndex: number) {
     const pagamento = pagamentos[index];
-    pagamento.parcelas = pagamento.parcelas.filter((_, indexItem) => indexItem !== parcelaIndex);
-    pagamento.parcelas = pagamento.parcelas.map((item, itemIndex) => ({
-      ...item,
-      numero: String(itemIndex + 1)
-    }));
-    pagamento.parcelas_qtd = Math.max(1, pagamento.parcelas.length || 1);
+    const { parcelas, parcelas_qtd } = removerParcela(pagamento.parcelas, parcelaIndex);
+    pagamento.parcelas = parcelas;
+    pagamento.parcelas_qtd = parcelas_qtd;
     pagamentos = pagamentos;
   }
 
@@ -804,96 +721,15 @@
     return clientes.find((item) => item.id === venda.cliente_id) || null;
   }
 
-  function getClienteLabel(cliente: Cliente) {
-    return `${cliente.nome}${cliente.cpf ? ` • ${cliente.cpf}` : ''}`;
-  }
-
   function mergeClientes(items: Cliente[]) {
     if (!items.length) return;
-    const byId = new Map<string, Cliente>();
-    for (const item of clientes) {
-      byId.set(String(item.id), item);
-    }
-    for (const item of items) {
-      const id = String(item?.id || '').trim();
-      if (!id) continue;
-      byId.set(id, { ...(byId.get(id) || {}), ...item });
-    }
-    clientes = Array.from(byId.values());
+    clientes = mergeClientesById(clientes, items);
   }
 
-  function getCidadeLabel(cidade: Option) {
-    const preferred = String(cidade.label || '').trim();
-    if (preferred) return preferred;
-    const nome = String(cidade.nome || '').trim();
-    const estado = String(
-      cidade.estado ||
-      cidade.uf ||
-      cidade.sigla ||
-      cidade.subdivisao_nome ||
-      cidade.subdivisao?.sigla ||
-      cidade.subdivisao?.nome ||
-      ''
-    ).trim();
-    return estado ? `${nome} (${estado})` : nome;
-  }
-
-  const DIACRITICS_RE = /[\u0300-\u036f]/g;
-
-  function normalizeLookup(value: string | null | undefined) {
-    return normalizeText(value);
-  }
-
-  function getCidadeImportanceRank(cidade: Option) {
-    const parsed = Number(cidade?.grau_importancia);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 9999;
-  }
-
-  function getCidadeSearchScore(cidade: Option, input: string) {
-    const term = normalizeLookup(input);
-    if (!term) return 100;
-
-    const nome = normalizeLookup(cidade.nome);
-    const label = normalizeLookup(getCidadeLabel(cidade));
-    const estado = normalizeLookup(cidade.estado || cidade.uf || cidade.sigla || cidade.subdivisao_nome || cidade.subdivisao?.nome);
-    const full = `${nome} ${estado}`.trim();
-
-    if (nome === term) return 0;
-    if (label === term) return 1;
-    if (nome.startsWith(term)) return 2;
-    if (label.startsWith(term)) return 3;
-    if (estado && estado.startsWith(term)) return 4;
-    if (full.includes(term)) return 5;
-    return 10;
-  }
-
-  function sortCidades(items: Option[], input = '') {
-    return [...items].sort((a, b) => {
-      const scoreDiff = getCidadeSearchScore(a, input) - getCidadeSearchScore(b, input);
-      if (scoreDiff !== 0) return scoreDiff;
-
-      const importanceDiff = getCidadeImportanceRank(a) - getCidadeImportanceRank(b);
-      if (importanceDiff !== 0) return importanceDiff;
-
-      const nomeDiff = PT_BR_BASE_COLLATOR.compare(String(a.nome || ''), String(b.nome || ''));
-      if (nomeDiff !== 0) return nomeDiff;
-
-      return PT_BR_BASE_COLLATOR.compare(String(a.estado || a.subdivisao_nome || ''), String(b.estado || b.subdivisao_nome || ''));
-    });
-  }
 
   function mergeCidades(items: Option[]) {
     if (!items.length) return;
-    const byId = new Map<string, Option>();
-    for (const item of cidades) {
-      byId.set(String(item.id), item);
-    }
-    for (const item of items) {
-      const id = String(item?.id || '').trim();
-      if (!id) continue;
-      byId.set(id, { ...(byId.get(id) || {}), ...item, label: getCidadeLabel({ ...(byId.get(id) || {}), ...item }) });
-    }
-    cidades = sortCidades(Array.from(byId.values()));
+    cidades = mergeCidadesById(cidades, items);
   }
 
   async function ensureCidadeLoaded(cidadeId: string, signal?: AbortSignal) {
@@ -1023,11 +859,12 @@
   }
 
   function applyValoresCalculadora(resultado: CalculadoraResultado) {
-    venda.valor_total = String(resultado.valorFinal || '');
-    venda.valor_total_bruto = String(resultado.valorBruto || '');
-    venda.desconto_comercial_aplicado = Number(resultado.descontoValor || 0) > 0;
-    venda.desconto_comercial_valor = String(resultado.descontoValor || '');
-    venda.valor_taxas = String(resultado.taxas || '');
+    const valores = valoresDaCalculadora(resultado);
+    venda.valor_total = valores.valor_total;
+    venda.valor_total_bruto = valores.valor_total_bruto;
+    venda.desconto_comercial_aplicado = valores.desconto_comercial_aplicado;
+    venda.desconto_comercial_valor = valores.desconto_comercial_valor;
+    venda.valor_taxas = valores.valor_taxas;
   }
 
   async function handleSubmit() {
