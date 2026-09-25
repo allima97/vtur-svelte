@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, replaceState } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -276,11 +276,10 @@
 
   function syncUrl() {
     const params = new URLSearchParams({ mes: mesSelecionado });
-    void goto(`/relatorios/ranking?${params.toString()}`, {
-      replaceState: true,
-      noScroll: true,
-      keepFocus: true
-    });
+    // Só atualiza o endereço (replaceState do SvelteKit = sem navegação). Com goto(), o
+    // beforeNavigate do layout raiz chama abortInFlightApiReads() e cancela a busca que acabou
+    // de começar; a promessa cancelada por navegação nunca resolve e a tela ficava no skeleton.
+    replaceState(`/relatorios/ranking?${params.toString()}`, {});
   }
 
   async function applyMonthFilter(monthValue: string) {

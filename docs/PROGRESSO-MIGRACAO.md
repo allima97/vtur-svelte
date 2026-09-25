@@ -296,3 +296,9 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 - Causa: `syncUrl()` do `UnifiedDashboard.svelte` fazia `goto('/dashboard/geral?...')` fixo. Vendedor fica em `/dashboard/vendedor` (ou `/`), então cada troca de mês mudava de rota: o SvelteKit desmontava o dashboard, montava outro e o `onMount` refazia tudo (loadBase + summary + operacional + assinatura), além do `atualizar()` já disparado. Resultado: requisições em dobro, tela "piscando" e título trocando para "Dashboard geral".
 - Correção: `goto(\`${window.location.pathname}?...\`)` mantém a rota atual. Mesma regra, mesmos parâmetros de URL. `svelte-check` 0/0.
 - Pendente usuário: commit/push/`cf:deploy`.
+
+### Dashboard travado no skeleton ao trocar de mês (25/09, 2ª correção)
+- A correção anterior (goto na rota atual) piorou: sem remontagem, a tela ficava presa no skeleton.
+- Causa real: `syncUrl()` usava `goto()`. O `beforeNavigate` do `src/routes/+layout.svelte` chama `abortInFlightApiReads()`, e o SvelteKit só dispara o beforeNavigate depois de um `await` interno — ou seja, depois que `atualizar()` já tinha iniciado a busca do mês. Em `api.ts`, uma leitura abortada por navegação devolve `new Promise(() => {})` (nunca resolve), então `loading` ficava `true` para sempre. Os logs do banco mostravam o RPC respondendo em ~30 ms; era o navegador que descartava a resposta.
+- Correção: `replaceState()` de `$app/navigation` (roteamento raso: atualiza o endereço sem navegação, sem beforeNavigate, sem load). Aplicado no `UnifiedDashboard.svelte` e em `relatorios/ranking` (mesmo padrão: syncUrl() antes de loadRanking()).
+- Verificação: `svelte-check` 0/0, 657 testes, hash Mac = container.

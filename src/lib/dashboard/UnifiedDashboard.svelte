@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, replaceState } from '$app/navigation';
   import type { ChartData } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -441,14 +441,11 @@
     if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
     if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
 
-    // Mantém a rota atual (/, /dashboard/vendedor ou /dashboard/geral). Antes navegava sempre
-    // para /dashboard/geral: fora dessa rota o SvelteKit desmontava e montava o dashboard de
-    // novo a cada troca de mês, e o onMount refazia todas as chamadas (requisições em dobro).
-    void goto(`${window.location.pathname}?${params.toString()}`, {
-      replaceState: true,
-      noScroll: true,
-      keepFocus: true
-    });
+    // Mantém a rota atual (/, /dashboard/vendedor ou /dashboard/geral).
+    // Só atualiza o endereço (replaceState do SvelteKit = sem navegação). Com goto(), o
+    // beforeNavigate do layout raiz chama abortInFlightApiReads() e cancela a busca que acabou
+    // de começar; a promessa cancelada por navegação nunca resolve e a tela ficava no skeleton.
+    replaceState(`${window.location.pathname}?${params.toString()}`, {});
   }
 
   function scheduleAutoApply() {
