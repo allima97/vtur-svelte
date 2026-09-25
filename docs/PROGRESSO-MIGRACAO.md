@@ -8,9 +8,8 @@ _Última atualização: 24/09/2026, 23:35. Trabalho feito no Mac (`~/Documents/G
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
 - **Fase 2.6, lote 3, gravado no Mac e sem commit:** 34 rotas dos domínios pequenos, mais as 3 rotas profundas que tinham ficado no SvelteKit.
-- **Próximo passo, a decidir com o usuário:**
-  - `src/routes/api/auth` (login, convite, set-session, turnstile e passkeys); ou
-  - seguir para a Fase 3 (telas/UX com Flowbite).
+- **Decisão do usuário (24/09/2026):** as rotas de login e autenticação em `src/routes/api/auth` (login, convite, set-session, turnstile e passkeys) **não serão migradas**. Elas continuam no SvelteKit, sem alteração.
+- **Próximo passo:** Fase 3 (telas/UX com Flowbite).
 
 ## Pendências do usuário
 1. No Mac: `npm test` (602 testes), depois commit/push do lote 3. O `docs/api-inventory.*` já foi atualizado.
@@ -33,7 +32,7 @@ _Última atualização: 24/09/2026, 23:35. Trabalho feito no Mac (`~/Documents/G
 | 2.4: formulário de venda | ✅ commit | 24 funções de nova/editar em `lib/features/vendas/form.ts`. |
 | 2.5: dashboard, relatórios, clientes, financeiro | ✅ commit | 47 rotas. |
 | 2.6: demais domínios | ✅ lotes 1 e 2 com commit ("fase4", "fase5") · ⏳ lote 3 sem commit | 71 + 55 + 37 rotas. |
-| 2.7: `api/auth` | ⬜ a decidir | Login, convite, sessão, turnstile, passkeys (fora de `/api/v1`). |
+| 2.7: `api/auth` | 🚫 não migrar (decisão do usuário) | Login, convite, sessão, turnstile e passkeys continuam no SvelteKit. |
 | 3: telas/UX (Flowbite) | ⬜ | Inclui "Atualizado há X min" (`rebuiltAt` faltando no dashboard/summary). |
 
 ## API no Hono
