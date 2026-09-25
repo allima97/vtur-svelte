@@ -36,4 +36,7 @@ id = "60fa423718914712bec4f489d41c3dd6"
 # O endpoint GET /api/v1/read-model/rebuild valida o header x-cron-secret
 # (configurado via: wrangler secret put CRON_SECRET)
 [triggers]
-crons = ["*/5 * * * *"]
+# "7 6 * * *" = rodada noturna às 03:07 de Brasília (marca os meses anteriores para
+# refazer; o cron de 5 min reconstrói durante a madrugada). Ver NIGHTLY_READ_MODEL_CRON
+# em src/lib/server/readModelRebuild.ts — os dois valores precisam ser iguais.
+crons = ["*/5 * * * *", "7 6 * * *"]

@@ -11,9 +11,9 @@ type Row = Record<string, unknown>;
 
 export type FakeQueryLog = {
   table: string;
-  op: 'select' | 'update';
+  op: 'select' | 'update' | 'upsert';
   filters: string[];
-  values?: Row;
+  values?: Row | Row[];
 };
 
 export type FakeSupabase = {
@@ -27,6 +27,7 @@ type Result = { data: unknown; error: unknown; count?: number | null };
 export interface FakeBuilder extends PromiseLike<Result> {
   select: (columns?: string) => FakeBuilder;
   update: (values: Row) => FakeBuilder;
+  upsert: (values: Row | Row[], options?: unknown) => FakeBuilder;
   eq: (column: string, value: unknown) => FakeBuilder;
   in: (column: string, values: unknown[]) => FakeBuilder;
   order: (column: string, options?: unknown) => FakeBuilder;
@@ -45,8 +46,8 @@ export function createFakeSupabase(
   const from = (table: string): FakeBuilder => {
     const predicates: Array<(row: Row) => boolean> = [];
     const filters: string[] = [];
-    let op: 'select' | 'update' = 'select';
-    let updateValues: Row | undefined;
+    let op: 'select' | 'update' | 'upsert' = 'select';
+    let updateValues: Row | Row[] | undefined;
     let limitN: number | null = null;
 
     const run = async (mode: 'many' | 'single' | 'maybeSingle'): Promise<Result> => {
@@ -56,7 +57,7 @@ export function createFakeSupabase(
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       stats.inFlight -= 1;
 
-      if (op === 'update') return { data: null, error: null };
+      if (op !== 'select') return { data: null, error: null };
 
       let rows = (tables[table] || []).filter((row) => predicates.every((p) => p(row)));
       if (limitN != null) rows = rows.slice(0, limitN);
@@ -76,6 +77,11 @@ export function createFakeSupabase(
       update: (values) => {
         op = 'update';
         updateValues = { ...values, updated_at: '<ts>' };
+        return builder;
+      },
+      upsert: (values) => {
+        op = 'upsert';
+        updateValues = Array.isArray(values) ? values.map((v) => ({ ...v })) : { ...values };
         return builder;
       },
       eq: (column, value) => {

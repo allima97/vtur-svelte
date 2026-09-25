@@ -9,6 +9,7 @@ import type {
   VendasKpiReciboContribution,
   VendasTimelinePoint,
 } from "$lib/server/vendas-kpis";
+import { guardContributionRowsForeignKeys } from "$lib/server/readModelRowGuard";
 
 type ReadModelParams = {
   dataInicio: string;
@@ -711,9 +712,13 @@ async function rebuildMonth(
       accessibleClientIds: [],
     });
 
-    const rows = payload.contributions
+    const builtRows = payload.contributions
       .map((contribution) => contributionToRow(contribution, companyId, mes))
-      .filter(Boolean);
+      .filter((row): row is NonNullable<ReturnType<typeof contributionToRow>> => Boolean(row));
+
+    // recibo_id que não existe em vendas_recibos (recibo só da conciliação) vira null,
+    // sem mudar nenhuma contagem — ver readModelRowGuard.ts. Roda ANTES de apagar o mês.
+    const { rows } = await guardContributionRowsForeignKeys(client, builtRows);
 
     const { error: deleteError } = await client
       .from(TABLE_CONTRIBUICOES)

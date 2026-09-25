@@ -21,6 +21,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAdminClient, logServerError } from '$lib/server/v1';
 import { fetchVendasKpiReciboContributionsRaw } from '$lib/server/vendas-kpis';
 import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
+import { guardContributionRowsForeignKeys } from '$lib/server/readModelRowGuard';
 
 // Unificado com o dashboard (reciboContribuicoesReadModel.ts): os dois módulos
 // gravam as MESMAS linhas na MESMA tabela ranking_recibo_contribuicoes, a partir
@@ -32,6 +33,9 @@ const MODEL_NAME = 'recibo_contribuicoes_v4';
 // Linha em 'rebuilding' há mais que isso é considerada presa (Worker encerrado
 // no meio do rebuild) e volta a ser elegível para o cron.
 const STALE_REBUILDING_MS = 15 * 60 * 1000;
+// Mês em 'error' só é tentado de novo pelo cron depois deste intervalo. Antes era
+// a cada 5 min: um mês que falha recalculava o mês inteiro 12x por hora à toa.
+const ERROR_RETRY_MS = 60 * 60 * 1000;
 const TABLE_STATUS = 'ranking_read_model_status';
 const TABLE_CONTRIBUICOES = 'ranking_recibo_contribuicoes';
 const INSERT_CHUNK_SIZE = 500;
@@ -178,9 +182,11 @@ async function fetchDirtyEntries(
     .from(TABLE_STATUS)
     .select('company_id, mes, status')
     .eq('modelo', MODEL_NAME)
-    // dirty/error + 'rebuilding' preso (Worker encerrado no meio do rebuild)
+    // dirty + error (no máximo 1x por hora) + 'rebuilding' preso (Worker encerrado no meio do rebuild)
     .or(
-      `status.in.(dirty,error),and(status.eq.rebuilding,updated_at.lt.${new Date(
+      `status.eq.dirty,and(status.eq.error,updated_at.lt.${new Date(
+        Date.now() - ERROR_RETRY_MS,
+      ).toISOString()}),and(status.eq.rebuilding,updated_at.lt.${new Date(
         Date.now() - STALE_REBUILDING_MS,
       ).toISOString()})`,
     );
@@ -292,7 +298,7 @@ async function rebuildOneMonth(
     });
 
     // Converter contributions para linhas da tabela
-    const rows = ((payload.contributions || []) as ReciboContributionRow[])
+    const builtRows = ((payload.contributions || []) as ReciboContributionRow[])
       .map((contribution) => {
         const cId = String(contribution.companyId || companyId).trim() || companyId;
         if (!cId || !contribution.vendedorId) return null;
@@ -324,6 +330,10 @@ async function rebuildOneMonth(
         };
       })
       .filter((row): row is RankingReadModelRow => Boolean(row));
+
+    // recibo_id que não existe em vendas_recibos (recibo só da conciliação) vira null,
+    // sem mudar nenhuma contagem — ver readModelRowGuard.ts. Roda ANTES de apagar o mês.
+    const { rows } = await guardContributionRowsForeignKeys(client, builtRows);
 
     // Substituir atomicamente: deletar o mês e reinserir
     const { error: deleteError } = await client
@@ -555,4 +565,142 @@ export async function markDirtyForCompany(
   } catch (err) {
     logServerError('[read-model] markDirtyForCompany falhou', err);
   }
+}
+
+// ─── Rodada noturna ──────────────────────────────────────────────────────────
+// Cron diário (wrangler.toml) que deixa os meses anteriores prontos antes do
+// expediente: marca como 'dirty' os meses que podem estar desatualizados, e o
+// cron de 5 em 5 minutos reconstrói tudo durante a madrugada. O dashboard, de
+// manhã, só lê o resumo pronto.
+
+/** Expressão do cron noturno (03:07 em Brasília = 06:07 UTC). Igual ao wrangler.toml. */
+export const NIGHTLY_READ_MODEL_CRON = '7 6 * * *';
+/** Quantos meses para trás a rodada noturna garante prontos (além do atual). */
+export const NIGHTLY_MONTHS_BACK = 12;
+/** Mês atual e os N anteriores são sempre refeitos (conciliação e ajustes tardios). */
+export const NIGHTLY_ALWAYS_REFRESH_MONTHS = 3;
+
+type NightlyStatusRow = {
+  company_id: string;
+  mes: string;
+  status: string | null;
+  rebuilt_at: string | null;
+};
+
+/** Mês corrente em Brasília (YYYY-MM-01). */
+export function currentMonthStartBrazil(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(now);
+  const year = parts.find((p) => p.type === 'year')?.value || '1970';
+  const month = parts.find((p) => p.type === 'month')?.value || '01';
+  return `${year}-${month}-01`;
+}
+
+/** Lista YYYY-MM-01 do mês atual para trás (índice 0 = mês atual). */
+export function monthStartsBack(currentMonthStart: string, monthsBack: number): string[] {
+  const [year, month] = currentMonthStart.split('-').map(Number);
+  const result: string[] = [];
+  for (let offset = 0; offset <= monthsBack; offset += 1) {
+    const date = new Date(Date.UTC(year, month - 1 - offset, 1));
+    result.push(date.toISOString().slice(0, 10));
+  }
+  return result;
+}
+
+/** Instante em que o mês termina em Brasília (início do mês seguinte, 00:00 -03:00). */
+export function monthEndInstantBrazil(monthStart: string): number {
+  const [year, month] = monthStart.split('-').map(Number);
+  return Date.UTC(year, month, 1, 3, 0, 0);
+}
+
+/**
+ * Decide quais (empresa, mês) a rodada noturna marca como 'dirty'. Função pura.
+ *  - mês atual e os 2 anteriores: sempre (conciliação/ajustes chegam atrasados);
+ *  - mês sem status: nunca foi montado → montar;
+ *  - mês 'ready' montado ANTES de terminar (ex.: julho montado em 01/07, vazio);
+ *  - 'dirty', 'error' e 'rebuilding' ficam como estão (o cron já cuida).
+ */
+export function selectNightlyDirtyMonths(params: {
+  companyIds: string[];
+  monthStarts: string[];
+  statuses: NightlyStatusRow[];
+  alwaysRefreshMonths?: number;
+}): Array<{ company_id: string; mes: string }> {
+  const alwaysRefresh = new Set(
+    params.monthStarts.slice(0, params.alwaysRefreshMonths ?? NIGHTLY_ALWAYS_REFRESH_MONTHS),
+  );
+  const statusMap = new Map(
+    params.statuses.map((row) => [`${row.company_id}|${String(row.mes).slice(0, 10)}`, row]),
+  );
+  const selected: Array<{ company_id: string; mes: string }> = [];
+  for (const companyId of params.companyIds) {
+    for (const mes of params.monthStarts) {
+      const status = statusMap.get(`${companyId}|${mes}`);
+      const state = String(status?.status || '');
+      if (state === 'dirty' || state === 'error' || state === 'rebuilding') continue;
+      const rebuiltAt = status?.rebuilt_at ? Date.parse(status.rebuilt_at) : NaN;
+      const builtBeforeMonthEnded =
+        state === 'ready' && (!Number.isFinite(rebuiltAt) || rebuiltAt < monthEndInstantBrazil(mes));
+      if (alwaysRefresh.has(mes) || !status || builtBeforeMonthEnded) {
+        selected.push({ company_id: companyId, mes });
+      }
+    }
+  }
+  return selected;
+}
+
+/** Rodada noturna: marca os meses como 'dirty'. A reconstrução fica com o cron de 5 min. */
+export async function markNightlyReadModelMonthsDirty(
+  client: SupabaseClient,
+  now: Date = new Date(),
+): Promise<{ companies: number; marked: number }> {
+  const { data: companies, error: companiesError } = await client
+    .from('companies')
+    .select('id')
+    .eq('active', true);
+  if (companiesError) throw companiesError;
+  const companyIds = uniqueCleanStrings(
+    ((companies || []) as Array<{ id?: string | null }>).map((row) => row?.id),
+  ).filter(isUuidLike);
+  if (companyIds.length === 0) return { companies: 0, marked: 0 };
+
+  const monthStarts = monthStartsBack(currentMonthStartBrazil(now), NIGHTLY_MONTHS_BACK);
+  const statuses: NightlyStatusRow[] = [];
+  for (const batch of chunkArray(companyIds)) {
+    const { data, error } = await client
+      .from(TABLE_STATUS)
+      .select('company_id, mes, status, rebuilt_at')
+      .eq('modelo', MODEL_NAME)
+      .in('company_id', batch)
+      .in('mes', monthStarts);
+    if (error) throw error;
+    statuses.push(...((data || []) as NightlyStatusRow[]));
+  }
+
+  const selected = selectNightlyDirtyMonths({ companyIds, monthStarts, statuses });
+  if (selected.length === 0) return { companies: companyIds.length, marked: 0 };
+
+  const nowIso = now.toISOString();
+  for (const chunk of chunkArray(selected, INSERT_CHUNK_SIZE)) {
+    const { error } = await client.from(TABLE_STATUS).upsert(
+      chunk.map((entry) => ({
+        modelo: MODEL_NAME,
+        company_id: entry.company_id,
+        mes: entry.mes,
+        status: 'dirty',
+        dirty_at: nowIso,
+        updated_at: nowIso,
+      })),
+      { onConflict: 'modelo,company_id,mes' },
+    );
+    if (error) throw error;
+  }
+  return { companies: companyIds.length, marked: selected.length };
+}
+
+function isUuidLike(value: string) {
+  return UUID_PATTERN.test(value);
 }

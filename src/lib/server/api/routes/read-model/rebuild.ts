@@ -10,7 +10,11 @@ import {
   toErrorResponse,
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rebuildReadModelForCompanyMonth } from '$lib/server/readModelRebuild';
+import {
+  markNightlyReadModelMonthsDirty,
+  NIGHTLY_READ_MODEL_CRON,
+  rebuildReadModelForCompanyMonth,
+} from '$lib/server/readModelRebuild';
 
 /**
  * POST /api/v1/read-model/rebuild
@@ -28,6 +32,8 @@ import { rebuildReadModelForCompanyMonth } from '$lib/server/readModelRebuild';
  */
 
 const CRON_SECRET_HEADER = 'x-cron-secret';
+// Expressão do cron que disparou a chamada (enviada por scripts/patch-worker-scheduled.js).
+const CRON_SCHEDULE_HEADER = 'x-cron-schedule';
 
 type RebuildRequestBody = {
   company_ids?: unknown;
@@ -116,13 +122,26 @@ export async function handleReadModelRebuildGet(event: RequestEvent) {
     }
 
     const client = getAdminClient();
+
+    // Rodada noturna: antes de reconstruir, marca os meses que podem estar
+    // desatualizados (ver markNightlyReadModelMonthsDirty). Falha aqui não impede
+    // a reconstrução normal dos meses já marcados.
+    let nightly: { companies: number; marked: number } | null = null;
+    if (String(event.request.headers.get(CRON_SCHEDULE_HEADER) || '').trim() === NIGHTLY_READ_MODEL_CRON) {
+      try {
+        nightly = await markNightlyReadModelMonthsDirty(client);
+      } catch (error) {
+        logServerError('[read-model/rebuild] rodada noturna falhou ao marcar meses', error);
+      }
+    }
+
     const result = await rebuildReadModelForCompanyMonth(client, {
       companyIds: [],
       monthKeys: [],
       rebuildAll: true,
     });
 
-    return json({ ok: true, cron: true, ...result }, { headers: NO_STORE_HEADERS });
+    return json({ ok: true, cron: true, ...(nightly ? { nightly } : {}), ...result }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[read-model/rebuild] cron rebuild falhou', err);
     return toErrorResponse(err, 'Erro no cron rebuild.');

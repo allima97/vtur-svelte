@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 00:15. Trabalho feito no Mac (`~/Documents/GitHub/vturapp`)._
+_Última atualização: 25/09/2026, 07:45._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -12,7 +12,8 @@ _Última atualização: 25/09/2026, 00:15. Trabalho feito no Mac (`~/Documents/G
 - **Fase 3.1:** com commit ("fase7"). O "Dados atualizados há X" do dashboard funciona, e o `svelte-check` está sem erros.
 - **Fase 3.2:** com commit ("telas_botoes").
 - **Fase 3.3:** com commit ("breacrumbs").
-- **Fase 3.4 gravada no Mac, sem commit:**
+- **Correção do dashboard em meses anteriores (25/09), gravada no Mac, sem commit.** Ver a seção "Dashboard: meses anteriores" abaixo.
+- **Fase 3.4:** com commit ("consultas"). Resumo:
   - o `wrangler.toml` roda o Worker ao lado do banco (`[placement] region = "aws:us-west-2"`);
   - o detalhe da viagem busca os dados em paralelo.
 - **Próximo passo:**
@@ -158,6 +159,46 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   O front também guarda os GETs por 15 s, e o servidor manda `private, max-age=30`.
 - **Opcional (banco, precisa da sua aprovação):** a tabela `cidades` tem 102 kB de dados em 17 MB de disco, mais 22 MB de índices, sobra das cerca de 160 mil cidades antigas. Um `VACUUM FULL public.cidades` recuperaria esse espaço. O ganho hoje é pequeno (poucos ms), por isso não fiz.
 - **Verificação:** 629 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
+
+**Dashboard: meses anteriores ficavam só no esqueleto (25/09).** O diagnóstico foi feito só com consultas de leitura no banco.
+- **Causa 1:** fev a mai/2026, na empresa 104037a0, estavam em `status='error'`. O erro era sempre o mesmo: `violates foreign key constraint ranking_recibo_contribuicoes_recibo_id_fkey`.
+  - Recibo que existe só na conciliação, sem recibo de venda, usa o id da conciliação como `reciboId` (`buildConcRecibo`: `linked_recibo_id || item.id`).
+  - O resumo do mês nunca era gravado. A cada abertura, o dashboard tentava reconstruir (cálculo do mês inteiro, que falhava) e depois **calculava tudo de novo**. Isso estourava o tempo.
+  - Afeta **todo mês com conciliação importada**. Os meses sem conciliação (dez, jan, jun, ago, set) estavam ok.
+- **Causa 2:** jul/2026 estava `ready` com **0 linhas**. Foi montado em 01/07 às 09:46, com o mês ainda vazio, e nunca mais foi marcado para refazer. Os gatilhos de "dirty" da Fase 0 **não estão aplicados** no banco (conferido em `information_schema.triggers`), e a aplicação só marca o mês atual e o anterior.
+- **Correção 1: `readModelRowGuard.ts`** (novo), usado nos **dois** pontos de gravação (`reciboContribuicoesReadModel.ts` do dashboard e `readModelRebuild.ts` do cron).
+  - Antes de apagar o mês, confere em `vendas_recibos` quais `recibo_id` existem. Os inexistentes são gravados como `null`, igual ao que já se fazia com `venda_id`. O cálculo não muda.
+  - **Trava:** as contagens de recibos usam o `recibo_id` na chave: painel e RPCs usam `venda|recibo ou número|data`, produtos usa `recibo || venda|número|data`, ranking usa `venda::recibo ou número`, destinos e clientes usam `venda || recibo || …`.
+    - Só grava se a troca for **um-para-um** em todas essas chaves. Linhas do mesmo recibo, como no rateio, continuam iguais, e recibos diferentes continuam diferentes. Assim nenhuma contagem muda em nenhum filtro.
+    - Se não for, o mês não é gravado e fica como antes. O `last_error` informa qual chave bateria.
+  - Consulta nos dados reais: dos 392 recibos da conciliação sem recibo de venda, **0** colidem na chave do painel.
+- **Correção 2: rodada noturna.** O `wrangler.toml` ganhou o cron `"7 6 * * *"` (03:07 de Brasília).
+  - `scripts/patch-worker-scheduled.js` passa a enviar o header `x-cron-schedule`. O endpoint só considera esse header depois de validar o `x-cron-secret`.
+  - `markNightlyReadModelMonthsDirty` marca como `dirty`, para as empresas ativas e os últimos 12 meses mais o atual:
+    - o mês atual e os 2 anteriores, sempre;
+    - meses que nunca foram montados;
+    - meses `ready` montados **antes de o mês terminar**, como julho.
+  - O cron de 5 min reconstrói durante a madrugada, até 50 meses por rodada. Hoje são 3 empresas, então no máximo 39 meses. De manhã, o dashboard só lê.
+  - A regra está em `selectNightlyDirtyMonths`, uma função pura com teste.
+- **Correção 3:** o cron tenta de novo mês em `error` só **1 vez por hora**, e não a cada 5 min. Antes, um mês com falha recalculava o mês inteiro 12 vezes por hora à toa.
+- **Testes novos:**
+  - `readModelRowGuard.test.ts`: 7 testes, incluindo os 2 casos em que a trava impede a gravação;
+  - `readModelNightly.test.ts`: 6 testes.
+  - O `fakeSupabase` ganhou `upsert`.
+- **Verificação:**
+  - 642 testes passando;
+  - `svelte-check` com 0 erros e 0 avisos;
+  - build OK;
+  - `wrangler deploy --dry-run` OK com os 2 crons.
+- **Depois do deploy:**
+  - fev a mai: o cron tenta de novo em até 1 hora, e o dashboard, na próxima abertura;
+  - julho: corrigido na primeira rodada noturna.
+  - Para corrigir julho na hora, precisa de aprovação:
+    ```sql
+    update ranking_read_model_status set status='dirty', dirty_at=now(), updated_at=now()
+    where modelo='recibo_contribuicoes_v4' and company_id='104037a0-e143-4cb7-ae81-fc31da188ae4' and mes='2026-07-01';
+    ```
+- **Recomendado:** aplicar a migration dos gatilhos da Fase 0 (`20260924200100_read_model_v4_dirty_triggers.sql`). Com ela, qualquer alteração em mês antigo marca o mês na hora, sem esperar a noite. Precisa de aprovação.
 
 **Plano (próximas etapas):**
 - ~~3.2 Kit `ui`~~ (feito). Pendentes do kit, para depois:

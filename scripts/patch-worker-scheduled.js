@@ -56,6 +56,9 @@ const __patchedWorker = {
         method: 'GET',
         headers: {
           'x-cron-secret': cronSecret,
+          // Qual cron disparou (ex.: "7 6 * * *" = rodada noturna). O endpoint só
+          // considera este header depois de validar o x-cron-secret.
+          'x-cron-schedule': String(event.cron || ''),
           'user-agent': 'cf-cron-internal/1.0',
         },
       });
