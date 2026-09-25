@@ -323,3 +323,33 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
 - **Próximos candidatos:**
   - padronizar os estados de carregando, vazio e erro;
   - medir `clientes/historico` e `vendas/complementares`.
+
+### 3.7 (25/09, 12:25): velocidade de `clientes/historico` e `vendas/complementares`. Gravado no Mac, falta o commit
+- **Medição (logs do banco, 15:03 UTC):** o histórico do cliente fazia 6 idas ao banco **em fila** depois da autenticação: vendas, passageiros, viagens, vendas do passageiro, recibos e orçamentos, e por fim cidades. Somavam cerca de 400 ms.
+- **`clientes/historico`:**
+  - os orçamentos começam junto com as vendas;
+  - a cadeia de passageiro (passageiros, viagens, vendas) roda ao lado das vendas do titular;
+  - cidades e criadores dos orçamentos saem juntos.
+  - Continua igual: a mesma montagem (primeiro titular, depois passageiro), o mesmo "falha silenciosa" da cadeia de passageiro e os erros lançados na mesma ordem (`allSettled`).
+- **`vendas/complementares`:** de até 7 consultas em fila para 3 rodadas:
+  1. recibos e vínculos da venda;
+  2. recibos vinculados;
+  3. vendas vinculadas, recibos do par e vínculos do par.
+  - A busca de sugestões (`q` com 2 letras ou mais) roda ao lado de tudo, só depois de a venda ser encontrada: o caminho 404 continua sem consultas extras.
+- **Prova (testes de contrato novos):** `historico.contract.test.ts` (5 cenários) e `complementares.contract.test.ts` (7 cenários, incluindo 404, 400, 403, escopo de vendedor e busca).
+  - Os snapshots foram gerados com o código **antigo**: mesmo status, mesmo corpo e mesmo conjunto de consultas.
+  - Um teste de paralelismo exige 3 consultas abertas ao mesmo tempo.
+  - **Contraprova:** o código antigo passa nos snapshots e falha no paralelismo (2 e 1 consultas abertas ao mesmo tempo).
+- **Line endings:** no Mac, `historico.ts` estava com CRLF (o HEAD tem LF). Foi gravado com LF, então o diff mostra só a mudança.
+- **Conferência Mac × nuvem:** a pasta `src` inteira é idêntica, ignorando CRLF. A única diferença são as fontes em `src/assets/cards/fonts`, que não existem na nuvem.
+- **Verificação:** 674 testes passando, `svelte-check` com 0 erros e 0 avisos.
+- **Arquivos auxiliares:** `tmp/container-src.md5` e `tmp/container-src.norm.md5` foram usados só na conferência. Podem ser apagados.
+
+### 3.8 (25/09, 12:35): estados de carregando, vazio e erro (auditoria)
+- **Resultado da auditoria:** o kit já cobre estes estados.
+  - **Carregando:** o `LoadingState` é usado em 49 telas, e o `DataTable` mostra skeleton e anuncia "Carregando registros" para o leitor de tela.
+  - **Vazio:** o `emptyMessage` do `DataTable` cobre as listas.
+  - **Erro:** as listas principais mostram uma faixa vermelha além do toast.
+  - Os "Carregando..." restantes são textos de botões ("Carregar mais", "Aplicar"). Estão certos e ficaram como estão.
+- **Única correção:** `role="alert"` nas 6 faixas de erro feitas à mão, para o leitor de tela anunciar a falha. As telas são vendas, clientes, orçamentos, ranking, recados e regras financeiras. A faixa de `orcamentos/importar` usa o `AlertMessage` (Flowbite), que já tinha `role="alert"`.
+- **Verificação:** `svelte-check` com 0 erros e 0 avisos. Os hashes de Mac e nuvem batem, ignorando CRLF.

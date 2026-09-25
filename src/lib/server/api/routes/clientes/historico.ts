@@ -184,53 +184,75 @@ export async function handleClientesHistoricoGet(event: RequestEvent) {
           return rows;
         };
 
-        const vendasTitular = await fetchScopedVendas(() =>
-          client.from('vendas').select(vendaSelect).eq('cliente_id', clienteId) as unknown as ScopedVendasQuery
-        );
+        // Fase 3.7 (velocidade): as buscas que não dependem uma da outra rodam juntas.
+        // Antes: vendas do titular → passageiro (3 consultas em fila) → recibos/orçamentos →
+        // cidades → criadores. Agora os orçamentos começam junto com as vendas, a cadeia de
+        // passageiro roda ao lado do titular, e cidades/criadores saem juntos. Mesmas consultas,
+        // mesmo resultado, mesma ordem de montagem (contrato: historico.contract.test.ts).
+        const quotesPromise = client
+          .from('quote')
+          .select(
+            'id, created_at, status, status_negociacao, total, client_id, created_by, quote_item(title, item_type)'
+          )
+          .eq('client_id', clienteId)
+          .order('created_at', { ascending: false })
+          .then((response) => response);
+        // Se o titular falhar antes, a resposta dos orçamentos é descartada sem gerar rejeição solta.
+        quotesPromise.then(undefined, () => undefined);
 
-        let vendasPassageiro: VendaHistoricoRow[] = [];
-        try {
-          const { data: viagensComoPassageiro } = await client
-            .from('viagem_passageiros')
-            .select('viagem_id')
-            .eq('cliente_id', clienteId);
+        const loadVendasPassageiro = async () => {
+          let vendasPassageiro: VendaHistoricoRow[] = [];
+          try {
+            const { data: viagensComoPassageiro } = await client
+              .from('viagem_passageiros')
+              .select('viagem_id')
+              .eq('cliente_id', clienteId);
 
-          const viagemIds = Array.from(
-            new Set(
-              ((viagensComoPassageiro || []) as ViagemPassageiroRow[])
-                .map((row) => String(row.viagem_id || '').trim())
-                .filter(Boolean)
-            )
-          );
-
-          if (viagemIds.length > 0) {
-            const viagensRows = await fetchBatched<ViagemVendaRow>(viagemIds, (batch) =>
-              client
-                .from('viagens')
-                .select('id, venda_id')
-                .in('id', batch)
-            );
-
-            const vendaIds = Array.from(
+            const viagemIds = Array.from(
               new Set(
-                viagensRows
-                  .map((row) => String(row.venda_id || '').trim())
+                ((viagensComoPassageiro || []) as ViagemPassageiroRow[])
+                  .map((row) => String(row.viagem_id || '').trim())
                   .filter(Boolean)
               )
             );
 
-            if (vendaIds.length > 0) {
-              vendasPassageiro = await fetchBatched<VendaHistoricoRow>(vendaIds, async (batch) => ({
-                data: await fetchScopedVendas(() =>
-                  client.from('vendas').select(vendaSelect).in('id', batch) as unknown as ScopedVendasQuery
-                ),
-                error: null
-              }));
+            if (viagemIds.length > 0) {
+              const viagensRows = await fetchBatched<ViagemVendaRow>(viagemIds, (batch) =>
+                client
+                  .from('viagens')
+                  .select('id, venda_id')
+                  .in('id', batch)
+              );
+
+              const vendaIds = Array.from(
+                new Set(
+                  viagensRows
+                    .map((row) => String(row.venda_id || '').trim())
+                    .filter(Boolean)
+                )
+              );
+
+              if (vendaIds.length > 0) {
+                vendasPassageiro = await fetchBatched<VendaHistoricoRow>(vendaIds, async (batch) => ({
+                  data: await fetchScopedVendas(() =>
+                    client.from('vendas').select(vendaSelect).in('id', batch) as unknown as ScopedVendasQuery
+                  ),
+                  error: null
+                }));
+              }
             }
+          } catch {
+            // falha silenciosa — vínculos de passageiro são complementares
           }
-        } catch {
-          // falha silenciosa — vínculos de passageiro são complementares
-        }
+          return vendasPassageiro;
+        };
+
+        const [vendasTitular, vendasPassageiro] = await Promise.all([
+          fetchScopedVendas(() =>
+            client.from('vendas').select(vendaSelect).eq('cliente_id', clienteId) as unknown as ScopedVendasQuery
+          ),
+          loadVendasPassageiro()
+        ]);
 
         const vendasMap = new Map<string, VendaHistoricoRow>();
         for (const row of vendasTitular || []) {
@@ -260,13 +282,7 @@ export async function handleClientesHistoricoGet(event: RequestEvent) {
                     .in('venda_id', batch)
                 ).then((data) => ({ data, error: null }))
               : Promise.resolve({ data: [], error: null }),
-            client
-              .from('quote')
-              .select(
-                'id, created_at, status, status_negociacao, total, client_id, created_by, quote_item(title, item_type)'
-              )
-              .eq('client_id', clienteId)
-              .order('created_at', { ascending: false })
+            quotesPromise
           ]);
 
         if (recibosError) throw recibosError;
@@ -282,22 +298,6 @@ export async function handleClientesHistoricoGet(event: RequestEvent) {
           )
         );
 
-        let cidadesMap = new Map<string, string>();
-        if (cidadeIds.length > 0) {
-          const cidadesData = await fetchBatched<CidadeRow>(cidadeIds, (batch) =>
-            client
-              .from('cidades')
-              .select('id, nome')
-              .in('id', batch)
-          );
-          cidadesMap = new Map(
-            cidadesData.map((row) => [
-              String(row?.id || '').trim(),
-              String(row?.nome || '').trim()
-            ])
-          );
-        }
-
         let creatorCompanyMap = new Map<string, string>();
         const creatorIds = Array.from(
           new Set(
@@ -307,13 +307,40 @@ export async function handleClientesHistoricoGet(event: RequestEvent) {
           )
         );
 
-        if (filters.companyIds.length > 0 && creatorIds.length > 0) {
-          const creators = await fetchBatched<UserCompanyRow>(creatorIds, (batch) =>
-            client
-              .from('users')
-              .select('id, company_id')
-              .in('id', batch)
+        const [cidadesResult, creatorsResult] = await Promise.allSettled([
+          cidadeIds.length > 0
+            ? fetchBatched<CidadeRow>(cidadeIds, (batch) =>
+                client
+                  .from('cidades')
+                  .select('id, nome')
+                  .in('id', batch)
+              )
+            : Promise.resolve(null),
+          filters.companyIds.length > 0 && creatorIds.length > 0
+            ? fetchBatched<UserCompanyRow>(creatorIds, (batch) =>
+                client
+                  .from('users')
+                  .select('id, company_id')
+                  .in('id', batch)
+              )
+            : Promise.resolve(null)
+        ]);
+        if (cidadesResult.status === 'rejected') throw cidadesResult.reason;
+        if (creatorsResult.status === 'rejected') throw creatorsResult.reason;
+
+        let cidadesMap = new Map<string, string>();
+        if (cidadesResult.value) {
+          const cidadesData = cidadesResult.value;
+          cidadesMap = new Map(
+            cidadesData.map((row) => [
+              String(row?.id || '').trim(),
+              String(row?.nome || '').trim()
+            ])
           );
+        }
+
+        if (creatorsResult.value) {
+          const creators = creatorsResult.value;
 
           creatorCompanyMap = new Map(
             creators.map((row) => [

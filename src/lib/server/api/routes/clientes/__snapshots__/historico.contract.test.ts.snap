@@ -1,0 +1,318 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`GET /api/v1/clientes/historico: contrato > admin sem filtros: corpo e consultas iguais aos da versão anterior 1`] = `
+{
+  "consultas": [
+    "select cidades [id in cid-lis,cid-rio,cid-sp]",
+    "select quote [client_id=cli-1]",
+    "select vendas [cliente_id=cli-1]",
+    "select vendas [id in vd-3,vd-4,vd-5]",
+    "select vendas_recibos [venda_id in vd-1,vd-2,vd-3,vd-4,vd-5]",
+    "select viagem_passageiros [cliente_id=cli-1]",
+    "select viagens [id in vg-1,vg-2,vg-3,vg-4]",
+  ],
+  "result": {
+    "body": {
+      "orcamentos": [
+        {
+          "data_orcamento": "2026-05-01T10:00:00Z",
+          "id": "q-1",
+          "produto_nome": "Cruzeiro",
+          "status": "negociando",
+          "valor": 5000,
+        },
+        {
+          "data_orcamento": "2026-04-01T10:00:00Z",
+          "id": "q-2",
+          "produto_nome": "hotel",
+          "status": "fechado",
+          "valor": "1200",
+        },
+        {
+          "data_orcamento": "2026-03-01T10:00:00Z",
+          "id": "q-3",
+          "produto_nome": null,
+          "status": null,
+          "valor": null,
+        },
+      ],
+      "vendas": [
+        {
+          "data_embarque": "2026-07-01",
+          "data_lancamento": "2026-06-15",
+          "destino_cidade_nome": "Lisboa",
+          "destino_nome": "Aéreo",
+          "id": "vd-4",
+          "origem_vinculo": "passageiro",
+          "valor_taxas": 10,
+          "valor_total": 300,
+        },
+        {
+          "data_embarque": null,
+          "data_lancamento": "2026-05-02",
+          "destino_cidade_nome": "Rio de Janeiro",
+          "destino_nome": "Hotel Rio",
+          "id": "vd-2",
+          "origem_vinculo": "titular",
+          "valor_taxas": 0,
+          "valor_total": 0,
+        },
+        {
+          "data_embarque": "2026-04-01",
+          "data_lancamento": "2026-03-10",
+          "destino_cidade_nome": "Lisboa",
+          "destino_nome": "Pacote Lisboa",
+          "id": "vd-1",
+          "origem_vinculo": "titular",
+          "valor_taxas": 50,
+          "valor_total": 1250.5,
+        },
+        {
+          "data_embarque": null,
+          "data_lancamento": "2026-01-01",
+          "destino_cidade_nome": "São Paulo",
+          "destino_nome": "SP",
+          "id": "vd-5",
+          "origem_vinculo": "passageiro",
+          "valor_taxas": 9,
+          "valor_total": 999,
+        },
+        {
+          "data_embarque": null,
+          "data_lancamento": null,
+          "destino_cidade_nome": "",
+          "destino_nome": "",
+          "id": "vd-3",
+          "origem_vinculo": "titular",
+          "valor_taxas": 0,
+          "valor_total": 0,
+        },
+      ],
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`GET /api/v1/clientes/historico: contrato > cliente sem nada: corpo e consultas iguais aos da versão anterior 1`] = `
+{
+  "consultas": [
+    "select quote [client_id=cli-vazio]",
+    "select vendas [cliente_id=cli-vazio]",
+    "select viagem_passageiros [cliente_id=cli-vazio]",
+  ],
+  "result": {
+    "body": {
+      "orcamentos": [],
+      "vendas": [],
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`GET /api/v1/clientes/historico: contrato > empresa + vendedor: corpo e consultas iguais aos da versão anterior 1`] = `
+{
+  "consultas": [
+    "select cidades [id in cid-lis]",
+    "select quote [client_id=cli-1]",
+    "select users [id in u-v1,u-v3]",
+    "select vendas [cliente_id=cli-1 & company_id in c-1 & vendedor_id in u-v1,u-v3]",
+    "select vendas [company_id in c-1 & id in vd-3,vd-4,vd-5 & vendedor_id in u-v1,u-v3]",
+    "select vendas_recibos [venda_id in vd-1,vd-3,vd-4]",
+    "select viagem_passageiros [cliente_id=cli-1]",
+    "select viagens [id in vg-1,vg-2,vg-3,vg-4]",
+  ],
+  "result": {
+    "body": {
+      "orcamentos": [
+        {
+          "data_orcamento": "2026-05-01T10:00:00Z",
+          "id": "q-1",
+          "produto_nome": "Cruzeiro",
+          "status": "negociando",
+          "valor": 5000,
+        },
+        {
+          "data_orcamento": "2026-04-01T10:00:00Z",
+          "id": "q-2",
+          "produto_nome": "hotel",
+          "status": "fechado",
+          "valor": "1200",
+        },
+      ],
+      "vendas": [
+        {
+          "data_embarque": "2026-07-01",
+          "data_lancamento": "2026-06-15",
+          "destino_cidade_nome": "Lisboa",
+          "destino_nome": "Aéreo",
+          "id": "vd-4",
+          "origem_vinculo": "passageiro",
+          "valor_taxas": 10,
+          "valor_total": 300,
+        },
+        {
+          "data_embarque": "2026-04-01",
+          "data_lancamento": "2026-03-10",
+          "destino_cidade_nome": "Lisboa",
+          "destino_nome": "Pacote Lisboa",
+          "id": "vd-1",
+          "origem_vinculo": "titular",
+          "valor_taxas": 50,
+          "valor_total": 1250.5,
+        },
+        {
+          "data_embarque": null,
+          "data_lancamento": null,
+          "destino_cidade_nome": "",
+          "destino_nome": "",
+          "id": "vd-3",
+          "origem_vinculo": "titular",
+          "valor_taxas": 0,
+          "valor_total": 0,
+        },
+      ],
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`GET /api/v1/clientes/historico: contrato > filtro de empresa: corpo e consultas iguais aos da versão anterior 1`] = `
+{
+  "consultas": [
+    "select cidades [id in cid-lis,cid-rio]",
+    "select quote [client_id=cli-1]",
+    "select users [id in u-v1,u-v3]",
+    "select vendas [cliente_id=cli-1 & company_id in c-1,c-2]",
+    "select vendas [company_id in c-1,c-2 & id in vd-3,vd-4,vd-5]",
+    "select vendas_recibos [venda_id in vd-1,vd-2,vd-3,vd-4]",
+    "select viagem_passageiros [cliente_id=cli-1]",
+    "select viagens [id in vg-1,vg-2,vg-3,vg-4]",
+  ],
+  "result": {
+    "body": {
+      "orcamentos": [
+        {
+          "data_orcamento": "2026-05-01T10:00:00Z",
+          "id": "q-1",
+          "produto_nome": "Cruzeiro",
+          "status": "negociando",
+          "valor": 5000,
+        },
+        {
+          "data_orcamento": "2026-03-01T10:00:00Z",
+          "id": "q-3",
+          "produto_nome": null,
+          "status": null,
+          "valor": null,
+        },
+      ],
+      "vendas": [
+        {
+          "data_embarque": "2026-07-01",
+          "data_lancamento": "2026-06-15",
+          "destino_cidade_nome": "Lisboa",
+          "destino_nome": "Aéreo",
+          "id": "vd-4",
+          "origem_vinculo": "passageiro",
+          "valor_taxas": 10,
+          "valor_total": 300,
+        },
+        {
+          "data_embarque": null,
+          "data_lancamento": "2026-05-02",
+          "destino_cidade_nome": "Rio de Janeiro",
+          "destino_nome": "Hotel Rio",
+          "id": "vd-2",
+          "origem_vinculo": "titular",
+          "valor_taxas": 0,
+          "valor_total": 0,
+        },
+        {
+          "data_embarque": "2026-04-01",
+          "data_lancamento": "2026-03-10",
+          "destino_cidade_nome": "Lisboa",
+          "destino_nome": "Pacote Lisboa",
+          "id": "vd-1",
+          "origem_vinculo": "titular",
+          "valor_taxas": 50,
+          "valor_total": 1250.5,
+        },
+        {
+          "data_embarque": null,
+          "data_lancamento": null,
+          "destino_cidade_nome": "",
+          "destino_nome": "",
+          "id": "vd-3",
+          "origem_vinculo": "titular",
+          "valor_taxas": 0,
+          "valor_total": 0,
+        },
+      ],
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`GET /api/v1/clientes/historico: contrato > filtro de vendedor: corpo e consultas iguais aos da versão anterior 1`] = `
+{
+  "consultas": [
+    "select cidades [id in cid-lis]",
+    "select quote [client_id=cli-1]",
+    "select vendas [cliente_id=cli-1 & vendedor_id in u-v1]",
+    "select vendas [id in vd-3,vd-4,vd-5 & vendedor_id in u-v1]",
+    "select vendas_recibos [venda_id in vd-1,vd-3,vd-4]",
+    "select viagem_passageiros [cliente_id=cli-1]",
+    "select viagens [id in vg-1,vg-2,vg-3,vg-4]",
+  ],
+  "result": {
+    "body": {
+      "orcamentos": [
+        {
+          "data_orcamento": "2026-05-01T10:00:00Z",
+          "id": "q-1",
+          "produto_nome": "Cruzeiro",
+          "status": "negociando",
+          "valor": 5000,
+        },
+      ],
+      "vendas": [
+        {
+          "data_embarque": "2026-07-01",
+          "data_lancamento": "2026-06-15",
+          "destino_cidade_nome": "Lisboa",
+          "destino_nome": "Aéreo",
+          "id": "vd-4",
+          "origem_vinculo": "passageiro",
+          "valor_taxas": 10,
+          "valor_total": 300,
+        },
+        {
+          "data_embarque": "2026-04-01",
+          "data_lancamento": "2026-03-10",
+          "destino_cidade_nome": "Lisboa",
+          "destino_nome": "Pacote Lisboa",
+          "id": "vd-1",
+          "origem_vinculo": "titular",
+          "valor_taxas": 50,
+          "valor_total": 1250.5,
+        },
+        {
+          "data_embarque": null,
+          "data_lancamento": null,
+          "destino_cidade_nome": "",
+          "destino_nome": "",
+          "id": "vd-3",
+          "origem_vinculo": "titular",
+          "valor_taxas": 0,
+          "valor_total": 0,
+        },
+      ],
+    },
+    "status": 200,
+  },
+}
+`;

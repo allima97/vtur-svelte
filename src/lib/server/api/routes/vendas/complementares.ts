@@ -147,163 +147,7 @@ export async function handleVendasComplementaresGet(event: RequestEvent) {
     );
     const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
-    const currentSale = await fetchSaleForScope({
-      client,
-      scope,
-      saleId: vendaId,
-      companyIds,
-      vendedorIds,
-      extraSelect: 'cliente_id'
-    });
-    if (!currentSale) {
-      return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
-    }
-
-    const { data: currentReceiptsData, error: currentReceiptsError } = await client
-      .from('vendas_recibos')
-      .select('id')
-      .eq('venda_id', vendaId);
-    if (currentReceiptsError) throw currentReceiptsError;
-
-    const currentReceiptIds = ((currentReceiptsData || []) as ReceiptIdRow[])
-      .map((row) => String(row?.id || '').trim())
-      .filter(Boolean);
-
-    const { data: currentLinksData, error: currentLinksError } = await client
-      .from('vendas_recibos_complementares')
-      .select('id, venda_id, recibo_id')
-      .eq('venda_id', vendaId);
-    if (currentLinksError && String(currentLinksError.code || '') !== '42P01') throw currentLinksError;
-
-    const currentLinks: ComplementaryLinkRow[] = Array.isArray(currentLinksData) ? currentLinksData : [];
-    const linkedReceiptIds = currentLinks
-      .map((row) => String(row?.recibo_id || '').trim())
-      .filter(Boolean);
-
-    const linkedReceiptsData: LinkedReceiptRow[] = [];
-    for (const batch of chunkArray(linkedReceiptIds)) {
-      const { data, error: linkedReceiptsError } = await client
-        .from('vendas_recibos')
-        .select(`
-          id,
-          venda_id,
-          numero_recibo,
-          valor_total,
-          produto_resolvido:produtos!produto_resolvido_id (nome)
-        `)
-        .in('id', batch);
-      if (linkedReceiptsError) throw linkedReceiptsError;
-      linkedReceiptsData.push(...(data || []));
-    }
-
-    const linkedSalesIds = uniqueCleanStrings(linkedReceiptsData.map((row) => row?.venda_id));
-
-    const linkedSalesData: LinkedSaleRow[] = [];
-    for (const batch of chunkArray(linkedSalesIds)) {
-      const { data, error: linkedSalesError } = await client
-        .from('vendas')
-        .select(`
-          id,
-          cliente_id,
-          destino_id,
-          destino_cidade_id,
-          clientes (nome),
-          destinos:produtos!destino_id (nome),
-          destino_cidade:cidades!destino_cidade_id (nome)
-        `)
-        .in('id', batch);
-      if (linkedSalesError) throw linkedSalesError;
-      linkedSalesData.push(...(data || []));
-    }
-
-    const linkedReceiptsById = Object.fromEntries(
-      linkedReceiptsData.map((row) => [
-        String(row?.id || ''),
-        {
-          id: String(row?.id || ''),
-          venda_id: String(row?.venda_id || ''),
-          numero_recibo: row?.numero_recibo || null,
-          valor_total: Number(row?.valor_total || 0),
-          produto_nome: firstNome(row?.produto_resolvido) || null
-        }
-      ])
-    );
-    const linkedSalesById = Object.fromEntries(
-      linkedSalesData.map((row) => [
-        String(row?.id || ''),
-        {
-          id: String(row?.id || ''),
-          cliente_nome: firstNome(row?.clientes),
-          destino_nome: firstNome(row?.destinos),
-          destino_cidade_nome: firstNome(row?.destino_cidade)
-        }
-      ])
-    );
-
-    const pairSaleIds = uniqueCleanStrings(linkedSalesIds);
-    const pairReceiptSaleIds = [vendaId, ...pairSaleIds];
-    const pairReceiptsData: PairReceiptRow[] = [];
-    for (const batch of chunkArray(pairReceiptSaleIds)) {
-      const { data, error: pairReceiptsError } = await client
-        .from('vendas_recibos')
-        .select('id, venda_id')
-        .in('venda_id', batch);
-      if (pairReceiptsError) throw pairReceiptsError;
-      pairReceiptsData.push(...(data || []));
-    }
-
-    const receiptsBySale = new Map<string, string[]>();
-    for (const row of pairReceiptsData) {
-      const saleRef = String(row?.venda_id || '').trim();
-      const receiptRef = String(row?.id || '').trim();
-      if (!saleRef || !receiptRef) continue;
-      const current = receiptsBySale.get(saleRef) || [];
-      current.push(receiptRef);
-      receiptsBySale.set(saleRef, current);
-    }
-
-    const allPairLinksData: ComplementaryLinkRow[] = [];
-    for (const batch of chunkArray(pairReceiptSaleIds)) {
-      const { data, error: allPairLinksError } = await client
-        .from('vendas_recibos_complementares')
-        .select('id, venda_id, recibo_id')
-        .in('venda_id', batch);
-      if (allPairLinksError && String(allPairLinksError.code || '') !== '42P01') throw allPairLinksError;
-      allPairLinksData.push(...(data || []));
-    }
-
-    const allPairLinks: ComplementaryLinkRow[] = Array.isArray(allPairLinksData) ? allPairLinksData : [];
-
-    const current = currentLinks.map((link) => {
-      const recibo = linkedReceiptsById[String(link?.recibo_id || '')];
-      const linkedSaleId = String(recibo?.venda_id || '').trim();
-      const sale = linkedSalesById[linkedSaleId];
-      const currentSaleReceipts = new Set(receiptsBySale.get(vendaId) || currentReceiptIds);
-      const linkedSaleReceipts = new Set(receiptsBySale.get(linkedSaleId) || []);
-      const relatedIds = allPairLinks
-        .filter((row) => {
-          const rowSaleId = String(row?.venda_id || '').trim();
-          const rowReceiptId = String(row?.recibo_id || '').trim();
-          if (!rowSaleId || !rowReceiptId) return false;
-          if (rowSaleId === vendaId && linkedSaleReceipts.has(rowReceiptId)) return true;
-          if (rowSaleId === linkedSaleId && currentSaleReceipts.has(rowReceiptId)) return true;
-          return false;
-        })
-        .map((row) => String(row?.id || '').trim())
-        .filter(Boolean);
-
-      return {
-        id: String(link?.id || ''),
-        venda_id: String(link?.venda_id || ''),
-        recibo_id: String(link?.recibo_id || ''),
-        linked_venda_id: linkedSaleId,
-        related_ids: uniqueCleanStrings(relatedIds),
-        resumo: getResumo(recibo, sale)
-      };
-    });
-
-    let suggestions: ComplementarySuggestion[] = [];
-    if (busca.length >= 2) {
+    async function loadSearchReceipts() {
       const buildReceiptsQuery = (companyIdsFilter?: string[], vendedorIdsFilter?: string[]) => {
         let receiptsQuery = client
           .from('vendas_recibos')
@@ -340,6 +184,201 @@ export async function handleVendasComplementaresGet(event: RequestEvent) {
           scopedReceiptsData.push(...(data || []));
         }
       }
+      return scopedReceiptsData;
+    }
+
+    const currentSale = await fetchSaleForScope({
+      client,
+      scope,
+      saleId: vendaId,
+      companyIds,
+      vendedorIds,
+      extraSelect: 'cliente_id'
+    });
+    if (!currentSale) {
+      return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
+    }
+
+    // Fase 3.7 (velocidade): consultas que não dependem uma da outra rodam juntas.
+    // Antes eram até 7 idas ao banco em fila; agora são 3 rodadas (recibos + vínculos da venda →
+    // recibos vinculados → vendas vinculadas + recibos do par + vínculos do par), e a busca de
+    // sugestões corre ao lado. Mesmas consultas, mesmo resultado; os erros continuam sendo
+    // lançados na mesma ordem de antes (contrato: complementares.contract.test.ts).
+    const searchPromise = busca.length >= 2 ? loadSearchReceipts() : Promise.resolve([] as SearchReceiptRow[]);
+    // Se algo anterior falhar, a busca é descartada sem gerar rejeição solta.
+    searchPromise.then(undefined, () => undefined);
+
+    const [currentReceiptsResponse, currentLinksResponse] = await Promise.all([
+      client
+        .from('vendas_recibos')
+        .select('id')
+        .eq('venda_id', vendaId),
+      client
+        .from('vendas_recibos_complementares')
+        .select('id, venda_id, recibo_id')
+        .eq('venda_id', vendaId)
+    ]);
+    const { data: currentReceiptsData, error: currentReceiptsError } = currentReceiptsResponse;
+    if (currentReceiptsError) throw currentReceiptsError;
+
+    const currentReceiptIds = ((currentReceiptsData || []) as ReceiptIdRow[])
+      .map((row) => String(row?.id || '').trim())
+      .filter(Boolean);
+
+    const { data: currentLinksData, error: currentLinksError } = currentLinksResponse;
+    if (currentLinksError && String(currentLinksError.code || '') !== '42P01') throw currentLinksError;
+
+    const currentLinks: ComplementaryLinkRow[] = Array.isArray(currentLinksData) ? currentLinksData : [];
+    const linkedReceiptIds = currentLinks
+      .map((row) => String(row?.recibo_id || '').trim())
+      .filter(Boolean);
+
+    const linkedReceiptsData: LinkedReceiptRow[] = [];
+    for (const batch of chunkArray(linkedReceiptIds)) {
+      const { data, error: linkedReceiptsError } = await client
+        .from('vendas_recibos')
+        .select(`
+          id,
+          venda_id,
+          numero_recibo,
+          valor_total,
+          produto_resolvido:produtos!produto_resolvido_id (nome)
+        `)
+        .in('id', batch);
+      if (linkedReceiptsError) throw linkedReceiptsError;
+      linkedReceiptsData.push(...(data || []));
+    }
+
+    const linkedSalesIds = uniqueCleanStrings(linkedReceiptsData.map((row) => row?.venda_id));
+    const pairSaleIds = uniqueCleanStrings(linkedSalesIds);
+    const pairReceiptSaleIds = [vendaId, ...pairSaleIds];
+
+    const loadLinkedSales = async () => {
+      const linkedSalesData: LinkedSaleRow[] = [];
+      for (const batch of chunkArray(linkedSalesIds)) {
+        const { data, error: linkedSalesError } = await client
+          .from('vendas')
+          .select(`
+            id,
+            cliente_id,
+            destino_id,
+            destino_cidade_id,
+            clientes (nome),
+            destinos:produtos!destino_id (nome),
+            destino_cidade:cidades!destino_cidade_id (nome)
+          `)
+          .in('id', batch);
+        if (linkedSalesError) throw linkedSalesError;
+        linkedSalesData.push(...(data || []));
+      }
+      return linkedSalesData;
+    };
+
+    const loadPairReceipts = async () => {
+      const pairReceiptsData: PairReceiptRow[] = [];
+      for (const batch of chunkArray(pairReceiptSaleIds)) {
+        const { data, error: pairReceiptsError } = await client
+          .from('vendas_recibos')
+          .select('id, venda_id')
+          .in('venda_id', batch);
+        if (pairReceiptsError) throw pairReceiptsError;
+        pairReceiptsData.push(...(data || []));
+      }
+      return pairReceiptsData;
+    };
+
+    const loadAllPairLinks = async () => {
+      const allPairLinksData: ComplementaryLinkRow[] = [];
+      for (const batch of chunkArray(pairReceiptSaleIds)) {
+        const { data, error: allPairLinksError } = await client
+          .from('vendas_recibos_complementares')
+          .select('id, venda_id, recibo_id')
+          .in('venda_id', batch);
+        if (allPairLinksError && String(allPairLinksError.code || '') !== '42P01') throw allPairLinksError;
+        allPairLinksData.push(...(data || []));
+      }
+      return allPairLinksData;
+    };
+
+    const [linkedSalesResult, pairReceiptsResult, allPairLinksResult] = await Promise.allSettled([
+      loadLinkedSales(),
+      loadPairReceipts(),
+      loadAllPairLinks()
+    ]);
+    if (linkedSalesResult.status === 'rejected') throw linkedSalesResult.reason;
+    if (pairReceiptsResult.status === 'rejected') throw pairReceiptsResult.reason;
+    if (allPairLinksResult.status === 'rejected') throw allPairLinksResult.reason;
+    const linkedSalesData = linkedSalesResult.value;
+    const pairReceiptsData = pairReceiptsResult.value;
+    const allPairLinksData = allPairLinksResult.value;
+
+    const linkedReceiptsById = Object.fromEntries(
+      linkedReceiptsData.map((row) => [
+        String(row?.id || ''),
+        {
+          id: String(row?.id || ''),
+          venda_id: String(row?.venda_id || ''),
+          numero_recibo: row?.numero_recibo || null,
+          valor_total: Number(row?.valor_total || 0),
+          produto_nome: firstNome(row?.produto_resolvido) || null
+        }
+      ])
+    );
+    const linkedSalesById = Object.fromEntries(
+      linkedSalesData.map((row) => [
+        String(row?.id || ''),
+        {
+          id: String(row?.id || ''),
+          cliente_nome: firstNome(row?.clientes),
+          destino_nome: firstNome(row?.destinos),
+          destino_cidade_nome: firstNome(row?.destino_cidade)
+        }
+      ])
+    );
+
+    const receiptsBySale = new Map<string, string[]>();
+    for (const row of pairReceiptsData) {
+      const saleRef = String(row?.venda_id || '').trim();
+      const receiptRef = String(row?.id || '').trim();
+      if (!saleRef || !receiptRef) continue;
+      const current = receiptsBySale.get(saleRef) || [];
+      current.push(receiptRef);
+      receiptsBySale.set(saleRef, current);
+    }
+
+    const allPairLinks: ComplementaryLinkRow[] = Array.isArray(allPairLinksData) ? allPairLinksData : [];
+
+    const current = currentLinks.map((link) => {
+      const recibo = linkedReceiptsById[String(link?.recibo_id || '')];
+      const linkedSaleId = String(recibo?.venda_id || '').trim();
+      const sale = linkedSalesById[linkedSaleId];
+      const currentSaleReceipts = new Set(receiptsBySale.get(vendaId) || currentReceiptIds);
+      const linkedSaleReceipts = new Set(receiptsBySale.get(linkedSaleId) || []);
+      const relatedIds = allPairLinks
+        .filter((row) => {
+          const rowSaleId = String(row?.venda_id || '').trim();
+          const rowReceiptId = String(row?.recibo_id || '').trim();
+          if (!rowSaleId || !rowReceiptId) return false;
+          if (rowSaleId === vendaId && linkedSaleReceipts.has(rowReceiptId)) return true;
+          if (rowSaleId === linkedSaleId && currentSaleReceipts.has(rowReceiptId)) return true;
+          return false;
+        })
+        .map((row) => String(row?.id || '').trim())
+        .filter(Boolean);
+
+      return {
+        id: String(link?.id || ''),
+        venda_id: String(link?.venda_id || ''),
+        recibo_id: String(link?.recibo_id || ''),
+        linked_venda_id: linkedSaleId,
+        related_ids: uniqueCleanStrings(relatedIds),
+        resumo: getResumo(recibo, sale)
+      };
+    });
+
+    let suggestions: ComplementarySuggestion[] = [];
+    if (busca.length >= 2) {
+      const scopedReceiptsData: SearchReceiptRow[] = await searchPromise;
 
       const currentLinkedIds = new Set<string>();
       for (const item of current) {
