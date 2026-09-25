@@ -54,6 +54,8 @@
     | 'dialog'
     | null = null;
   export let ariaExpanded: boolean | null = null;
+  /** Opcional: id do elemento que o botão abre/fecha (menus, seções). */
+  export let ariaControls: string | null = null;
   export let role: string | null = null;
   export let ariaSelected: boolean | null = null;
   export let ariaPressed: boolean | null = null;
@@ -130,6 +132,7 @@
     aria-label={ariaLabel ?? undefined}
     aria-haspopup={ariaHaspopup ?? undefined}
     aria-expanded={ariaExpanded ?? undefined}
+    aria-controls={ariaControls ?? undefined}
     role={role ?? undefined}
     aria-selected={ariaSelected ?? undefined}
     aria-pressed={ariaPressed ?? undefined}
@@ -159,6 +162,7 @@
     aria-label={ariaLabel ?? undefined}
     aria-haspopup={ariaHaspopup ?? undefined}
     aria-expanded={ariaExpanded ?? undefined}
+    aria-controls={ariaControls ?? undefined}
     role={role ?? undefined}
     aria-selected={ariaSelected ?? undefined}
     aria-pressed={ariaPressed ?? undefined}

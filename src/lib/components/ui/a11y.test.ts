@@ -12,6 +12,7 @@ import FieldCheckbox from './form/FieldCheckbox.svelte';
 import FieldRadioGroup from './form/FieldRadioGroup.svelte';
 import Tabs from './Tabs.svelte';
 import Button from './Button.svelte';
+import PageHeader from './PageHeader.svelte';
 import { focusableTabIndex, nextTabIndex } from './tabsKeyboard';
 
 const html = (component: unknown, props: Record<string, unknown>) =>
@@ -105,5 +106,30 @@ describe('Button', () => {
     expect(busy).toContain('aria-busy="true"');
     expect(busy).toMatch(/<button[^>]*disabled/);
     expect(html(Button, {})).not.toContain('aria-busy');
+  });
+});
+
+describe('Fase 3.3: navegação', () => {
+  it('Button: ariaControls e ariaExpanded chegam ao <button>', () => {
+    const body = html(Button, { ariaControls: 'menu-x', ariaExpanded: false });
+    expect(body).toContain('aria-controls="menu-x"');
+    expect(body).toContain('aria-expanded="false"');
+    expect(html(Button, {})).not.toContain('aria-controls');
+  });
+
+  it('PageHeader: trilha nomeada, início com rótulo e último item como página atual', () => {
+    const body = html(PageHeader, {
+      title: 'Editar cliente',
+      breadcrumbs: [
+        { label: 'Clientes', href: '/clientes' },
+        { label: 'Editar', href: '/clientes/1/editar' }
+      ]
+    });
+    expect(body).toContain('aria-label="Trilha de navegação"');
+    expect(body).toContain('aria-label="Início"');
+    expect(body).toContain('href="/clientes"');
+    expect(body).toMatch(/aria-current="page"[^>]*>Editar</);
+    // sem breadcrumbs → sem trilha
+    expect(html(PageHeader, { title: 'X' })).not.toContain('Trilha de navegação');
   });
 });

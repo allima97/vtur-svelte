@@ -3,18 +3,19 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 00:15. Trabalho feito no Mac (`~/Documents/GitHub/vturapp`)._
+_Última atualização: 24/09/2026, 23:59. Trabalho feito no Mac (`~/Documents/GitHub/vturapp`)._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
 - **Fase 2.6, lote 3, gravado no Mac e sem commit:** 34 rotas dos domínios pequenos, mais as 3 rotas profundas que tinham ficado no SvelteKit.
 - **Decisão do usuário (24/09/2026):** as rotas de login e autenticação em `src/routes/api/auth` (login, convite, set-session, turnstile e passkeys) **não serão migradas**. Elas continuam no SvelteKit, sem alteração.
 - **Fase 3.1:** com commit ("fase7"). O "Dados atualizados há X" do dashboard funciona, e o `svelte-check` está sem erros.
-- **Fase 3.2 gravada no Mac, sem commit:** acessibilidade no kit `$lib/components/ui`, que vale para todas as telas.
-- **Próximo passo:** Fase 3.3, navegação.
+- **Fase 3.2:** com commit ("telas_botoes").
+- **Fase 3.3 gravada no Mac, sem commit:** navegação e acessibilidade no layout: menu lateral, menu do celular, breadcrumbs e títulos.
+- **Próximo passo:** Fase 3.4, velocidade das APIs.
 
 ## Pendências do usuário
-1. No Mac: `npm test` (618 testes), depois commit/push da Fase 3.2.
+1. No Mac: `npm test` (623 testes), depois commit/push da Fase 3.3.
 2. Em produção, conferir:
    - Lote 3: cadastros de cidades, países, subdivisões, tipos de produto e circuitos; consultorias (inclusive o .ics); convites (enviar e aceitar); CRM (biblioteca e assinatura); perfil e assinatura; menu; CEP; equipe; QR; vouchers (assets); e-mail de boas-vindas; aniversariantes.
    - As 3 rotas profundas: permissões por tipo de usuário, regra de comissão por id e acompanhante de cliente.
@@ -36,8 +37,9 @@ _Última atualização: 25/09/2026, 00:15. Trabalho feito no Mac (`~/Documents/G
 | 2.6: demais domínios | ✅ lotes 1 e 2 com commit ("fase4", "fase5") · ⏳ lote 3 sem commit | 71 + 55 + 37 rotas. |
 | 2.7: `api/auth` | 🚫 não migrar (decisão do usuário) | Login, convite, sessão, turnstile e passkeys continuam no SvelteKit. |
 | 3.1: indicação de atualização + `svelte-check` sem erros | ✅ commit | Ver seção Fase 3. |
-| 3.2: acessibilidade do kit `ui` | ⏳ sem commit | Ver seção Fase 3. |
-| 3.3 a 3.5 | ⬜ | Ver plano abaixo. |
+| 3.2: acessibilidade do kit `ui` | ✅ commit | Ver seção Fase 3. |
+| 3.3: navegação (menu, trilha, títulos) | ⏳ sem commit | Ver seção Fase 3. |
+| 3.4 e 3.5 | ⬜ | Ver plano abaixo. |
 
 ## API no Hono
 Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os routers em `src/lib/server/api/routes/<dominio>/index.ts` e o registro em `src/lib/server/api/app.ts`.
@@ -89,12 +91,43 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - `svelte-check` com 0 erros e 0 avisos;
   - build OK.
 
+**3.3 (feito):** os itens do menu, a ordem e as permissões (`canSeeItem`) continuam exatamente iguais.
+- **Pular para o conteúdo:** o primeiro Tab da página mostra o link "Pular para o conteúdo", que leva o foco para o `<main id="conteudo-principal">`. Foi criada a classe `.vtur-skip-link` em `app.css`.
+- **Menu lateral (`Sidebar.svelte`):**
+  - O estado de cada seção recolhida passou a ser guardado **pelo nome da seção**. Antes era pela posição na lista, e quando as permissões terminavam de carregar a seção recolhida podia trocar.
+  - Menu expandido/recolhido e seções recolhidas ficam lembrados neste navegador (`localStorage`, chaves `vtur:sidebar-expanded` e `vtur:sidebar-secoes-recolhidas`). As funções estão em `layout/sidebarPrefs.ts`, com teste. Qualquer falha volta ao padrão.
+  - Os botões de seção e o de expandir ganharam `aria-expanded` e `aria-controls`.
+- **Menu no celular:**
+  - o botão Menu ganhou `aria-expanded` e o rótulo passou a alternar entre Abrir e Fechar;
+  - ao abrir, o foco vai para o primeiro link;
+  - **Esc fecha** o menu e devolve o foco ao botão;
+  - o menu fecha sozinho em qualquer navegação, inclusive no voltar do navegador (`afterNavigate`);
+  - o fundo escuro deixou de ser um botão falso com foco;
+  - o item da página atual ganhou `aria-current`.
+- **Breadcrumbs (`PageHeader`):**
+  - `<nav aria-label="Trilha de navegação">`;
+  - o ícone de início ganhou o nome "Início";
+  - as setas ficaram `aria-hidden`;
+  - o último item recebe `aria-current="page"`;
+  - o foco agora fica visível.
+- **`Button`:** nova prop `ariaControls`.
+- **Títulos da aba do navegador:** foram adicionados em Consultoria Online, Análise de Desempenho e Correção de recibos. As outras telas já tinham título, direto ou pelo componente que usam, e 4 são só redirecionamentos.
+- **Topbar:** o rótulo do logo agora é "VTUR, página inicial".
+- **Verificação:**
+  - 623 testes passando, com 5 novos: `sidebarPrefs` e trilha/ariaControls em `a11y.test.ts`;
+  - `svelte-check` com 0 erros e 0 avisos;
+  - build OK.
+- **Observações:**
+  - `layout/Header.svelte` não é usado por nenhuma tela. Fica como está e pode ser apagado depois, se você quiser.
+  - Atalhos globais de teclado ficaram de fora de propósito, para não conflitar com a digitação nos formulários.
+  - A cópia de build da nuvem estava sem 8 arquivos de rotas profundas (os editar de cadastros e as passkeys). Foi completada, e agora é idêntica ao Mac.
+
 **Plano (próximas etapas):**
 - ~~3.2 Kit `ui`~~ (feito). Pendentes do kit, para depois:
   - o `Dialog` (Flowbite `Modal`) não liga o título ao `role="dialog"`, porque o Flowbite não repassa atributos para esse elemento;
   - contraste no modo escuro;
   - padronizar os estados de carregando, vazio e erro.
-- **3.3 Navegação:** menu lateral, breadcrumbs, voltar e atalhos. Os itens e as permissões do menu não mudam.
+- ~~3.3 Navegação~~ (feito, ver acima).
 - **3.4 Velocidade:** com o header `server-timing`, medir a API de cada tela e atacar as mais lentas (cache, chamadas em paralelo), sem mudar os resultados. Prova com testes de contrato.
 - **3.5 Telas gigantes:** dividir em componentes, sem mudar o comportamento. As maiores são `financeiro/conciliacao` (3113 linhas), `orcamentos/roteiros/[id]` (2764), `operacao/vouchers/novo` (1605) e `vendas/[id]/editar` (1388).
 

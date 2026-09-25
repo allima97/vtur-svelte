@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
+  import { afterNavigate } from '$app/navigation';
   import { dev } from '$app/environment';
   import { page } from '$app/stores';
   import { auth } from '$lib/stores/auth';
@@ -56,6 +57,13 @@
   } from 'lucide-svelte';
   import { slide } from 'svelte/transition';
   import Button from '$lib/components/ui/Button.svelte';
+  import {
+    SIDEBAR_EXPANDED_KEY,
+    SIDEBAR_COLLAPSED_SECTIONS_KEY,
+    readSidebarExpanded,
+    readCollapsedSections,
+    sectionDomId
+  } from './sidebarPrefs';
 
   type MenuItem = {
     key?: string;
@@ -227,7 +235,10 @@
     { key: 'admin_documentacao', name: 'Documentação', href: '/documentacao', icon: FileText, systemOnly: true }
   ];
 
-  let collapsed: Record<number, boolean> = {};
+  // Seções recolhidas, pelo título (antes era pela posição na lista visível,
+  // que muda quando as permissões terminam de carregar).
+  let collapsed: Record<string, boolean> = {};
+  let asideEl: HTMLElement | null = null;
   let refreshingPerms = false;
 
   function loadMenuPrefs() {
@@ -318,8 +329,57 @@
     return permissoes.can(modulo, 'view');
   }
 
+  function saveUiPref(key: string, value: string) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // armazenamento indisponível: a preferência vale só nesta sessão
+    }
+  }
+
+  function toggleMenuExpanded() {
+    isMenuExpanded = !isMenuExpanded;
+    saveUiPref(SIDEBAR_EXPANDED_KEY, isMenuExpanded ? '1' : '0');
+  }
+
+  const MOBILE_MENU_BUTTON_ID = 'vtur-btn-menu-mobile';
+
+  async function focusFirstMenuLink() {
+    await tick();
+    asideEl?.querySelector<HTMLElement>('a[href], button:not([disabled])')?.focus();
+  }
+
+  function toggleMobileMenu() {
+    const willOpen = !$sidebar.isOpen;
+    sidebar.toggle();
+    if (willOpen) void focusFirstMenuLink();
+  }
+
+  function closeMobileMenu(returnFocus = false) {
+    sidebar.close();
+    if (returnFocus) document.getElementById(MOBILE_MENU_BUTTON_ID)?.focus();
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && $isMobile && $sidebar.isOpen) {
+      event.preventDefault();
+      closeMobileMenu(true);
+    }
+  }
+
+  // Fecha o menu do celular em qualquer navegação (inclusive voltar/avançar do navegador).
+  afterNavigate(() => {
+    if ($isMobile && $sidebar.isOpen) sidebar.close();
+  });
+
   onMount(() => {
     loadMenuPrefs();
+    try {
+      isMenuExpanded = readSidebarExpanded(localStorage.getItem(SIDEBAR_EXPANDED_KEY));
+      collapsed = readCollapsedSections(localStorage.getItem(SIDEBAR_COLLAPSED_SECTIONS_KEY));
+    } catch {
+      // mantém o padrão
+    }
 
     const runPendingPermissionsRefresh = async () => {
       if (typeof window === 'undefined') return;
@@ -415,9 +475,12 @@
     return href === activeHref;
   }
 
-  function toggleSection(idx: number) {
-    collapsed[idx] = !collapsed[idx];
-    collapsed = { ...collapsed };
+  function toggleSection(title: string) {
+    collapsed = { ...collapsed, [title]: !collapsed[title] };
+    saveUiPref(
+      SIDEBAR_COLLAPSED_SECTIONS_KEY,
+      JSON.stringify(Object.keys(collapsed).filter((key) => collapsed[key]))
+    );
   }
 
   // ── Mapa de rotas → (nome, ícone) para o bottom nav compacto ──
@@ -535,13 +598,11 @@
 {#if $isMobile && $sidebar.isOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- Fundo escurecido: fecha no clique; pelo teclado, o menu fecha com Esc. -->
   <div
     class="vtur-sidebar-overlay"
-    role="button"
-    tabindex="0"
-    aria-label="Fechar menu"
+    aria-hidden="true"
     on:click={() => sidebar.close()}
-    on:keypress={(e) => e.key === 'Enter' && sidebar.close()}
   ></div>
 {/if}
 
@@ -550,8 +611,12 @@
      Desktop: sempre visível, fixo à esquerda
      Mobile: drawer que desliza da esquerda quando aberto
      ============================================================ -->
+<svelte:window on:keydown={handleWindowKeydown} />
+
 {#if !$isMobile || $sidebar.isOpen}
   <aside
+    id="vtur-menu-lateral"
+    bind:this={asideEl}
     class="vtur-sidebar"
     class:vtur-sidebar--mobile={$isMobile}
     class:vtur-sidebar--open={$isMobile && $sidebar.isOpen}
@@ -565,7 +630,8 @@
         type="button"
         variant="unstyled"
         class_name="vtur-sidebar__toggle-button"
-        on:click={() => (isMenuExpanded = !isMenuExpanded)}
+        on:click={toggleMenuExpanded}
+        ariaExpanded={isMenuExpanded}
         ariaLabel={isMenuExpanded ? 'Recolher menu' : 'Expandir menu'}
         title={isMenuExpanded ? 'Recolher menu' : 'Expandir menu'}
       >
@@ -579,27 +645,30 @@
 
     <!-- Body com nav -->
     <div class="vtur-sidebar__body scrollbar-dark">
-      {#each visibleMenuSections as section, idx}
+      {#each visibleMenuSections as section (section.title)}
         <section class="vtur-sidebar__section">
           {#if section.collapsible}
             <Button
               type="button"
               variant="unstyled"
               class_name="vtur-sidebar__section-toggle !px-1 !py-0 !rounded-none !border-0 !bg-transparent !shadow-none focus:!ring-0"
-              on:click={() => toggleSection(idx)}
+              on:click={() => toggleSection(section.title)}
+              ariaExpanded={!collapsed[section.title]}
+              ariaControls={sectionDomId(section.title)}
             >
               <span class="vtur-sidebar__section-title">{section.title}</span>
               <ChevronDown
                 size={12}
-                class="vtur-sidebar__section-toggle-icon transition-transform duration-200 {collapsed[idx] ? '' : 'rotate-180'}"
+                class="vtur-sidebar__section-toggle-icon transition-transform duration-200 {collapsed[section.title] ? '' : 'rotate-180'}"
+                aria-hidden="true"
               />
             </Button>
           {:else}
             <h2 class="vtur-sidebar__section-title px-1">{section.title}</h2>
           {/if}
 
-          {#if !section.collapsible || !collapsed[idx]}
-            <nav class="vtur-sidebar__nav" aria-label={section.title} transition:slide={{ duration: 180 }}>
+          {#if !section.collapsible || !collapsed[section.title]}
+            <nav id={sectionDomId(section.title)} class="vtur-sidebar__nav" aria-label={section.title} transition:slide={{ duration: 180 }}>
               {#each section.items as item}
                 {#if item.disabled}
                   <div class="vtur-sidebar__item vtur-sidebar__item--disabled" aria-disabled="true" title={item.name}>
@@ -748,10 +817,13 @@
       type="button"
       variant="unstyled"
       class_name={`vtur-mobile-nav__menu flex flex-col items-center justify-center gap-1 ${$sidebar.isOpen ? 'vtur-mobile-nav__menu--open' : ''}`}
-      on:click={() => sidebar.toggle()}
-      ariaLabel="Abrir menu"
+      id={MOBILE_MENU_BUTTON_ID}
+      on:click={toggleMobileMenu}
+      ariaExpanded={$sidebar.isOpen}
+      ariaControls="vtur-menu-lateral"
+      ariaLabel={$sidebar.isOpen ? 'Fechar menu' : 'Abrir menu'}
     >
-      <Menu size={22} />
+      <Menu size={22} aria-hidden="true" />
       <span class="text-[0.65rem] font-medium leading-none">Menu</span>
     </Button>
 
@@ -761,6 +833,7 @@
       class="vtur-mobile-nav__current transition-colors"
       on:click={() => sidebar.close()}
       aria-label={currentNavEntry.name}
+      aria-current={currentNavEntry.href === activeHref ? 'page' : undefined}
     >
       <svelte:component this={currentNavEntry.icon} size={22} />
       <span class="vtur-mobile-nav__label">{currentNavEntry.name}</span>

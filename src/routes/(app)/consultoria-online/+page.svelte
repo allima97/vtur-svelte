@@ -224,6 +224,10 @@
   });
 </script>
 
+<svelte:head>
+  <title>Consultoria Online | VTUR</title>
+</svelte:head>
+
 <PageHeader
   title="Consultoria Online"
   subtitle="Gerencie agendamentos de consultoria"

@@ -86,7 +86,7 @@
   <div class="vtur-topbar__inner">
     <!-- Esquerda: brand (mobile: só logo; desktop: logo + nome) -->
     <div class="vtur-topbar__left">
-      <a href="/" class="vtur-topbar__brand" aria-label="VTUR inicio">
+      <a href="/" class="vtur-topbar__brand" aria-label="VTUR, página inicial">
         <img src="/brand/vtur-symbol.png?v=9" alt="VTUR" class="vtur-topbar__brand-image" />
         {#if !$isMobile}
           <div class="vtur-topbar__brand-copy">

@@ -96,10 +96,13 @@
 <GlobalConfirmDialog />
 
 <div class="vtur-app-shell">
+  <a href="#conteudo-principal" class="vtur-skip-link">Pular para o conteúdo</a>
   <Topbar />
   <Sidebar />
 
   <main
+    id="conteudo-principal"
+    tabindex="-1"
     class="vtur-layout"
     style={$isMobile
       ? 'margin-left:0;padding-top:calc(var(--vtur-topbar-height) + 1rem);padding-left:0.75rem;padding-right:0.75rem;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px));'

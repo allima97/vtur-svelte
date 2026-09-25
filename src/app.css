@@ -391,6 +391,34 @@
     line-height: 1.1;
   }
 
+  /* Link "Pular para o conteúdo": invisível até receber foco pelo teclado. */
+  .vtur-skip-link {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 2000;
+    transform: translateY(-200%);
+    border-radius: 0.75rem;
+    background: #1e3a8a;
+    color: #fff;
+    padding: 0.6rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
+    transition: transform 0.15s ease;
+  }
+
+  .vtur-skip-link:focus,
+  .vtur-skip-link:focus-visible {
+    transform: translateY(0);
+    outline: 2px solid #93c5fd;
+    outline-offset: 2px;
+  }
+
+  #conteudo-principal:focus {
+    outline: none;
+  }
+
   .vtur-sidebar-overlay {
     position: fixed;
     inset: 0;

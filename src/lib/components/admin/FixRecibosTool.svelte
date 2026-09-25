@@ -310,6 +310,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Correção de recibos | VTUR</title>
+</svelte:head>
+
 <PageHeader
   title="Correção de recibos"
   subtitle="Ferramenta administrativa para diagnosticar e corrigir registros de conciliação."

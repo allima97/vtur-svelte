@@ -279,6 +279,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Análise de Desempenho | VTUR</title>
+</svelte:head>
+
 <!-- Ocupa toda a tela, sem max-w restritivo -->
 <div class="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950">
 
