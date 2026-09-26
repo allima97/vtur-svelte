@@ -76,11 +76,18 @@ function buildQueryString(query?: Record<string, string | number | boolean | und
   return qs ? `?${qs}` : '';
 }
 
+let unauthorizedRedirectStarted = false;
+
 function handleUnauthorized() {
-  if (browser) {
-    toast.warning('Sua sessão expirou. Faça login novamente.', 6000);
-    goto('/auth/login?session_expired=1');
-  }
+  if (!browser || unauthorizedRedirectStarted) return;
+  const path = window.location.pathname;
+  if (path.startsWith('/auth/')) return;
+  unauthorizedRedirectStarted = true;
+  toast.warning('Sua sessão expirou. Faça login novamente.', 6000);
+  const next = `${path}${window.location.search || ''}`;
+  // Navegação completa (não goto): descarta o estado da tela e os dados em
+  // cache de quem não está mais logado, e volta para esta tela após o login.
+  window.location.assign(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
 }
 
 function handleForbidden() {
