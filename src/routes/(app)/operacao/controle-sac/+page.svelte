@@ -7,7 +7,7 @@
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock } from '$lib/icons';
   import { diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml, truncateText } from '$lib/utils/html';

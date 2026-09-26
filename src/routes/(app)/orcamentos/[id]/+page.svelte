@@ -29,7 +29,7 @@
     TrendingUp,
     Package,
     AlertCircle,
-  } from "lucide-svelte";
+  } from '$lib/icons';
   import { toast } from "$lib/stores/ui";
   import { compareISODate, todayISODateLocal } from "$lib/date";
   import {
@@ -810,7 +810,7 @@
   </div>
 
   <div
-    class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]"
+    class="mb-6 rounded-vtur-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-vtur-lg"
   >
     Este orçamento reúne <strong>{quantidadeItens}</strong> item(ns), total de
     <strong>{formatCurrency(orcamento.total || valorTotal)}</strong>
@@ -1085,7 +1085,7 @@
               </label>
               <select
                 id="export-show-budget-items"
-                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-none focus:ring-2 focus:ring-clientes-100"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-hidden focus:ring-2 focus:ring-clientes-100"
                 bind:value={exportShowBudgetItems}
               >
                 <option value="sim">Sim</option>
@@ -1099,7 +1099,7 @@
               </label>
               <select
                 id="export-show-budget-details"
-                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-none focus:ring-2 focus:ring-clientes-100"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-hidden focus:ring-2 focus:ring-clientes-100"
                 bind:value={exportShowBudgetDetails}
               >
                 <option value="sim">Sim</option>
@@ -1113,7 +1113,7 @@
               </label>
               <select
                 id="export-show-item-values"
-                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-none focus:ring-2 focus:ring-clientes-100"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-clientes-400 focus:outline-hidden focus:ring-2 focus:ring-clientes-100"
                 bind:value={exportShowItemValues}
               >
                 <option value="sim">Sim</option>
@@ -1157,7 +1157,7 @@
               <div class="p-3 bg-slate-50 rounded-lg">
                 <div class="flex items-start gap-3">
                   <div
-                    class="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0"
+                    class="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0"
                   >
                     <svelte:component
                       this={getTipoInteracaoIcon(interacao.tipo || "")}

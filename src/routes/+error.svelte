@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import Button from '$lib/components/ui/Button.svelte';
-  import { Home, AlertTriangle, ArrowLeft } from 'lucide-svelte';
+  import { Home, AlertTriangle, ArrowLeft } from '$lib/icons';
   
   $: status = $page.status;
   $: message = $page.error?.message || 'Ocorreu um erro inesperado';

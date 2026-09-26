@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { BottomSheet, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Gift, RefreshCw, SlidersHorizontal, Users } from 'lucide-svelte';
+  import { Gift, RefreshCw, SlidersHorizontal, Users } from '$lib/icons';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
@@ -136,14 +136,14 @@
     {#each colaboradores as colab}
       <Card class="{colab.aniversario_hoje ? 'border-2 border-pink-300 bg-pink-50/30' : ''}">
         <div class="flex items-center gap-4">
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-600 font-semibold text-lg flex-shrink-0">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-600 font-semibold text-lg shrink-0">
             {(colab.nome_completo || 'U').slice(0, 2).toUpperCase()}
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <p class="font-semibold text-slate-900 truncate">{colab.nome_completo || 'Colaborador'}</p>
               {#if colab.aniversario_hoje}
-                <Gift size={14} class="text-pink-500 flex-shrink-0" />
+                <Gift size={14} class="text-pink-500 shrink-0" />
               {/if}
             </div>
             <p class="text-xs text-slate-500">{colab.role || 'Colaborador'}</p>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Input, Label } from 'flowbite-svelte';
+  import { Input, Label } from './flowbite-legacy';
   import type { Component } from 'svelte';
   import { buildVturInputClasses } from './inputContract';
 

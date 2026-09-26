@@ -4,7 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import { formatBRL } from './formatadores';
   import { type RotPagamento, addItem, moveDown, moveUp, newPagamento, removeItem, updateItem } from './tipos';
-  import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-svelte';
+  import { ChevronDown, ChevronUp, Plus, Trash2 } from '$lib/icons';
 
   let { PAGAMENTO_SERVICO_OPTIONS, mostrarInformacoesPdf = $bindable(), mostrarPagamentoPdf = $bindable(), mostrarRodapePdf = $bindable(), pagamentos = $bindable(), sugestoes, totalPagamento }: { PAGAMENTO_SERVICO_OPTIONS: string[]; mostrarInformacoesPdf: boolean; mostrarPagamentoPdf: boolean; mostrarRodapePdf: boolean; pagamentos: RotPagamento[]; sugestoes: Record<string, string[]>; totalPagamento: number } = $props();
 </script>

@@ -4,7 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
-  import { Building2, Save } from 'lucide-svelte';
+  import { Building2, Save } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';

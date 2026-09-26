@@ -67,7 +67,7 @@
       {:else}
         <div class="space-y-3">
           {#each vinculosAuditResult.detalhes as detail}
-            <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
               <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">

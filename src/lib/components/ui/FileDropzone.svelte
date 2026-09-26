@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Helper, Label } from 'flowbite-svelte';
+  import { Helper, Label } from './flowbite-legacy';
   import { createEventDispatcher } from 'svelte';
   import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import { uniqueFieldId } from './form/fieldId';

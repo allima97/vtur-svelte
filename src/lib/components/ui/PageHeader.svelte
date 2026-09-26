@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronRight, Home } from 'lucide-svelte';
+  import { ChevronRight, Home } from '$lib/icons';
   import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import Button from './Button.svelte';
 
@@ -55,13 +55,13 @@
 <div class="vtur-page-header mb-4 sm:mb-6">
   {#if breadcrumbs.length > 0}
     <nav aria-label="Trilha de navegação" class="mb-2 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
-      <a href="/" class="rounded transition-colors hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300" aria-label="Início" title="Início">
+      <a href="/" class="rounded-sm transition-colors hover:text-slate-900 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300" aria-label="Início" title="Início">
         <Home size={14} aria-hidden="true" />
       </a>
       {#each breadcrumbs as crumb, i}
         <ChevronRight size={14} class="text-slate-400" aria-hidden="true" />
         {#if crumb.href && i < breadcrumbs.length - 1}
-          <a href={crumb.href} class="rounded transition-colors hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
+          <a href={crumb.href} class="rounded-sm transition-colors hover:text-slate-900 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300">
             {crumb.label}
           </a>
         {:else}

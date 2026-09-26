@@ -10,7 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, MessageSquare } from '$lib/icons';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -186,7 +186,7 @@
           event.stopPropagation();
           deleteTemplate(row.id);
         }}
-        class_name="min-w-0 !p-1.5 !text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+        class_name="min-w-0 p-1.5! text-slate-400! hover:bg-red-50! hover:text-red-600!"
         loading={deletingId === row.id}
       >
         <Trash2 size={15} />

@@ -7,7 +7,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Bug, RefreshCw, CheckCircle, XCircle } from 'lucide-svelte';
+  import { Bug, RefreshCw, CheckCircle, XCircle } from '$lib/icons';
 
   type DebugPermissionsResponse = {
     usuario?: {
@@ -181,7 +181,7 @@
           </div>
           <div class="pt-2 border-t border-slate-100">
             <span class="text-slate-500">Company IDs:</span>
-            <div class="mt-1 font-mono text-xs bg-slate-50 p-2 rounded">
+            <div class="mt-1 font-mono text-xs bg-slate-50 p-2 rounded-sm">
               {JSON.stringify(debugData.scope?.companyIds)}
             </div>
           </div>
@@ -193,12 +193,12 @@
         {#if debugData.permissoes_detalhadas && debugData.permissoes_detalhadas.length > 0}
           <div class="space-y-2">
             {#each debugData.permissoes_detalhadas as perm}
-              <div class="flex items-center justify-between p-2 bg-slate-50 rounded">
+              <div class="flex items-center justify-between p-2 bg-slate-50 rounded-sm">
                 <span class="font-medium">{perm.modulo}</span>
                 <div class="flex items-center gap-2">
                   <span class="text-sm text-slate-500">Nível {perm.nivel}</span>
                   {#if perm.company_id}
-                    <span class="text-xs font-mono bg-slate-200 px-2 py-0.5 rounded">
+                    <span class="text-xs font-mono bg-slate-200 px-2 py-0.5 rounded-sm">
                       {perm.company_id.slice(0, 8)}...
                     </span>
                   {/if}
@@ -216,7 +216,7 @@
         {#if debugData.empresas_disponiveis && debugData.empresas_disponiveis.length > 0}
           <div class="space-y-2 max-h-60 overflow-y-auto">
             {#each debugData.empresas_disponiveis as empresa}
-              <div class="flex items-center justify-between p-2 bg-slate-50 rounded text-sm">
+              <div class="flex items-center justify-between p-2 bg-slate-50 rounded-sm text-sm">
                 <span>{empresa.nome_fantasia}</span>
                 <span class="font-mono text-xs text-slate-400">{empresa.id.slice(0, 8)}...</span>
               </div>
@@ -232,7 +232,7 @@
         {#if debugData.sample_clientes && debugData.sample_clientes.length > 0}
           <div class="space-y-2">
             {#each debugData.sample_clientes as cliente}
-              <div class="flex items-center justify-between p-3 bg-slate-50 rounded">
+              <div class="flex items-center justify-between p-3 bg-slate-50 rounded-sm">
                 <div>
                   <p class="font-medium">{cliente.nome}</p>
                   <p class="text-xs text-slate-500 font-mono">ID: {cliente.id}</p>

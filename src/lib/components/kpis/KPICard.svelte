@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { TrendingUp, TrendingDown } from 'lucide-svelte';
+  import { TrendingUp, TrendingDown } from '$lib/icons';
   import type { ComponentType } from 'svelte';
 
   export let title: string;
@@ -57,22 +57,22 @@
 <div class="vtur-kpi-card flex items-start gap-3 text-left">
   {#if loading}
     <div class="flex w-full flex-col gap-2">
-      <div class="h-3 w-24 animate-pulse rounded bg-slate-100"></div>
-      <div class="h-7 w-16 animate-pulse rounded bg-slate-100"></div>
-      <div class="h-2.5 w-28 animate-pulse rounded bg-slate-100"></div>
+      <div class="h-3 w-24 animate-pulse rounded-sm bg-slate-100"></div>
+      <div class="h-7 w-16 animate-pulse rounded-sm bg-slate-100"></div>
+      <div class="h-2.5 w-28 animate-pulse rounded-sm bg-slate-100"></div>
     </div>
-    <div class="h-10 w-10 flex-shrink-0 animate-pulse rounded-xl bg-slate-100"></div>
+    <div class="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-slate-100"></div>
   {:else}
     <!-- Ícone -->
     {#if icon}
-      <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl {style.bg}">
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {style.bg}">
         <svelte:component this={icon} size={18} strokeWidth={2} class={style.fg} />
       </div>
     {/if}
 
     <!-- Texto -->
     <div class="min-w-0 flex-1">
-      <p class="mb-1 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-slate-500 sm:text-[0.72rem]">
+      <p class="mb-1 text-[0.68rem] font-semibold uppercase tracking-widest text-slate-500 sm:text-[0.72rem]">
         {title}
       </p>
       <p class="truncate text-lg font-bold leading-none tracking-tight text-slate-900 sm:text-[1.6rem]">
@@ -86,12 +86,12 @@
       {#if trend}
         <div class="mt-1.5 flex items-center gap-1">
           {#if trend.isPositive}
-            <TrendingUp size={12} class="flex-shrink-0 text-emerald-500" />
+            <TrendingUp size={12} class="shrink-0 text-emerald-500" />
             <span class="text-xs font-semibold text-emerald-600">
               +{trend.value.toFixed(1).replace('.', ',')}%
             </span>
           {:else}
-            <TrendingDown size={12} class="flex-shrink-0 text-red-500" />
+            <TrendingDown size={12} class="shrink-0 text-red-500" />
             <span class="text-xs font-semibold text-red-600">
               {trend.value.toFixed(1).replace('.', ',')}%
             </span>

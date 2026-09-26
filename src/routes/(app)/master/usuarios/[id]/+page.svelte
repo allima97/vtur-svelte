@@ -13,7 +13,7 @@
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, Users } from 'lucide-svelte';
+  import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, Users } from '$lib/icons';
 
   type Option = {
     id: string;
@@ -581,7 +581,7 @@
           <Button
             variant="outline"
             color="financeiro"
-            class_name="w-full !justify-between !rounded-xl !border-slate-200 !p-4 !text-left hover:!border-orange-300 hover:!bg-orange-50/40"
+            class_name="w-full justify-between! rounded-xl! border-slate-200! p-4! text-left! hover:border-orange-300! hover:bg-orange-50/40!"
             on:click={() => (showAvisoDialog = true)}
           >
             <div class="flex items-center gap-3">
@@ -596,7 +596,7 @@
           <Button
             variant="outline"
             color="financeiro"
-            class_name="w-full !justify-between !rounded-xl !border-slate-200 !p-4 !text-left hover:!border-orange-300 hover:!bg-orange-50/40"
+            class_name="w-full justify-between! rounded-xl! border-slate-200! p-4! text-left! hover:border-orange-300! hover:bg-orange-50/40!"
             on:click={() => (showSenhaDialog = true)}
           >
             <div class="flex items-center gap-3">
@@ -611,7 +611,7 @@
           <Button
             variant="outline"
             color="financeiro"
-            class_name="w-full !justify-between !rounded-xl !border-slate-200 !p-4 !text-left hover:!border-orange-300 hover:!bg-orange-50/40"
+            class_name="w-full justify-between! rounded-xl! border-slate-200! p-4! text-left! hover:border-orange-300! hover:bg-orange-50/40!"
             on:click={() => (showMfaDialog = true)}
           >
             <div class="flex items-center gap-3">

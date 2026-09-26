@@ -1,6 +1,6 @@
 <script lang="ts">
   import { dev } from '$app/environment';
-  import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from 'lucide-svelte';
+  import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from '$lib/icons';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dialog, FieldInput, FieldTextarea, FieldSelect, LoadingState } from '$lib/components/ui';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
@@ -697,7 +697,7 @@
               type="button"
               variant="secondary"
               disabled={!clienteTelefone}
-              class_name={`flex-1 justify-center gap-2.5 border-2 py-3 ${canalAtivo === 'whatsapp' ? 'border-green-500 bg-green-50 text-green-700 hover:!bg-green-50' : 'border-slate-200 bg-white text-slate-600'}`}
+              class_name={`flex-1 justify-center gap-2.5 border-2 py-3 ${canalAtivo === 'whatsapp' ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-50!' : 'border-slate-200 bg-white text-slate-600'}`}
               on:click={() => canalAtivo = 'whatsapp'}
             >
               <MessageCircle size={20} />
@@ -707,7 +707,7 @@
               type="button"
               variant="secondary"
               disabled={!clienteEmail}
-              class_name={`flex-1 justify-center gap-2.5 border-2 py-3 ${canalAtivo === 'email' ? 'border-orange-500 bg-orange-50 text-orange-700 hover:!bg-orange-50' : 'border-slate-200 bg-white text-slate-600'}`}
+              class_name={`flex-1 justify-center gap-2.5 border-2 py-3 ${canalAtivo === 'email' ? 'border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-50!' : 'border-slate-200 bg-white text-slate-600'}`}
               on:click={() => canalAtivo = 'email'}
             >
               <Mail size={20} />
@@ -767,7 +767,7 @@
               type="button"
               variant="ghost"
               size="xs"
-              class_name="!px-0 !py-0 text-xs text-clientes-600 hover:!bg-transparent hover:!text-clientes-800"
+              class_name="px-0! py-0! text-xs text-clientes-600 hover:bg-transparent! hover:!text-clientes-800"
               on:click={copiarMensagem}
             >
               <Copy size={12} />
@@ -819,7 +819,7 @@
                   <Button
                     type="button"
                     variant="unstyled"
-                    class_name={`h-8 w-8 rounded-lg border-2 transition ${previewTextColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-sm'}`}
+                    class_name={`h-8 w-8 rounded-lg border-2 transition ${previewTextColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-xs'}`}
                     style={`background-color: ${color.value}`}
                     title={`Aplicar ${color.label}`}
                     ariaLabel={`Aplicar ${color.label}`}

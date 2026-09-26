@@ -6,7 +6,7 @@
   import { 
     MapPin, Package, Building2, Route, 
     ArrowRight, Plus, Search
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   const cadastros = [
     {

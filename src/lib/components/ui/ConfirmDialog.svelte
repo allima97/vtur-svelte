@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AlertTriangle } from 'lucide-svelte';
+  import { AlertTriangle } from '$lib/icons';
   import Dialog from './Dialog.svelte';
   import type { ConfirmColor } from '$lib/stores/confirm';
 

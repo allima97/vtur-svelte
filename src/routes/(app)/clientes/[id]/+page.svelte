@@ -8,6 +8,9 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import AcompanhantesManager from '$lib/components/clientes/AcompanhantesManager.svelte';
+  import ClienteViagensCard from '$lib/components/clientes/ClienteViagensCard.svelte';
+  import ClienteContatosCard from '$lib/components/clientes/ClienteContatosCard.svelte';
+  import { construirLinkWhatsApp } from '$lib/whatsapp';
   import {
     ArrowLeft,
     Calendar,
@@ -16,6 +19,7 @@
     Mail,
     MapPin,
     MessageCircle,
+    Phone,
     Send,
     ShoppingCart,
     Ticket,
@@ -25,7 +29,7 @@
     Clock,
     AlertCircle,
     CheckCircle
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
@@ -107,6 +111,8 @@
   let modalAvisoLoadPromise: Promise<boolean> | null = null;
   let loadController: AbortController | null = null;
   let loadSeq = 0;
+  // Fase 5.4: recarrega "Contatos enviados" depois de enviar um aviso pela ficha.
+  let versaoContatos = 0;
 
   $: totalGasto = historicoVendas.reduce((acc, item) => acc + Number(item.valor_total || 0), 0);
   $: ticketMedio = historicoVendas.length > 0 ? totalGasto / historicoVendas.length : 0;
@@ -115,6 +121,9 @@
   $: clienteEmNegociacao = historicoOrcamentos.length > 0 && historicoVendas.length === 0;
   $: clienteComHistorico = historicoVendas.length > 0;
   $: clienteInicial = !clienteComHistorico && !clienteEmNegociacao;
+  // Fase 5.4: atalhos de contato (só abrem o app de telefone, e-mail ou WhatsApp).
+  $: linkWhatsApp = construirLinkWhatsApp(cliente?.whatsapp || cliente?.telefone || null);
+  $: telefoneDigitos = String(cliente?.telefone || cliente?.whatsapp || '').replace(/[^\d+]/g, '');
 
   function formatCurrency(value: number | null | undefined) {
     return BRL_CURRENCY_FORMATTER.format(Number(value || 0));
@@ -339,7 +348,7 @@
     </div>
   </div>
 
-  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  <div class="mb-6 rounded-vtur-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-vtur-lg">
     Este cliente reúne <strong>{historicoVendas.length}</strong> venda(s), <strong>{historicoOrcamentos.length}</strong> orçamento(s) e <strong>{cliente.acompanhantes_count}</strong> acompanhante(s), permitindo leitura rápida de recorrência, negociação e potencial de reativação.
   </div>
 
@@ -356,25 +365,44 @@
               <p class="font-medium text-slate-900">{cliente.nome}</p>
             </div>
           </div>
+          {#if linkWhatsApp || telefoneDigitos || cliente.email}
+            <div class="flex flex-wrap gap-2" aria-label="Falar com o cliente" role="group">
+              {#if linkWhatsApp}
+                <a href={linkWhatsApp} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 transition-colors hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-emerald-600">
+                  <MessageCircle size={15} aria-hidden="true" /> WhatsApp
+                </a>
+              {/if}
+              {#if telefoneDigitos}
+                <a href={`tel:${telefoneDigitos}`} class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-500">
+                  <Phone size={15} aria-hidden="true" /> Ligar
+                </a>
+              {/if}
+              {#if cliente.email}
+                <a href={`mailto:${cliente.email}`} class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-500">
+                  <Mail size={15} aria-hidden="true" /> E-mail
+                </a>
+              {/if}
+            </div>
+          {/if}
 
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
               <span class={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadge(cliente.status)}`}>
                 {getStatusLabel(cliente.status)}
               </span>
             </div>
-            <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Classificacao</p>
               <p class="mt-2 font-medium text-slate-900">{cliente.classificacao || '-'}</p>
             </div>
-            <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Tipo</p>
               <p class="mt-2 font-medium text-slate-900">
                 {getTipoPessoaLabel(cliente.tipo_pessoa)} · {cliente.tipo_cliente || 'passageiro'}
               </p>
             </div>
-            <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="rounded-vtur-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Ultima compra</p>
               <p class="mt-2 font-medium text-slate-900">{formatDate(cliente.ultima_compra)}</p>
             </div>
@@ -492,7 +520,7 @@
             </table>
           </div>
         {:else}
-          <div class="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
+          <div class="rounded-vtur-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
             Nenhuma venda vinculada a este cliente.
           </div>
         {/if}
@@ -527,11 +555,15 @@
             </table>
           </div>
         {:else}
-          <div class="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
+          <div class="rounded-vtur-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
             Nenhum orcamento vinculado a este cliente.
           </div>
         {/if}
       </Card>
+
+      <ClienteViagensCard clienteId={String(clienteId || "")} />
+
+      <ClienteContatosCard clienteId={String(clienteId || "")} versao={versaoContatos} />
 
       <AcompanhantesManager
         clienteId={clienteId}
@@ -552,7 +584,10 @@
       clienteEmail={cliente.email || ''}
       clienteNascimento={cliente.nascimento || null}
       onClose={() => (showAvisoModal = false)}
-      onEnviar={() => toast.success('Aviso preparado com sucesso.')}
+      onEnviar={() => {
+        toast.success('Aviso preparado com sucesso.');
+        versaoContatos += 1;
+      }}
     />
   {/if}
 {/if}

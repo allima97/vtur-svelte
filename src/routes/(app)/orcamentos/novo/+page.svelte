@@ -5,11 +5,11 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
-  import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from 'lucide-svelte';
+  import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
-  import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
+  import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
 
   // ─── Tipos ───────────────────────────────────────────────────────────────────
   interface ItemOrcamento {
@@ -118,11 +118,12 @@
     const seq = ++searchSeq;
     loadingClientes = true;
     try {
-      const data = await apiGet<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
-        q: query,
-        lookup: '1',
-        pageSize: 15
-      }, controller.signal);
+      const data = await apiFetch<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
+        query: { q: query, lookup: '1', pageSize: 15 },
+        signal: controller.signal,
+        // Busca de cliente é opcional no orçamento: sem acesso a Clientes, só não lista (não vai para "/negado").
+        redirectOnForbidden: false
+      });
       if (seq !== searchSeq || destroyed) return;
       clientesFiltrados = Array.isArray(data.items) ? data.items : [];
     } catch (err) {
@@ -314,13 +315,13 @@
 
       <div>
         <label for="orcamento-novo-cliente" class="block text-sm font-medium text-slate-700 mb-1">
-          Vincular cliente cadastrado <span class="text-slate-400 font-normal">(opcional)</span>
+          Vincular cliente cadastrado <span class="text-slate-500 font-normal">(opcional)</span>
         </label>
 
         {#if formData.client_id}
           <!-- Cliente selecionado -->
           <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-            <div class="w-10 h-10 rounded-full bg-orcamentos-100 flex items-center justify-center flex-shrink-0">
+            <div class="w-10 h-10 rounded-full bg-orcamentos-100 flex items-center justify-center shrink-0">
               <User size={20} class="text-orcamentos-600" />
             </div>
             <div class="flex-1 min-w-0">
@@ -402,7 +403,7 @@
               on:click={() => setValidadeDias(dias)}
               variant="secondary"
               size="sm"
-              class_name="!rounded-lg !px-3 !py-2 text-xs"
+              class_name="rounded-lg! px-3! py-2! text-xs"
             >
               {dias}d
             </Button>
@@ -501,7 +502,7 @@
               on:click={() => removeItem(index)}
               variant="ghost"
               size="sm"
-              class_name="mt-5 flex-shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+              class_name="mt-5 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
               ariaLabel="Remover item"
               title="Remover item"
             >

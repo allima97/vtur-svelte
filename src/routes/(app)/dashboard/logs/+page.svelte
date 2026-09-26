@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { RefreshCw, SlidersHorizontal } from 'lucide-svelte';
+  import { RefreshCw, SlidersHorizontal } from '$lib/icons';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';

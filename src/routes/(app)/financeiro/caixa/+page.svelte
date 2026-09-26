@@ -14,7 +14,7 @@
     Plus, Download, ArrowUpRight, ArrowDownRight,
     Wallet, CreditCard, Banknote, FileText,
     AlertCircle, CheckCircle, SlidersHorizontal
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
@@ -400,7 +400,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card flex! w-full! hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/conciliacao')}
     >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${temBacklogFinanceiro ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}`}><AlertCircle size={20} /></div>
@@ -413,7 +413,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card flex! w-full! hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${resumo.saldo >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}><DollarSign size={20} /></div>
@@ -426,7 +426,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card flex! w-full! hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><ArrowUpRight size={20} /></div>
@@ -439,7 +439,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card flex! w-full! hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><ArrowDownRight size={20} /></div>
@@ -567,7 +567,7 @@
     <KPICard title="Saldo" value={formatCurrency(resumo.saldo)} color="financeiro" icon={DollarSign} />
   </KPIGrid>
 
-  <div class="mb-6 rounded-[18px] border {temBacklogFinanceiro ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-700'} px-5 py-4 text-sm shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  <div class="mb-6 rounded-vtur-xl border {temBacklogFinanceiro ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-700'} px-5 py-4 text-sm shadow-vtur-lg">
     {#if temBacklogFinanceiro}
       O caixa aponta <strong>{formatCurrency(backlogFinanceiroValor)}</strong> em backlog financeiro, somando pendências e divergências que ainda exigem fechamento.
     {:else}
@@ -579,7 +579,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-card !block !w-full !p-5 !text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-card block! w-full! p-5! text-left! hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/conciliacao')}
     >
       <p class="text-sm text-slate-500 mb-1">Fechamento</p>
@@ -594,7 +594,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-card !block !w-full !p-5 !text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-card block! w-full! p-5! text-left! hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro')}
     >
       <p class="text-sm text-slate-500 mb-1">Resumo executivo</p>

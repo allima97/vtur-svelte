@@ -9,7 +9,7 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw } from '$lib/icons';
 
   import { confirmAction } from '$lib/stores/confirm';
   type Pais = {

@@ -9,7 +9,7 @@
   import { FieldInput } from '$lib/components/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { toast } from '$lib/stores/ui';
-  import { Plus, Trash2, RefreshCw, Map as MapIcon, Calendar } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, Map as MapIcon, Calendar } from '$lib/icons';
   import { formatDate } from '$lib/utils/formatters';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -181,7 +181,7 @@
       ariaLabel="Excluir roteiro"
       title="Excluir"
       disabled={deletingId === row.id}
-      class_name="h-8 w-8 !p-0 text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+      class_name="h-8 w-8 p-0! text-slate-400 hover:bg-red-50! hover:text-red-600!"
       on:click={(event) => {
         event.stopPropagation();
         deleteRoteiro(row.id);

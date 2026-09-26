@@ -13,10 +13,10 @@
     ArrowLeft, Edit, Trash2, ShoppingCart, User, Mail, Phone,
     Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle,
     AlertCircle, Clock, CheckCircle, Shield, BarChart2, AlertTriangle, Info
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { Merge } from 'lucide-svelte';
+  import { Merge } from '$lib/icons';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
   import { ApiError, apiDelete, apiFetch, apiGet, apiPatch, apiPost } from '$lib/services/api';
@@ -706,7 +706,7 @@
 </svelte:head>
 
 {#if loading && !venda}
-  <div class="mx-auto mt-10 max-w-xl rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+  <div class="mx-auto mt-10 max-w-xl rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-xs">
     <div class="flex items-start gap-4">
       <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-vendas-50 text-vendas-600">
         <Clock size={20} />
@@ -743,7 +743,7 @@
     </div>
   </div>
 {:else if error}
-  <div class="mx-auto mt-10 max-w-xl rounded-2xl border border-red-200 bg-white px-6 py-5 text-center shadow-sm">
+  <div class="mx-auto mt-10 max-w-xl rounded-2xl border border-red-200 bg-white px-6 py-5 text-center shadow-xs">
     <p class="mb-2 text-base font-semibold text-red-700">Não foi possível abrir a venda agora.</p>
     <p class="mb-5 text-sm text-slate-600">{error}</p>
     <div class="flex flex-wrap justify-center gap-2">
@@ -808,7 +808,7 @@
   />
 
   {#if refreshing}
-    <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+    <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-xs">
       <span class="h-2 w-2 animate-pulse rounded-full bg-blue-500"></span>
       Atualizando detalhes da venda
     </div>
@@ -917,7 +917,7 @@
     <KPICard title="Recibos" value={quantidadeRecibos} color="vendas" icon={Package} />
   </div>
 
-  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  <div class="mb-6 rounded-vtur-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-vtur-lg">
     Esta venda reúne <strong>{quantidadeRecibos}</strong> recibo(s), total pago de <strong>{formatCurrency(totalPagamentosValor)}</strong> e total em recibos de <strong>{formatCurrency(totalRecibosValor)}</strong>, facilitando a leitura rápida da estabilidade operacional e financeira.
   </div>
 
@@ -1274,7 +1274,7 @@
                 </div>
 
                 {#if rec.is_seguro_viagem || rec.ranking_produto_nome}
-                  <div class="mt-2 inline-flex items-center gap-1 rounded bg-cyan-50 px-2 py-1 text-xs text-cyan-700 border border-cyan-100">
+                  <div class="mt-2 inline-flex items-center gap-1 rounded-sm bg-cyan-50 px-2 py-1 text-xs text-cyan-700 border border-cyan-100">
                     <Package size={11} />
                     Produto de ranking: {rec.ranking_produto_nome || (rec.is_seguro_viagem ? 'Seguro viagem' : 'Diferenciado')}
                   </div>
@@ -1298,7 +1298,7 @@
 
                 <!-- Rateio -->
                 {#if rec.rateio}
-                  <div class="mt-2 flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-xs text-indigo-700 border border-indigo-100">
+                  <div class="mt-2 flex items-center gap-1 rounded-sm bg-indigo-50 px-2 py-1 text-xs text-indigo-700 border border-indigo-100">
                     <TrendingUp size={11} />
                     Rateio: {rec.rateio.percentual_origem}% origem / {rec.rateio.percentual_destino}% para {rec.rateio.vendedor_destino?.nome_completo || rec.rateio.vendedor_destino_id}
                   </div>

@@ -3,7 +3,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldCheckbox, FieldToggle } from '$lib/components/ui';
-  import { Bell, Save, Mail, MessageSquare, AlertTriangle } from 'lucide-svelte';
+  import { Bell, Save, Mail, MessageSquare, AlertTriangle } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
 
   let saving = false;
@@ -69,7 +69,7 @@
           <p class="text-sm text-slate-500">Receber notificações por email</p>
         </div>
       </div>
-      <FieldToggle label={null} bind:checked={notificacoes.email.ativo} color="financeiro" class_name="shrink-0" />
+      <FieldToggle label={null} ariaLabel="Notificações por email" bind:checked={notificacoes.email.ativo} color="financeiro" class_name="shrink-0" />
     </div>
 
     {#if notificacoes.email.ativo}
@@ -96,7 +96,7 @@
           <p class="text-sm text-slate-500">Notificações dentro da plataforma</p>
         </div>
       </div>
-      <FieldToggle label={null} bind:checked={notificacoes.sistema.ativo} color="financeiro" class_name="shrink-0" />
+      <FieldToggle label={null} ariaLabel="Notificações no sistema" bind:checked={notificacoes.sistema.ativo} color="financeiro" class_name="shrink-0" />
     </div>
 
     {#if notificacoes.sistema.ativo}
@@ -122,7 +122,7 @@
           <p class="text-sm text-slate-500">Integração com WhatsApp Business API</p>
         </div>
       </div>
-      <FieldToggle label={null} bind:checked={notificacoes.whatsapp.ativo} color="green" class_name="shrink-0" />
+      <FieldToggle label={null} ariaLabel="Notificações por WhatsApp" bind:checked={notificacoes.whatsapp.ativo} color="green" class_name="shrink-0" />
     </div>
 
     {#if notificacoes.whatsapp.ativo}

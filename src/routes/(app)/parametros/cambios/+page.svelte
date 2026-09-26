@@ -10,7 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, DollarSign } from '$lib/icons';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
@@ -204,7 +204,7 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div class="grid grid-cols-[1fr,112px] gap-2">
+    <div class="grid grid-cols-[1fr_112px] gap-2">
       <FieldSelect
         id="cambio-moeda"
         label="Moeda"

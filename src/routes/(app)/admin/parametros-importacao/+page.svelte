@@ -7,7 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { FieldInput, FieldCheckbox } from '$lib/components/ui';
-  import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw } from '$lib/icons';
   import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';

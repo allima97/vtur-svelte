@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Helper, Toggle } from 'flowbite-svelte';
+  import { Helper, Toggle } from '../flowbite-legacy';
   import { uniqueFieldId } from './fieldId';
 
   type FieldToggleBaseColor = 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'teal' | 'orange';
@@ -23,6 +23,8 @@
   export let size: 'small' | 'default' | 'large' = 'default';
   export let color: FieldToggleColor = 'blue';
   export let class_name = '';
+  /** Fase 5.2: nome para leitor de tela quando não há `label` visível. */
+  export let ariaLabel: string | null = null;
 
   const colorAlias: Record<FieldToggleColor, FieldToggleBaseColor> = {
     blue: 'blue',
@@ -71,6 +73,7 @@
       color={resolvedColor}
       aria-invalid={error ? 'true' : undefined}
       aria-describedby={describedById}
+      aria-label={label ? undefined : ariaLabel ?? undefined}
       on:change
       on:blur
       on:focus

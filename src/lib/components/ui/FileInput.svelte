@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Fileupload, Helper, Label } from 'flowbite-svelte';
+  import { Fileupload, Helper, Label } from './flowbite-legacy';
   import { uniqueFieldId } from './form/fieldId';
 
   export let label: string | null = null;

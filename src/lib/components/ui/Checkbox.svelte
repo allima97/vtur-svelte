@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Checkbox as FlowbiteCheckbox } from 'flowbite-svelte';
+  import { Checkbox as FlowbiteCheckbox } from './flowbite-legacy';
 
   type FormColorType = 'blue' | 'red' | 'green' | 'purple' | 'teal' | 'yellow' | 'orange' | 'primary' | 'secondary';
   type CheckboxColor =

@@ -12,7 +12,7 @@
   import { apiGet, apiPatch, apiPost, isCanceledApiError } from '$lib/services/api';
   import { safeOpenNewTab } from '$lib/security/url';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Calendar, Download, Plus, RefreshCw, SlidersHorizontal, Video, X } from 'lucide-svelte';
+  import { Calendar, Download, Plus, RefreshCw, SlidersHorizontal, Video, X } from '$lib/icons';
 
   type Consultoria = {
     id: string;
@@ -341,7 +341,7 @@
                   <span>{formatCurrency(c.taxa_consultoria)}</span>
                 {/if}
                 {#if c.lembrete}
-                  <span class="rounded bg-slate-100 px-2 py-0.5 text-xs">Lembrete: {c.lembrete}</span>
+                  <span class="rounded-sm bg-slate-100 px-2 py-0.5 text-xs">Lembrete: {c.lembrete}</span>
                 {/if}
               </div>
               {#if c.notas}

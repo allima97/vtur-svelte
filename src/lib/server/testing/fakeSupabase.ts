@@ -1,7 +1,7 @@
 /**
  * Banco falso para testes de contrato (Fase 3.4).
  *
- * - Responde a from(tabela).select/eq/in/order/limit/single/maybeSingle/update/upsert/insert/delete.
+ * - Responde a from(tabela).select/eq/in/gte/lte/order/limit/single/maybeSingle/update/upsert/insert/delete.
  *   (insert/delete: Fase 3.10, testes de auditoria; devolvem as linhas inseridas, com `id` gerado.)
  * - Filtra as linhas da tabela por eq/in (a projeção do select é ignorada:
  *   o teste compara a resposta da versão antiga com a nova usando o mesmo banco).
@@ -33,6 +33,8 @@ export interface FakeBuilder extends PromiseLike<Result> {
   delete: () => FakeBuilder;
   eq: (column: string, value: unknown) => FakeBuilder;
   in: (column: string, values: unknown[]) => FakeBuilder;
+  gte: (column: string, value: string | number) => FakeBuilder;
+  lte: (column: string, value: string | number) => FakeBuilder;
   order: (column: string, options?: unknown) => FakeBuilder;
   limit: (n: number) => FakeBuilder;
   single: () => Promise<Result>;
@@ -112,6 +114,17 @@ export function createFakeSupabase(
       in: (column, values) => {
         filters.push(`${column} in ${[...values].map(String).sort().join(',')}`);
         predicates.push((row) => values.includes(row[column]));
+        return builder;
+      },
+      // Comparação simples (texto ou número), suficiente para datas ISO.
+      gte: (column, value) => {
+        filters.push(`${column}>=${String(value)}`);
+        predicates.push((row) => row[column] != null && String(row[column]) >= String(value));
+        return builder;
+      },
+      lte: (column, value) => {
+        filters.push(`${column}<=${String(value)}`);
+        predicates.push((row) => row[column] != null && String(row[column]) <= String(value));
         return builder;
       },
       order: () => builder,

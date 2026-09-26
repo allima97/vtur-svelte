@@ -42,6 +42,7 @@
     "yaml": "^2.8.4"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
     "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
@@ -53,14 +54,15 @@
     "chart.js": "^4.5.1",
     "dompurify": "^3.4.2",
     "fflate": "^0.8.2",
-    "flowbite-svelte": "^0.48.0",
+    "flowbite-svelte": "^1.33.1",
     "flowbite-svelte-icons": "^2.0.0",
     "hono": "^4.11.9",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-svelte": "^1.0.1",
     "pdfjs-dist": "^5.7.284",
-    "svelte-bottom-sheet": "^2.3.0"
+    "svelte-bottom-sheet": "^2.3.0",
+    "tailwind-merge": "^3.7.0"
   },
   "type": "module",
   "overrides": {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Alert } from 'flowbite-svelte';
+  import { Alert } from './flowbite-legacy';
   import type { Component } from 'svelte';
   import Button from './Button.svelte';
   import { InfoCircleSolid, CheckCircleSolid, ExclamationCircleSolid, CloseCircleSolid } from 'flowbite-svelte-icons';
@@ -46,7 +46,7 @@
         type="button"
         variant="unstyled"
         size="xs"
-        class_name="-mr-1 ml-auto shrink-0 !rounded-lg !p-1 transition-colors hover:bg-black/10"
+        class_name="-mr-1 ml-auto shrink-0 rounded-lg! p-1! transition-colors hover:bg-black/10"
         ariaLabel="Fechar"
         on:click={() => (dismissed = true)}
       >

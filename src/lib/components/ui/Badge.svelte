@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Badge as FlowbiteBadge } from 'flowbite-svelte';
+  import { Badge as FlowbiteBadge } from './flowbite-legacy';
 
   type BadgeColor =
     | 'gray'

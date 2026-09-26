@@ -22,7 +22,7 @@
     Search,
     SlidersHorizontal,
     UserRound
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   type AgendaItem = {
     id: string;
@@ -576,10 +576,10 @@
     </div>
   </div>
 
-  <div class="relative min-h-[42rem]">
-    <div bind:this={calendarEl} class="p-4 md:p-5 min-h-[42rem]"></div>
+  <div class="relative min-h-168">
+    <div bind:this={calendarEl} class="p-4 md:p-5 min-h-168"></div>
     {#if loading}
-      <div class="absolute inset-0 bg-white/80 backdrop-blur-sm">
+      <div class="absolute inset-0 bg-white/80 backdrop-blur-xs">
         <LoadingState className="h-full" />
       </div>
     {/if}

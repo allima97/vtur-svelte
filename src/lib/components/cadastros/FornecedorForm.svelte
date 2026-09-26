@@ -7,7 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
-  import { ArrowLeft, Save, Trash2 } from 'lucide-svelte';
+  import { ArrowLeft, Save, Trash2 } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
@@ -265,7 +265,7 @@
           type="button"
           variant={form.localizacao === 'brasil' ? 'primary' : 'outline'}
           color="financeiro"
-          class_name="w-full !justify-start !rounded-xl !px-4 !py-3 !text-left"
+          class_name="w-full justify-start! rounded-xl! px-4! py-3! text-left!"
           on:click={() => (form.localizacao = 'brasil')}
         >
           <div class="font-medium text-slate-900">Brasil</div>
@@ -275,7 +275,7 @@
           type="button"
           variant={form.localizacao === 'exterior' ? 'primary' : 'outline'}
           color="financeiro"
-          class_name="w-full !justify-start !rounded-xl !px-4 !py-3 !text-left"
+          class_name="w-full justify-start! rounded-xl! px-4! py-3! text-left!"
           on:click={() => (form.localizacao = 'exterior')}
         >
           <div class="font-medium text-slate-900">Exterior</div>
@@ -315,7 +315,7 @@
                     type="button"
                     variant="unstyled"
                     size="sm"
-                    class_name="block w-full !justify-start rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
+                    class_name="block w-full justify-start! rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
                     on:click={() => selectCidade(cidade)}
                   >
                     <div class="font-medium text-slate-900">{cidade.label || cidade.nome}</div>

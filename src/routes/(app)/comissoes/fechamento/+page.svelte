@@ -8,7 +8,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
-  import { Calculator, DollarSign, RefreshCw, SlidersHorizontal, TrendingUp, Users } from 'lucide-svelte';
+  import { Calculator, DollarSign, RefreshCw, SlidersHorizontal, TrendingUp, Users } from '$lib/icons';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatCurrency, formatDate } from '$lib/utils/formatters';
   import { createDebouncedReloader } from '$lib/utils/autoReload';

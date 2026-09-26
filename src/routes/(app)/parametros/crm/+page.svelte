@@ -23,7 +23,7 @@
     MessageCircle,
     X,
     Pencil
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   const loadGuard = createLoadGuard();
   const clienteSearchGuard = createLoadGuard();
 
@@ -878,7 +878,7 @@
             <Button
               type="button"
               variant="unstyled"
-              class_name={`h-9 w-9 rounded-lg border-2 transition ${textColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-sm'}`}
+              class_name={`h-9 w-9 rounded-lg border-2 transition ${textColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-xs'}`}
               style={`background-color: ${color.value}`}
               title={`Aplicar ${color.label}`}
               ariaLabel={`Aplicar ${color.label}`}
@@ -1128,7 +1128,7 @@
                     { key: 'linha3' as const, sizeKey: 'linha3_font_size' as const, italicKey: 'linha3_italic' as const, placeholder: 'Seu cargo (opcional)' },
                   ] as line, i}
                     <div class="flex items-center gap-2">
-                      <span class="w-4 flex-shrink-0 text-center text-xs text-slate-400">{i + 1}</span>
+                      <span class="w-4 shrink-0 text-center text-xs text-slate-400">{i + 1}</span>
                       <FieldInput
                         value={assinatura[line.key]}
                         placeholder={line.placeholder}
@@ -1252,23 +1252,23 @@
 
         <dl class="space-y-2 text-sm">
           <div class="flex gap-2">
-            <dt class="w-24 flex-shrink-0 text-slate-500">Arte:</dt>
+            <dt class="w-24 shrink-0 text-slate-500">Arte:</dt>
             <dd class="font-medium text-slate-800">{selectedTheme?.nome ?? '—'}</dd>
           </div>
           <div class="flex gap-2">
-            <dt class="w-24 flex-shrink-0 text-slate-500">Cliente:</dt>
+            <dt class="w-24 shrink-0 text-slate-500">Cliente:</dt>
             <dd class="font-medium text-slate-800">{clienteNome || '(nenhum)'}</dd>
           </div>
           <div class="flex gap-2">
-            <dt class="w-24 flex-shrink-0 text-slate-500">Saudação:</dt>
+            <dt class="w-24 shrink-0 text-slate-500">Saudação:</dt>
             <dd class="font-medium text-slate-800">{greeting || '—'}</dd>
           </div>
           <div class="flex gap-2">
-            <dt class="w-24 flex-shrink-0 text-slate-500">Mensagem:</dt>
+            <dt class="w-24 shrink-0 text-slate-500">Mensagem:</dt>
             <dd class="whitespace-pre-line font-medium text-slate-800 text-xs">{mensagem || '—'}</dd>
           </div>
           <div class="flex gap-2">
-            <dt class="w-24 flex-shrink-0 text-slate-500">Assinatura:</dt>
+            <dt class="w-24 shrink-0 text-slate-500">Assinatura:</dt>
             <dd class="font-medium text-slate-800">{[assinatura.linha2, assinatura.linha3].filter(Boolean).join(' · ') || '—'}</dd>
           </div>
         </dl>

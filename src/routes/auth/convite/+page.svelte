@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import { toUserMessage } from '$lib/utils/errors';
   import { FieldInput } from '$lib/components/ui';
-  import { Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
+  import { Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from '$lib/icons';
   
   let email = '';
   let password = '';

@@ -7,7 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { Plus, Ticket, FileText, ExternalLink, Copy } from 'lucide-svelte';
+  import { Plus, Ticket, FileText, ExternalLink, Copy } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { formatDate } from '$lib/utils/formatters';

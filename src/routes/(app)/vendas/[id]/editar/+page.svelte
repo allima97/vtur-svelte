@@ -11,7 +11,7 @@
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { todayISODateLocal } from '$lib/date';
-  import { ArrowLeft } from 'lucide-svelte';
+  import { ArrowLeft } from '$lib/icons';
   import {
     adicionarParcela,
     createPagamento,

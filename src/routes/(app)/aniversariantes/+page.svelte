@@ -10,7 +10,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
-  import { CalendarDays, RefreshCw, Gift, SlidersHorizontal } from 'lucide-svelte';
+  import { CalendarDays, RefreshCw, Gift, SlidersHorizontal } from '$lib/icons';
   import { escapeHtml } from '$lib/utils/html';
 
   type Aniversariante = {

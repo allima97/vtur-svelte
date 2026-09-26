@@ -24,7 +24,7 @@
     Search,
     Plus,
     Plane
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   // ── Tipos locais ─────────────────────────────────────────────────────────
 
@@ -579,19 +579,19 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Cliente</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
           <p class="font-medium text-slate-800">{clienteNomeManual || '—'}</p>
         </div>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Modo</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Modo</p>
           <p class="font-medium text-slate-800">{modoLabel()}</p>
         </div>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Itens</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Itens</p>
           <p class="font-medium text-slate-800">{itensFiltrados.length}</p>
         </div>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pendentes</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendentes</p>
           <p class="font-medium {itensPendentes > 0 ? 'text-amber-600' : 'text-slate-800'}">{itensPendentes}</p>
         </div>
       </div>
@@ -729,7 +729,7 @@
                 <Button
                   type="button"
                   variant="ghost"
-                  class_name="w-full justify-start rounded-none px-4 py-2.5 text-left text-sm hover:!bg-slate-50 {clienteId === c.id ? 'bg-blue-50 font-medium text-blue-700 hover:!bg-blue-50' : 'text-slate-800'}"
+                  class_name="w-full justify-start rounded-none px-4 py-2.5 text-left text-sm hover:bg-slate-50! {clienteId === c.id ? 'bg-blue-50 font-medium text-blue-700 hover:bg-blue-50!' : 'text-slate-800'}"
                   on:mousedown={(e) => {
                     e.preventDefault();
                     selecionarCliente(c);
@@ -764,7 +764,7 @@
               <Button
                 type="button"
                 variant="ghost"
-                class_name="w-full justify-start rounded-none px-4 py-2.5 text-left text-sm hover:!bg-slate-50 {cidadeId === cidade.id ? 'bg-blue-50 font-medium text-blue-700 hover:!bg-blue-50' : 'text-slate-800'}"
+                class_name="w-full justify-start rounded-none px-4 py-2.5 text-left text-sm hover:bg-slate-50! {cidadeId === cidade.id ? 'bg-blue-50 font-medium text-blue-700 hover:bg-blue-50!' : 'text-slate-800'}"
                 on:mousedown={(e) => { e.preventDefault(); selecionarCidade(cidade); }}
               >
                 <div class="font-medium">{cidade.nome}</div>
@@ -809,7 +809,7 @@
                   type="button"
                   variant="ghost"
                   size="xs"
-                  class_name="!p-1 text-slate-400 hover:!bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                  class_name="p-1! text-slate-400 hover:bg-slate-100! hover:text-slate-600 disabled:opacity-30"
                   disabled={displayIdx === 0}
                   title="Mover para cima"
                   on:click={() => moveItem(realIdx, 'up')}
@@ -820,7 +820,7 @@
                   type="button"
                   variant="ghost"
                   size="xs"
-                  class_name="!p-1 text-slate-400 hover:!bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                  class_name="p-1! text-slate-400 hover:bg-slate-100! hover:text-slate-600 disabled:opacity-30"
                   disabled={displayIdx === itensFiltrados.length - 1}
                   title="Mover para baixo"
                   on:click={() => moveItem(realIdx, 'down')}
@@ -831,7 +831,7 @@
                   type="button"
                   variant="ghost"
                   size="xs"
-                  class_name="!p-1 text-red-400 hover:!bg-red-50 hover:text-red-600"
+                  class_name="p-1! text-red-400 hover:bg-red-50! hover:text-red-600"
                   title="Remover item"
                   on:click={() => removeItem(realIdx)}
                 >
@@ -983,7 +983,7 @@
                       type="button"
                       variant="secondary"
                       size="xs"
-                      class_name="gap-1 border-indigo-300 text-indigo-700 hover:!bg-indigo-100"
+                      class_name="gap-1 border-indigo-300 text-indigo-700 hover:bg-indigo-100!"
                       on:click={() => addCircuitDay(realIdx)}
                     >
                       <Plus size={13} /> Adicionar dia
@@ -1021,7 +1021,7 @@
                                 type="button"
                                 variant="ghost"
                                 size="xs"
-                                class_name="!p-1 text-slate-400 hover:!bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                                class_name="p-1! text-slate-400 hover:bg-slate-100! hover:text-slate-600 disabled:opacity-30"
                                 disabled={segIdx === 0}
                                 title="Subir dia"
                                 on:click={() => moveCircuitDay(realIdx, segIdx, 'up')}
@@ -1030,7 +1030,7 @@
                                 type="button"
                                 variant="ghost"
                                 size="xs"
-                                class_name="!p-1 text-slate-400 hover:!bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                                class_name="p-1! text-slate-400 hover:bg-slate-100! hover:text-slate-600 disabled:opacity-30"
                                 disabled={segIdx === circuitDays.length - 1}
                                 title="Descer dia"
                                 on:click={() => moveCircuitDay(realIdx, segIdx, 'down')}
@@ -1039,7 +1039,7 @@
                                 type="button"
                                 variant="ghost"
                                 size="xs"
-                                class_name="!p-1 text-red-400 hover:!bg-red-50 hover:text-red-600"
+                                class_name="p-1! text-red-400 hover:bg-red-50! hover:text-red-600"
                                 title="Remover dia"
                                 on:click={() => removeCircuitDay(realIdx, segIdx)}
                               ><Trash2 size={14} /></Button>

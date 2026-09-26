@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button, FieldCheckbox, FieldInput, FieldSelect, FormPanel } from '$lib/components/ui';
-  import { CreditCard, Plus, Trash2 } from 'lucide-svelte';
+  import { CreditCard, Plus, Trash2 } from '$lib/icons';
   import type { Option, PagamentoEditForm } from './types';
 
   export let pagamentos: PagamentoEditForm[];

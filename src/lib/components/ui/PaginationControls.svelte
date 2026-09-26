@@ -1,6 +1,6 @@
 <script lang="ts">
   import Button from './Button.svelte';
-  import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import { ChevronLeft, ChevronRight } from '$lib/icons';
 
   export let page = 1;
   export let total = 0;

@@ -2,7 +2,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
-  import { RefreshCcw } from 'lucide-svelte';
+  import { RefreshCcw } from '$lib/icons';
   import { formatDateTime, formatMoney } from './formatters';
   import type { ConciliacaoChange } from './types';
 

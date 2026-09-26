@@ -10,6 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { descobrirModulo } from '$lib/config/modulos';
   import { DEFAULT_HIDDEN_MENU_KEYS } from '$lib/config/menuDefaults';
+  import { menuVisivel } from '$lib/stores/navegacao';
   import {
     AlertCircle,
     Banknote,
@@ -54,7 +55,7 @@
     UserCircle,
     Video,
     Wallet
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { slide } from 'svelte/transition';
   import Button from '$lib/components/ui/Button.svelte';
   import {
@@ -435,6 +436,22 @@
     visibleAdminItems = $permissoes.isSystemAdmin ? adminItems.filter((item) => canSeeItem(item)) : [];
   }
 
+  // Fase 5.1: a busca rápida (Ctrl+K) mostra exatamente o que este menu mostra.
+  $: menuVisivel.set(
+    [
+      ...visibleMenuSections.flatMap((section) =>
+        section.items.map((item) => ({ secao: section.title, item }))
+      ),
+      ...($permissoes.isMaster ? visibleMasterItems.map((item) => ({ secao: 'MASTER', item })) : []),
+      ...visibleAdminItems.map((item) => ({
+        secao: $permissoes.isSystemAdmin ? 'ADMINISTRAÇÃO' : 'ADMIN',
+        item
+      }))
+    ]
+      .filter(({ item }) => Boolean(item.href) && !item.disabled)
+      .map(({ secao, item }) => ({ secao, nome: item.name, href: item.href as string, icon: item.icon }))
+  );
+
   function handleItemClick() {
     if ($isMobile) sidebar.close();
   }
@@ -651,10 +668,11 @@
             <Button
               type="button"
               variant="unstyled"
-              class_name="vtur-sidebar__section-toggle !px-1 !py-0 !rounded-none !border-0 !bg-transparent !shadow-none focus:!ring-0"
+              class_name="vtur-sidebar__section-toggle px-1! py-0! rounded-none! border-0! bg-transparent! shadow-none! focus:ring-0!"
               on:click={() => toggleSection(section.title)}
               ariaExpanded={!collapsed[section.title]}
               ariaControls={sectionDomId(section.title)}
+              ariaLabel={section.title}
             >
               <span class="vtur-sidebar__section-title">{section.title}</span>
               <ChevronDown

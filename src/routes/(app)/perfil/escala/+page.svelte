@@ -12,7 +12,7 @@
   import { auth } from '$lib/stores/auth';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte';
+  import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from '$lib/icons';
 
   type EscalaDia = {
     id: string;
@@ -163,14 +163,14 @@
 
 <Card class="mb-6">
   <div class="flex items-center justify-between gap-4">
-    <Button variant="secondary" size="sm" on:click={() => navMes(-1)}>
+    <Button variant="secondary" size="sm" ariaLabel="Mês anterior" on:click={() => navMes(-1)}>
       <ChevronLeft size={16} />
     </Button>
     <div class="flex items-center gap-3">
       <Calendar size={18} class="text-slate-500" />
       <span class="text-lg font-semibold text-slate-900 capitalize">{periodoLabel}</span>
     </div>
-    <Button variant="secondary" size="sm" on:click={() => navMes(1)}>
+    <Button variant="secondary" size="sm" ariaLabel="Próximo mês" on:click={() => navMes(1)}>
       <ChevronRight size={16} />
     </Button>
   </div>
@@ -240,13 +240,13 @@
                 {@const feriado = isFeriado(date)}
                 <td class="px-0.5 py-1 text-center {dow === 0 || dow === 6 ? 'bg-slate-50/50' : ''}">
                   {#if registro?.tipo}
-                    <span class="inline-flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold {TIPO_COLOR[registro.tipo] || 'bg-slate-100 text-slate-600'}">
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-sm text-[10px] font-bold {TIPO_COLOR[registro.tipo] || 'bg-slate-100 text-slate-600'}">
                       {TIPO_CODIGO[registro.tipo] || '?'}
                     </span>
                   {:else if feriado}
-                    <span class="inline-flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold bg-red-100 text-red-600">H</span>
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-sm text-[10px] font-bold bg-red-100 text-red-600">H</span>
                   {:else}
-                    <span class="inline-flex h-6 w-6 items-center justify-center rounded text-[10px] text-slate-300">·</span>
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-sm text-[10px] text-slate-300">·</span>
                   {/if}
                 </td>
               {/each}
@@ -259,7 +259,7 @@
     <div class="flex flex-wrap gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
       {#each Object.entries(TIPO_LABEL) as [key, label]}
         <span class="inline-flex items-center gap-1">
-          <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold {TIPO_COLOR[key] || 'bg-slate-100'}">
+          <span class="inline-flex h-5 w-5 items-center justify-center rounded-sm text-[10px] font-bold {TIPO_COLOR[key] || 'bg-slate-100'}">
             {TIPO_CODIGO[key] || '?'}
           </span>
           {label}
@@ -322,7 +322,7 @@
     <div class="flex flex-wrap gap-3 px-4 py-3 border-t border-slate-100 text-xs text-slate-600">
       {#each Object.entries(TIPO_LABEL) as [key, label]}
         <span class="inline-flex items-center gap-1">
-          <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold {TIPO_COLOR[key] || 'bg-slate-100'}">
+          <span class="inline-flex h-5 w-5 items-center justify-center rounded-sm text-[10px] font-bold {TIPO_COLOR[key] || 'bg-slate-100'}">
             {TIPO_CODIGO[key] || '?'}
           </span>
           {label}

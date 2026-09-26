@@ -22,7 +22,7 @@
     SlidersHorizontal,
     SquareCheckBig,
     Tag
-  } from 'lucide-svelte';
+  } from '$lib/icons';
 
   type TodoStatus = 'novo' | 'agendado' | 'em_andamento' | 'concluido';
   type VisibleTodoStatus = 'novo' | 'agendado' | 'em_andamento';
@@ -638,14 +638,14 @@
       <div class="flex gap-2">
         <Button
           variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
-          class_name="box-border h-9 min-w-[96px] rounded-lg !px-3 !py-0 text-xs leading-none"
+          class_name="box-border h-9 min-w-[96px] rounded-lg px-3! py-0! text-xs leading-none"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
           variant={viewMode === 'lista' ? 'selected' : 'secondary'}
-          class_name="box-border h-9 min-w-[96px] rounded-lg !px-3 !py-0 text-xs leading-none"
+          class_name="box-border h-9 min-w-[96px] rounded-lg px-3! py-0! text-xs leading-none"
           on:click={() => (viewMode = 'lista')}
         >
           Lista
@@ -713,14 +713,14 @@
       <div class="flex gap-2">
         <Button
           variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
-          class_name="box-border h-9 min-w-[96px] rounded-lg !px-3 !py-0 text-xs leading-none"
+          class_name="box-border h-9 min-w-[96px] rounded-lg px-3! py-0! text-xs leading-none"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
           variant={viewMode === 'lista' ? 'selected' : 'secondary'}
-          class_name="box-border h-9 min-w-[96px] rounded-lg !px-3 !py-0 text-xs leading-none"
+          class_name="box-border h-9 min-w-[96px] rounded-lg px-3! py-0! text-xs leading-none"
           on:click={() => (viewMode = 'lista')}
         >
           Lista
@@ -756,7 +756,7 @@
       {#each categorias as categoria}
         <Button
           variant="ghost"
-          class_name="w-full justify-start rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-operacao-200 hover:shadow-md"
+          class_name="w-full justify-start rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-operacao-200 hover:shadow-md"
           on:click={() => openCategory(categoria)}
         >
           <div class="flex items-start justify-between gap-3 w-full">
@@ -825,7 +825,7 @@
             </div>
           </div>
 
-          <div class="p-3 space-y-3 min-h-[14rem] {group.bodyClass}">
+          <div class="p-3 space-y-3 min-h-56 {group.bodyClass}">
             {#if group.items.length === 0}
               <div class="rounded-xl border border-dashed border-slate-300 bg-white/70 px-4 py-8 text-center text-sm text-slate-500">
                 Nenhum item nesta coluna.
@@ -834,7 +834,7 @@
               {#each group.items as item}
                 <Button
                   variant="ghost"
-                  class_name="w-full justify-start rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-operacao-200 hover:shadow-md"
+                  class_name="w-full justify-start rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-operacao-200 hover:shadow-md"
                   on:click={() => openTask(item.id)}
                 >
                   <div class="flex items-start justify-between gap-3 w-full">

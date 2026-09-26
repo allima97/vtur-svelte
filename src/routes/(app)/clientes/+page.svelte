@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { CalendarDays, Plus, Users, Wallet, FileText, Clock } from 'lucide-svelte';
+  import { CalendarDays, Plus, Users, Wallet, FileText, Clock } from '$lib/icons';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
@@ -364,7 +364,7 @@
 </div>
 
 {#if errorMessage}
-  <div role="alert" class="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+  <div role="alert" class="mb-6 rounded-vtur-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
     {errorMessage}
   </div>
 {/if}
@@ -377,7 +377,7 @@
   <KPICard title="Total gasto" value={BRL_CURRENCY_FORMATTER.format(totalCarteira)} color="slate" icon={Wallet} loading={loadingSummary} />
 </KPIGrid>
 
-<div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+<div class="mb-6 rounded-vtur-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-vtur-lg">
   A carteira consolida <strong class="text-slate-900">{clientesComViagem}</strong> clientes com histórico de viagens e <strong class="text-slate-900">{clientesEmNegociacao}</strong> em negociação com orçamentos em aberto.
 </div>
 

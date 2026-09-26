@@ -10,7 +10,7 @@
   import { toUserMessage } from '$lib/utils/errors';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
-  import { MessageCircle, RefreshCw } from 'lucide-svelte';
+  import { MessageCircle, RefreshCw } from '$lib/icons';
 
   type Compra = {
     id: string;

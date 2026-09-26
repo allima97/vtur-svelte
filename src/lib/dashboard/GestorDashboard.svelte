@@ -8,7 +8,7 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Award, BarChart2, Building2, Calendar, Clock, Eye, Gift, MapPin, MessageCircle, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, UserPlus, Users, Wallet } from 'lucide-svelte';
+  import { Award, BarChart2, Building2, Calendar, Clock, Eye, Gift, MapPin, MessageCircle, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, UserPlus, Users, Wallet } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { goto } from '$app/navigation';
@@ -790,7 +790,7 @@
     <!-- Overlay -->
     <button
       type="button"
-      class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+      class="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
       on:click={() => (showCustomize = false)}
       aria-label="Fechar personalização"
     ></button>
@@ -815,7 +815,7 @@
             <span class="text-sm font-medium text-slate-700">{widget.titulo}</span>
             <input
               type="checkbox"
-              class="h-4 w-4 rounded accent-orange-500"
+              class="h-4 w-4 rounded-sm accent-orange-500"
               checked={widgetVisible[widget.id] !== false}
               on:change={(e) => {
                 widgetVisible = { ...widgetVisible, [widget.id]: (e.target as HTMLInputElement).checked };
@@ -891,8 +891,8 @@
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{salesLabel}</p>
       {#if loading}
-        <div class="mt-1 h-7 w-28 animate-pulse rounded bg-slate-200"></div>
-        <div class="mt-1.5 h-3 w-20 animate-pulse rounded bg-slate-100"></div>
+        <div class="mt-1 h-7 w-28 animate-pulse rounded-sm bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-20 animate-pulse rounded-sm bg-slate-100"></div>
       {:else}
         <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(vendasAgg.totalVendas)}</p>
         <p class="mt-0.5 truncate text-xs text-slate-400">Líquido: {formatCurrency(vendasAgg.totalLiquido)}</p>
@@ -915,8 +915,8 @@
     <div class="min-w-0 flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{countLabel}</p>
       {#if loading}
-        <div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
-        <div class="mt-1.5 h-3 w-24 animate-pulse rounded bg-slate-100"></div>
+        <div class="mt-1 h-7 w-16 animate-pulse rounded-sm bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-24 animate-pulse rounded-sm bg-slate-100"></div>
       {:else}
         <p class="text-lg font-bold text-slate-900 sm:text-2xl">{vendasAgg.qtdVendas}</p>
         <p class="mt-0.5 truncate text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>
@@ -929,8 +929,8 @@
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{metaLabel}</p>
       {#if loading}
-        <div class="mt-1 h-7 w-28 animate-pulse rounded bg-slate-200"></div>
-        <div class="mt-1.5 h-3 w-16 animate-pulse rounded bg-slate-100"></div>
+        <div class="mt-1 h-7 w-28 animate-pulse rounded-sm bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-16 animate-pulse rounded-sm bg-slate-100"></div>
       {:else}
         <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(metaTotal)}</p>
         {#if metaTotal > 0}
@@ -952,8 +952,8 @@
     <div class="min-w-0 flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{scopeLabel}</p>
       {#if loading}
-        <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
-        <div class="mt-1.5 h-3 w-20 animate-pulse rounded bg-slate-100"></div>
+        <div class="mt-1 h-7 w-12 animate-pulse rounded-sm bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-20 animate-pulse rounded-sm bg-slate-100"></div>
       {:else}
         <p class="text-lg font-bold text-slate-900 sm:text-2xl">{isFiltroVendedorAtivo ? 1 : teamSize}</p>
         <p class="mt-0.5 truncate text-xs text-slate-400">{scopeHelperLabel}</p>
@@ -966,8 +966,8 @@
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">Seguro viagem</p>
       {#if loading}
-        <div class="mt-1 h-7 w-28 animate-pulse rounded bg-slate-200"></div>
-        <div class="mt-1.5 h-3 w-16 animate-pulse rounded bg-slate-100"></div>
+        <div class="mt-1 h-7 w-28 animate-pulse rounded-sm bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-16 animate-pulse rounded-sm bg-slate-100"></div>
       {:else}
         <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(vendasAgg.totalSeguro)}</p>
         {#if metaSeguroTotal > 0}
@@ -1087,7 +1087,7 @@
         <p class="text-xs text-slate-500">Clientes que já retornaram e precisam de contato</p>
       </div>
     </div>
-    <a href="/operacao/acompanhamento" class="shrink-0 text-sm font-medium text-orange-600 transition-colors hover:text-orange-700">
+    <a href="/operacao/acompanhamento" class="shrink-0 text-sm font-medium text-orange-700 transition-colors hover:text-orange-800">
       Ver todos →
     </a>
   </div>
@@ -1127,7 +1127,7 @@
                         size="xs"
                         ariaLabel="Enviar follow-up no WhatsApp"
                         title="Enviar follow-up no WhatsApp"
-                        class_name="!h-8 !w-8 !rounded-lg !p-0 text-green-600 hover:bg-green-50"
+                        class_name="h-8! w-8! rounded-lg! p-0! text-green-600 hover:bg-green-50"
                       >
                         <MessageCircle size={15} />
                       </Button>
@@ -1139,7 +1139,7 @@
                         size="xs"
                         ariaLabel="Ver cliente"
                         title="Ver cliente"
-                        class_name="!h-8 !w-8 !rounded-lg !p-0 text-slate-600"
+                        class_name="h-8! w-8! rounded-lg! p-0! text-slate-600"
                       >
                         <UserPlus size={15} />
                       </Button>
@@ -1150,7 +1150,7 @@
                       size="xs"
                       ariaLabel="Ver viagem"
                       title="Ver viagem"
-                      class_name="!h-8 !w-8 !rounded-lg !p-0 text-slate-600"
+                      class_name="h-8! w-8! rounded-lg! p-0! text-slate-600"
                     >
                       <Eye size={15} />
                     </Button>

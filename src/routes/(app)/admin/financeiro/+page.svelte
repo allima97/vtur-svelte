@@ -7,7 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { RefreshCw, DollarSign, Building2 } from 'lucide-svelte';
+  import { RefreshCw, DollarSign, Building2 } from '$lib/icons';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
   import { diffDaysISODate, formatISODateBR, todayISODateLocal } from '$lib/date';

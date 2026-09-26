@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Modal } from 'flowbite-svelte';
+  import { Modal } from './flowbite-legacy';
   import Button from './Button.svelte';
   import { dialogLabel, nextDialogLabelId } from './dialogLabel';
 

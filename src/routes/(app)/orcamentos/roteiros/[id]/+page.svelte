@@ -15,7 +15,7 @@
   import { FieldCheckbox, FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { fetchImageAsDataUrl } from '$lib/utils/browser-images';
-  import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw, Copy } from 'lucide-svelte';
+  import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw, Copy } from '$lib/icons';
   import { ApiError, apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { diffDaysISODate } from '$lib/date';
@@ -306,8 +306,9 @@
           redirectOnUnauthorized: false,
           signal: controller.signal
         }),
-        apiGet<SugestoesBuscaResponse>('/api/v1/roteiros/sugestoes-busca', undefined, controller.signal).catch(() => null),
-        apiGet<OrcamentosPdfResponse>('/api/v1/parametros/orcamentos-pdf', undefined, controller.signal).catch(() => null),
+        // Opcionais (sugestões e dados do PDF): sem acesso, seguem vazios sem mandar para "/negado".
+        apiFetch<SugestoesBuscaResponse>('/api/v1/roteiros/sugestoes-busca', { signal: controller.signal, redirectOnForbidden: false }).catch(() => null),
+        apiFetch<OrcamentosPdfResponse>('/api/v1/parametros/orcamentos-pdf', { signal: controller.signal, redirectOnForbidden: false }).catch(() => null),
       ]);
       if (seq !== loadSeq || destroyed) return;
       const r = payload.roteiro;
@@ -528,11 +529,12 @@
       const seq = ++clienteBuscaSeq;
       gerarClienteLoading = true;
       try {
-        const data = await apiGet<ClienteBuscaResponse | ClienteBuscaResult[]>(
-          '/api/v1/clientes',
-          { search: gerarClienteQ },
-          controller.signal
-        );
+        const data = await apiFetch<ClienteBuscaResponse | ClienteBuscaResult[]>('/api/v1/clientes', {
+          query: { search: gerarClienteQ },
+          signal: controller.signal,
+          // Busca opcional de cliente: sem acesso a Clientes, só não lista (não vai para "/negado").
+          redirectOnForbidden: false
+        });
         if (seq !== clienteBuscaSeq || destroyed) return;
         gerarClienteResults = normalizeClienteBuscaResults(data);
       } catch (err) {
@@ -1421,13 +1423,13 @@
       {#if gerarClienteLoading}
         <p class="mt-1 text-xs text-slate-400">Buscando...</p>
       {:else if gerarClienteResults.length > 0}
-        <ul class="mt-1 rounded-lg border border-slate-200 bg-white shadow">
+        <ul class="mt-1 rounded-lg border border-slate-200 bg-white shadow-sm">
           {#each gerarClienteResults as cliente}
             <li>
               <Button
                 type="button"
                 variant="ghost"
-                class_name={`w-full justify-start rounded-none px-3 py-2 text-left text-sm hover:!bg-slate-50 ${gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700 hover:!bg-clientes-50' : ''}`}
+                class_name={`w-full justify-start rounded-none px-3 py-2 text-left text-sm hover:bg-slate-50! ${gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700 hover:bg-clientes-50!' : ''}`}
                 on:click={() => { gerarClienteSel = cliente; gerarClienteQ = cliente.nome; gerarClienteResults = []; }}
               >
                 {cliente.nome}
@@ -1448,7 +1450,7 @@
           type="button"
           variant="ghost"
           size="xs"
-          class_name="ml-2 !px-0 !py-0 text-xs text-slate-400 underline hover:!bg-transparent hover:!text-slate-500"
+          class_name="ml-2 px-0! py-0! text-xs text-slate-400 underline hover:bg-transparent! hover:text-slate-500!"
           on:click={() => { gerarClienteSel = null; gerarClienteQ = ''; }}
         >
           Remover
@@ -1498,7 +1500,7 @@
               type="button"
               variant="ghost"
               size="xs"
-              class_name="shrink-0 border border-clientes-200 bg-clientes-100 !px-2.5 !py-1 text-xs font-medium text-clientes-700 hover:!bg-clientes-200"
+              class_name="shrink-0 border border-clientes-200 bg-clientes-100 px-2.5! py-1! text-xs font-medium text-clientes-700 hover:!bg-clientes-200"
               on:click={() => addDiaBanco(dia)}
             >
               Usar
@@ -1541,6 +1543,7 @@
 </Dialog>
 
 <style lang="postcss">
+  @reference "tailwindcss";
   :global(.vtur-label) {
     @apply mb-1 block text-sm font-medium text-slate-700;
   }

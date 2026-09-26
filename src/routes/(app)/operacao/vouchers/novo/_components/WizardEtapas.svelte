@@ -8,7 +8,7 @@
 </script>
 
 <!-- Wizard Steps -->
-<div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
+<div class="bg-white rounded-xl shadow-xs border border-slate-200 mb-6 overflow-hidden">
   <div class="flex flex-wrap">
     {#each steps as step, i}
       {@const status = getStepStatus(i)}
@@ -16,12 +16,12 @@
         type="button"
         variant="ghost"
         size="sm"
-        class_name={`flex-1 min-w-[140px] !rounded-none !border-0 !px-3 !py-4 flex flex-col items-center justify-center gap-2 text-sm font-medium transition-all relative ${
+        class_name={`flex-1 min-w-[140px] rounded-none! border-0! px-3! py-4! flex flex-col items-center justify-center gap-2 text-sm font-medium transition-all relative ${
           status === 'current'
-            ? '!bg-clientes-50 !text-clientes-700'
+            ? 'bg-clientes-50! text-clientes-700!'
             : status === 'completed'
-              ? '!bg-green-50 !text-green-700 hover:!bg-green-100'
-              : '!bg-white !text-slate-400 hover:!bg-slate-50'
+              ? 'bg-green-50! text-green-700! hover:bg-green-100!'
+              : 'bg-white! text-slate-400! hover:bg-slate-50!'
         }`}
         on:click={() => goToStep(i)}
       >

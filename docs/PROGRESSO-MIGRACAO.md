@@ -3,7 +3,7 @@
 > Arquivo de retomada. Atualizado a cada etapa, junto com o documento `fase2-hono-execucao.md` do projeto no Claude.
 > Regra de ouro: **nenhuma mudança de regra de negócio**. Toda etapa é provada com teste de paridade ou contrato antes de ir para a pasta.
 
-_Última atualização: 25/09/2026, 08:45._
+_Última atualização: 25/09/2026, 21:00._
 
 ## Onde paramos
 - **Fase 2 concluída para `/api/v1`:** as 252 rotas de `/api/v1` rodam no Hono (`docs/api-inventory.md`: 252 de 261 endpoints). Os 9 restantes são o catch-all e `src/routes/api/auth`.
@@ -41,19 +41,13 @@ _Última atualização: 25/09/2026, 08:45._
 | Fase | Status | Resumo |
 |---|---|---|
 | 0: read model v4 | ✅ commit | Triggers de dirty em produção, rebuild v4, correções. |
-| 1: paridade | ✅ commit | Inventário de APIs, testes de caracterização, auditoria em `logs` (Vendas). |
-| 2.1: Hono base | ✅ commit | App Hono em `/api/v1`, `x-request-id`, `server-timing`, catch-all. |
-| 2.2: vendas + conciliação | ✅ commit | 40 rotas. |
-| 2.3: regras únicas | ✅ commit | `isFormaNaoComissionavel` e carregador de termos únicos; rateio duplicado removido. |
-| 2.4: formulário de venda | ✅ commit | 24 funções de nova/editar em `lib/features/vendas/form.ts`. |
-| 2.5: dashboard, relatórios, clientes, financeiro | ✅ commit | 47 rotas. |
-| 2.6: demais domínios | ✅ lotes 1 e 2 com commit ("fase4", "fase5") · ⏳ lote 3 sem commit | 71 + 55 + 37 rotas. |
-| 2.7: `api/auth` | 🚫 não migrar (decisão do usuário) | Login, convite, sessão, turnstile e passkeys continuam no SvelteKit. |
-| 3.1: indicação de atualização + `svelte-check` sem erros | ✅ commit | Ver seção Fase 3. |
-| 3.2: acessibilidade do kit `ui` | ✅ commit | Ver seção Fase 3. |
-| 3.3: navegação (menu, trilha, títulos) | ✅ commit | Ver seção Fase 3. |
-| 3.4: velocidade (placement + viagem em paralelo) | ⏳ sem commit | Ver seção Fase 3. |
-| 3.5: telas gigantes | ⏳ sem commit (editar venda já com commit) | Ver seção 3.5. |
+| 1: paridade | ✅ commit | Inventário de APIs, testes de caracterização, auditoria em `logs`. |
+| 2: Hono | ✅ commit | 252 rotas de `/api/v1` no Hono. `api/auth` não migra (decisão do usuário). |
+| 3: telas, navegação, acessibilidade, velocidade | ✅ commit | 3.1 a 3.10. |
+| 4: design system | ✅ commit | Tailwind 4, Flowbite 1.33 (componentes do 0.48 copiados), ícones Flowbite. `!important`: fica como está (ver 4.4). |
+| 5: UX e navegação | ✅ commit | Ctrl+K, acessibilidade, placar, ficha do cliente, revisão do `/negado`. |
+| 6: tempo real | ✅ 6.1 com commit | Recados em tempo real. Próximos: vendas por empresa, placar ao vivo. |
+| Relatório de Performance por franquia | ⏳ implementado, sem commit | Tela `/relatorios/performance` + PDF. Ver a seção abaixo. |
 
 ## API no Hono
 Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os routers em `src/lib/server/api/routes/<dominio>/index.ts` e o registro em `src/lib/server/api/app.ts`.
@@ -431,3 +425,164 @@ Todas as rotas de `src/routes/api/v1/**` são pontes (`apiHandler`), com os rout
   - `fakeSupabase` agora aceita `insert` e `delete`.
 - **Verificação:** 693 testes passando, `svelte-check` com 0 erros e 0 avisos, e os hashes de Mac e nuvem batem, ignorando CRLF.
 - **Arquivo auxiliar:** `tmp/audit_patch.py` foi o script que aplicou as mudanças. Pode ser apagado.
+
+## Fase 4: design system (Tailwind 4 + Flowbite)
+
+### 4.1 (25/09, 15:50): Tailwind 3.4 → 4.3, com o mesmo visual. Com commit
+- **O que mudou:**
+  - `@tailwindcss/vite` no `vite.config.ts`. O PostCSS ficou sem plugins e o `tailwind.config.js` foi removido.
+  - O tema foi para o `@theme` do `app.css`: cores, fonte, sombras e raios do antigo config.
+  - Os nomes de classe foram renomeados em 86 `.svelte`, pelo codemod oficial revisado à mão:
+    - `shadow-sm`→`shadow-xs`, `shadow`→`shadow-sm`;
+    - `rounded`→`rounded-sm`;
+    - `!x`→`x!`;
+    - `flex-shrink-0`→`shrink-0`;
+    - `outline-none`→`outline-hidden`;
+    - `rounded-[14px]`→`rounded-vtur-lg` etc.
+- **Erros do codemod que foram desfeitos:**
+  - Trocou a variante de botão `'outline'` por `'outline-solid'` em 10 lugares.
+  - Mudou uma conta dentro de `cards/_render.ts` (`blur * 4` → `blur-sm * 4`).
+  - Transformou as classes do `app.css` em `@utility`, o que muda a precedência.
+- **Precedência igual à do v3:** o preflight e os utilitários foram importados **sem cascade layer**, na mesma ordem do v3 (base → componentes → `@tailwind utilities` → utilitários próprios → resto). O corpo do `app.css` é o original, só sem os `@layer`.
+- **Compatibilidade com o v3, tudo no topo do `app.css`:**
+  - paleta hex do v3, porque o v4 usa oklch;
+  - altura de linha absoluta em `text-*`;
+  - cor padrão de borda `gray-200`;
+  - cor padrão de `ring`: azul 500 a 50%;
+  - placeholder `gray-400`;
+  - `cursor: pointer` em botões e `default` em `:disabled`;
+  - fundo e opacidade padrão do navegador nos campos;
+  - padding de `td`/`th` e dos campos de data;
+  - `<dialog>` centralizado;
+  - degradês em sRGB.
+- **Como foi provado que o visual é o mesmo:**
+  - Estilo computado no Chromium, comparando o CSS antigo com o novo.
+  - **1.864 classes**, cada uma sozinha, e **2.034 combinações de classes** tiradas dos `class=` dos `.svelte`, em 1600 px e 375 px.
+  - **DOM real de 143 telas e layouts**, renderizado no servidor, mais o Dialog e o ConfirmDialog abertos. Todos os elementos foram comparados em 1600, 800 e 375 px e com o sistema em modo escuro: box model, cores, fontes, bordas, sombras, flex/grid e a posição e o tamanho de cada elemento.
+  - **Tela de login** via `vite dev` nas duas versões: 0 pixel diferente, em desktop e celular.
+- **Diferenças que restaram (conscientes):**
+  - `space-x/y-*` e `divide-*`: o v4 põe a margem ou a borda **depois** de cada filho, e não antes. Em fluxo normal o espaçamento é o mesmo. Muda só quando o primeiro ou o último filho está oculto, e aí some um espaço sobrando: o cabeçalho no celular fica 14 px mais justo, e a lista de usuários fica 7 px mais baixa.
+  - `ml-13` em `cadastros/circuitos/novo`: não existia no v3 (a classe era ignorada) e agora recua a descrição do dia em 45 px, como o código pretendia.
+  - `outline-none` → `outline-hidden`: sem contorno nos dois casos.
+- **Verificação:** 693 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK, e `vite dev` sobe. Mac e nuvem estão idênticos, ignorando CRLF.
+- **Arquivos temporários:** `tmp/container-src*.md5` e `tmp/audit_patch.py` (entraram no commit "fase10") foram apagados.
+- **Próximo (4.2):** Flowbite-Svelte 0.48 → 1.x. A 1.x exige Tailwind 4, que já está no lugar, e o `Modal`/`Dropdown` mudaram de API. A troca fica isolada nos wrappers de `lib/components/ui/`.
+
+### 4.2 (25/09, 18:10): Flowbite-Svelte 0.48 → 1.33, com o mesmo visual e o mesmo comportamento. Com commit ("flowbite 1.33")
+- **O que o 1.x muda (medido renderizando os wrappers de `ui/` nas duas versões, 142 casos):**
+  - Select e Textarea ganham uma `div` em volta, e a classe `vtur-input` sai do campo;
+  - Checkbox, Radio e Toggle mudam classes, cores (blue-700 no lugar de blue-600) e espaçamento;
+  - Badge ganha fundo cinza nas cores que eram sem fundo (gray, dark, teal, operação); Alert muda as cores;
+  - Button não repassa mais `on:click`, e teal/orange/purple mudam;
+  - Modal passa a usar `<dialog>` nativo, e Dropdown e Tooltip passam a usar a Popover API (outro jeito de abrir, fechar, focar e rolar).
+- **Decisão:** os componentes do 0.48 que o sistema usa foram copiados **sem alteração** para `src/lib/components/ui/flowbite-legacy/` (licença MIT, com `README.md` explicando). Só mudam os caminhos de import e um `// @ts-nocheck` no topo. Os wrappers de `ui/` trocaram só a linha do import (`'flowbite-svelte'` → `'./flowbite-legacy'`). Do pacote 1.x o sistema usa a tabela (`SimpleTable` → `flowbite-svelte/Table.svelte`, import direto para não puxar o pacote inteiro).
+- **CSS idêntico, byte a byte:** antes o Tailwind lia o pacote 0.48 inteiro (`@source`), inclusive componentes que não usamos. As classes que vinham só de lá ficaram em `flowbite-legacy/tailwind-classes-0.48.txt`, lido pelo `app.css`. Resultado: os 7 arquivos `.css` do build são iguais aos de antes (mesmo hash).
+- **Dependências:** `flowbite-svelte` ^1.33.1; `tailwind-merge` e `@floating-ui/dom` viraram dependências diretas (as cópias do 0.48 usam).
+- **Como foi provado:**
+  - os 142 casos dos wrappers renderizam o mesmo HTML (só a tabela muda um comentário de hidratação);
+  - as 143 telas e layouts renderizadas no servidor: iguais, exceto um espaço em branco entre `<div>` e `<table>` na tela `admin/fix-recibos`, sem efeito visual;
+  - CSS do build idêntico;
+  - teste novo em `src/lib/testing/guards.test.ts`: nenhum `.svelte` importa `flowbite-svelte` pelo índice (fora a tabela).
+- **Verificação:** 694 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
+- **No Mac:** rodar `npm install` (o `package-lock.json` já vem atualizado), depois `npm test` e `npm run build`.
+
+### 4.3 (25/09, 18:40): ícones Lucide → flowbite-svelte-icons (aprovado pelo usuário). Com commit ("icones")
+- **Como foi feito:** pasta nova `src/lib/icons/`, com um arquivo por ícone e os **mesmos nomes do Lucide** (`Plus`, `Trash2`, `RefreshCw`...). Nas 150 telas mudou só a linha do import (`'lucide-svelte'` → `'$lib/icons'`); o resto do código é o mesmo.
+- **Mesmo tamanho e mesmo layout:** o `IconAdapter.svelte` faz o ícone do Flowbite aceitar as props do Lucide (`size` em px vira width/height, `class`, `strokeWidth`, `color`), desliga o tamanho próprio do Flowbite (w-5 h-5) e desfaz o `shrink-0` que ele acrescenta.
+- **124 ícones** passaram para o desenho do Flowbite (versão contorno, "Outline"). Mapa em `src/lib/icons/*.svelte` (ex.: `Trash2`→`TrashBin`, `Save`→`FloppyDisk`, `Users`→`UsersGroup`, `Settings`→`Cog`, `X`→`Close`).
+- **19 ícones continuam com o desenho do Lucide**, porque o Flowbite não tem equivalente: AlertTriangle, ArrowDownRight, ArrowUpRight, Calculator, Eraser, FileClock, ImagePlus, Loader2 (o que gira no "carregando"), Map, Package, Plane, PlugZap, Route, ShieldAlert, Ship, SquareCheckBig, Target, Trophy, UserCheck. O pacote `lucide-svelte` continua no `package.json` por causa deles.
+- **Como foi provado:**
+  - folha de comparação com os 143 ícones lado a lado (Lucide × Flowbite), conferida um a um;
+  - as 143 telas e layouts renderizadas no servidor: os 1.283 `<svg>` têm a mesma largura, altura e classes de antes, e o resto do HTML é idêntico;
+  - CSS: só entrou a classe `.shrink` (flex-shrink: 1, o valor padrão);
+  - teste novo em `guards.test.ts`: nenhum arquivo fora de `src/lib/icons/` importa `lucide-svelte`.
+- **Diferença visível (esperada):** os desenhos do Flowbite têm mais margem interna, então parecem um pouco menores dentro da mesma caixa (ex.: no menu lateral). O espaço ocupado é o mesmo.
+- **Verificação:** 695 testes passando, `svelte-check` com 0 erros e 0 avisos, build OK.
+
+## Fase 5: UX e navegação (sem mudar regra de negócio)
+
+Plano (da revisão estrutural): Ctrl+K, dashboards por perfil, placar, cards no celular, menu inferior no celular, ficha 360° do cliente, acessibilidade.
+- Já existem no sistema: dashboards por perfil (`/dashboard/admin|master|gestor|financeiro|vendedor`), menu inferior no celular (Sidebar) e tabelas em cartões no celular (`table-mobile-cards`).
+- Placar e ficha completa do cliente: aprovados pelo usuário em 25/09 (5.3 e 5.4).
+
+### 5.1 (25/09, 19:00): busca rápida no menu (Ctrl+K / ⌘K). Com commit ("fase11")
+- **O que é:** botão "Buscar" no topo (no celular, só a lupa) e o atalho Ctrl+K (⌘K no Mac). Abre uma janela com as telas do menu; digitar filtra (sem acento, por nome ou seção); ↑/↓ escolhem, Enter abre, Esc fecha.
+- **Sem regra nova:** mostra **exatamente o que o menu lateral mostra** para o usuário. O `Sidebar` publica os itens já filtrados (permissões, papel, "Personalizar Menu") no store `$lib/stores/navegacao.ts`; a busca só lê. Não chama API.
+- **Acessibilidade:** padrão combobox + listbox (`aria-activedescendant`, `aria-selected`), foco no campo ao abrir, foco devolvido ao fechar; com outra janela aberta o atalho não abre uma segunda por cima.
+- **Arquivos:** `layout/CommandPalette.svelte`, `layout/commandPalette.ts` (+ teste), `stores/navegacao.ts`, `testing/dom/commandPalette.dom.test.ts`; `Sidebar.svelte` (publica os itens, 1 bloco) e `Topbar.svelte` (botão).
+- **Prova:** 704 testes (9 novos: filtro, atalho, abrir/filtrar/↓/Enter/Esc no jsdom), `svelte-check` 0/0, build OK. As 143 telas renderizadas no servidor só mudam no topo (o botão novo).
+
+### 5.2 (25/09, 19:30): acessibilidade das tabelas (DataTable) e varredura de acessibilidade. Com commit ("fase14")
+- **DataTable** (usada em ~50 telas), sem mudar dados, ordem, filtros ou visual:
+  - nome da tabela para leitor de tela (`<caption class="sr-only">` com o título) e `aria-busy` enquanto carrega;
+  - campo de busca com rótulo ("Buscar em <título>", invisível);
+  - botão "Filtros" com `aria-expanded`/`aria-controls` apontando para o painel; no celular, `aria-haspopup`;
+  - linha clicável com contorno de foco visível ao navegar por teclado (Enter/Espaço já abriam);
+  - aviso falado de "N registros encontrados" ao buscar/filtrar e da página atual ao paginar.
+- **Varredura automática (axe-core, WCAG 2 A/AA)** nas 143 telas renderizadas no servidor com o CSS real: de 56 problemas para **0**.
+  - nomes que faltavam: botões das seções do menu lateral (menu recolhido), botões só com ícone (remover destino/dia em circuitos, mês anterior/próximo em Minha Escala), radios (`aria-label` com o texto da opção no `FieldRadioGroup`), seletores e chaves sem rótulo (novas props `ariaLabel` em `FieldSelect` e `FieldToggle`, usadas em circuitos e em notificações);
+  - contraste: textos pequenos em cinza muito claro (`slate-400`/`slate-300` → `slate-500`), laranja/âmbar pequenos (`-600` → `-700`) e o prefixo/sufixo dos campos (ex.: "R$"). Só a cor do texto muda, um tom mais escuro.
+  - Limite: a varredura vê o que a tela mostra sem dados (renderização no servidor). Conteúdo que só aparece com dados carregados não entrou.
+- **Comparação de pixels** (antes × depois, 147 telas): mudaram só as telas com as cores acima, o botão "Placar" no ranking e os esqueletos animados de carregamento (a animação varia entre fotos).
+
+### 5.3 (25/09, 19:30): Placar de vendas da equipe (tela nova, aprovada). Com commit ("fase14")
+- **Onde:** `/relatorios/ranking/placar` (botão "Placar" no Ranking de vendas). Mesmo módulo de permissão do Ranking (a rota começa com `/relatorios/ranking`).
+- **Quem vê:** o mesmo público do pódio do Ranking (admin do sistema, master e gestor). Vendedor vê um aviso com link para o ranking.
+- **Sem regra nova:** usa a mesma API (`/api/v1/relatorios/ranking`), a mesma ordem (`posicao`), o mesmo percentual (`alcance_meta` e total/meta do resumo) e as mesmas cores de atingimento. As funções de cor/percentual saíram do Ranking para `$lib/features/ranking/atingimento.ts` sem alteração (com teste), e as duas telas usam o mesmo código.
+- **O que mostra:** totais da equipe (vendas e seguro com barra de meta, vendas no mês, quantos bateram a meta), pódio dos 3 primeiros e a lista da equipe com barra de meta e tendência.
+- **Uso em TV:** botão "Tela cheia" (só o placar), atualização sozinha a cada minuto enquanto a aba está visível, e "Atualizar" manual (busca sem cache).
+
+### 5.4 (25/09, 19:30): ficha completa do cliente (aprovada). Com commit ("fase14")
+- A tela do cliente (`/clientes/[id]`) já reunia cadastro, vendas, orçamentos e acompanhantes. Entraram:
+  - **Viagens** do cliente (API existente `/api/v1/viagens/cliente/:id`, mesmo escopo e mesmo status da tela de Viagens), com link para cada viagem. Quem não tem o módulo Viagens não vê o quadro (e a tela não vai para "acesso negado": `redirectOnForbidden: false`).
+  - **Contatos enviados**: últimos avisos (API existente `/api/v1/clientes/avisos/history`), recarregados depois de enviar um aviso pela própria ficha.
+  - **Atalhos de contato** no resumo: WhatsApp, Ligar e E-mail (só abrem o app; nada é gravado).
+- Arquivos novos: `components/clientes/ClienteViagensCard.svelte` e `ClienteContatosCard.svelte`.
+
+### Verificação 5.2–5.4
+- 719 testes (15 novos: DataTable, Placar, ficha do cliente, atingimento), `svelte-check` 0/0, build OK.
+- Achado durante os testes: qualquer resposta 403 de uma API manda a tela para "/negado" (regra existente do `apiFetch`); por isso os quadros novos da ficha pedem `redirectOnForbidden: false`.
+
+### 4.4 (25/09, 20:00): `!important` — decisão: não remover agora
+- Medido: 319 `!important` no `app.css` e 504 classes com `!` nos `.svelte`. Cada um existe para vencer outra regra (Flowbite, utilitários ou o próprio CSS do sistema).
+- Remover exigiria reescrever a precedência do CSS tela a tela, com risco alto de mudança visual e nenhum ganho para o usuário. Fica como está; dá para limpar aos poucos quando cada tela for mexida por outro motivo.
+
+### 5.5 (25/09, 20:00): revisão das consultas que mandavam para "/negado". Com commit ("fase15")
+- Regra existente (mantida): um 403 de qualquer API leva a tela para `/negado`, a não ser que a chamada peça `redirectOnForbidden: false`.
+- Revisadas todas as telas: chamadas de API de outro módulo que são **opcionais** na tela. Encontrados e corrigidos (agora só ficam vazios, sem mandar para `/negado`):
+  - **Roteiro (`orcamentos/roteiros/[id]`)**: sugestões e dados do PDF (`/parametros/orcamentos-pdf`, que exige o módulo Parâmetros). Quem tinha acesso a Roteiros mas não a Parâmetros era mandado para `/negado` ao abrir um roteiro, mesmo com a tela já protegida.
+  - **Novo orçamento / editar orçamento**: busca de cliente (opcional, exige o módulo Clientes).
+  - **Roteiro**: busca de cliente para gerar orçamento.
+- Guarda nova em `guards.test.ts`: chamada de API com `.catch(...)` (opcional) sem `redirectOnForbidden: false` falha o teste.
+- Não mudou: telas cuja consulta principal é de outro módulo (ex.: Aniversariantes usa a API do dashboard). Aí a tela depende dela; o comportamento continua o mesmo.
+
+## Fase 6: tempo real
+
+### 6.1 (25/09, 20:00): recados em tempo real. Com commit ("fase15")
+- Recado novo, alterado ou apagado aparece na hora na tela de Recados, via Supabase Realtime (`mural_recados`, filtrado pela empresa). A tabela já estava publicada no Realtime; o RLS de leitura já limita cada usuário ao que ele pode ver.
+- O aviso do Realtime só dispara uma nova busca na mesma API do mural (`/api/v1/mural/recados`, sem o cache curto). Nenhuma regra nova.
+- A atualização a cada 15 s **continua igual** (reserva se o Realtime não conectar, e para as confirmações de leitura).
+- Arquivos: `src/lib/realtime/muralRecados.ts` (+ teste) e `operacao/recados/+page.svelte`.
+- Como conferir: abrir Recados em dois navegadores com usuários da mesma empresa e enviar um recado; deve aparecer no outro em ~1 s.
+
+### Verificação 5.5 e 6.1
+- 722 testes, `svelte-check` 0/0, build OK.
+
+## Relatório de Performance por franquia (pedido em 25/09). Gravado no Mac, falta o commit
+- **Modelo:** PDF "5630 - LOJA SHOPPING CENTER NORTE" (Relatório de Performance da CVC, por filial).
+- **Onde:** `/relatorios/performance` (cartão "Performance da franquia" em Relatórios). Botão **Baixar PDF**: abre a impressão do navegador já montada em 1 folha A4 (Salvar como PDF).
+- **Quem vê:** admin do sistema e master escolhem a empresa (só as do seu escopo); gestor vê a própria. Vendedor não vê (a API responde 403 e a tela nem chama).
+- **API:** `GET /api/v1/relatorios/performance?company_id=&mes=AAAA-MM`. Agregação em `src/lib/server/performance/performance.ts` (testada); busca em `src/lib/server/api/routes/relatorios/performance.ts` (teste de contrato com banco falso).
+- **Definições (confirmadas pelo usuário em 25/09):**
+  - Venda: mesmas contribuições por recibo do Ranking/Dashboard (valor bruto); ICM e gap na mesma base de meta do Ranking (parâmetros de comissão da empresa).
+  - Dados até D-1 (ontem); mês passado vai até o último dia. Comparação com o mesmo período do ano anterior.
+  - Meta: soma das metas dos vendedores da equipe (mesma lista do Ranking). Meta até D-1 = proporcional aos **dias corridos**.
+  - **Venda RA = REXTUR** (recibo "REXTUR"). **Business Consolidadora = REXTUR**; Marítimo = produto do tipo Cruzeiro; **Nacional = destino em cidade do Brasil**, Internacional = fora do Brasil (cidade → estado → país).
+  - Produto = **tipo do produto do cadastro** (o mesmo das vendas).
+  - Passageiros = os passageiros da venda (vêm na importação), sem repetir a mesma pessoa na mesma venda. Faixa etária pela data de nascimento no dia do corte.
+  - Formas de pagamento: `vendas_pagamentos` das vendas do mês (Top 5 por valor).
+  - Antecipação: % da venda por mês de embarque (ano atual / próximo ano).
+  - **Orçamentos:** os importados no VTUR pelo PDF de orçamento da CVC (Orçamentos › Importar; exemplo "Impressão de Orçamento"). Empresa = do usuário que importou. Produto = tipo dos itens do orçamento. Conversão = aprovados + fechados ÷ total (a mesma da tela de Orçamentos, `deriveStatus` agora exportado de `orcamentos/list.ts`). "% Mês anterior" compara com o mês anterior inteiro.
+- **Hoje no banco:** só 6 orçamentos importados. A parte de Orçamentos vai ganhar volume conforme os PDFs forem importados.
+- **Verificação:** 734 testes (12 novos: regras, contrato da API, tela), `svelte-check` 0/0, build OK. Layout conferido em 1440 px, celular (390 px, sem rolagem lateral) e no PDF (1 folha A4).
+- **Conferir em produção:** abrir o relatório de uma loja num mês fechado e comparar com o PDF da CVC do mesmo mês. Diferenças esperadas vêm de vendas não lançadas no VTUR.

@@ -3,7 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { type RotHotel, addItem, moveDown, moveUp, newHotel, removeItem, updateItem } from './tipos';
-  import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-svelte';
+  import { ChevronDown, ChevronUp, Plus, Trash2 } from '$lib/icons';
 
   let { HOTEL_CATEGORIA_OPTIONS, HOTEL_REGIME_OPTIONS, handleImportHotelText, hoteis = $bindable(), hotelImportError, hotelImportMsg, hotelImportText = $bindable(), onHotelDateChange, sugestoes }: { HOTEL_CATEGORIA_OPTIONS: string[]; HOTEL_REGIME_OPTIONS: string[]; handleImportHotelText: () => void; hoteis: RotHotel[]; hotelImportError: string | null; hotelImportMsg: string | null; hotelImportText: string; onHotelDateChange: (index: number, field: 'data_inicio' | 'data_fim', value: string) => void; sugestoes: Record<string, string[]> } = $props();
 </script>

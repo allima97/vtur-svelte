@@ -15,7 +15,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiDelete, apiFetch, apiGet, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { ImagePlus, Pencil, RefreshCw, Save, Shield, Trash2, X } from 'lucide-svelte';
+  import { ImagePlus, Pencil, RefreshCw, Save, Shield, Trash2, X } from '$lib/icons';
   import type { VoucherAssetRecord, VoucherAssetKind, VoucherAssetProvider } from '$lib/vouchers/types';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
@@ -301,7 +301,7 @@
     </p>
   </Card>
 {:else}
-  <div class="grid gap-6 xl:grid-cols-[360px,minmax(0,1fr)]">
+  <div class="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
     <Card color="operacao" title={form.id ? 'Editar asset' : 'Novo asset'}>
       <div class="space-y-4">
         <FieldSelect

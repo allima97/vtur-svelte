@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
-  import { RefreshCw, Settings, CheckCircle, XCircle } from 'lucide-svelte';
+  import { RefreshCw, Settings, CheckCircle, XCircle } from '$lib/icons';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import { createLoadGuard } from '$lib/utils/loadGuard';
@@ -104,7 +104,7 @@
 />
 
 {#if tableMissing}
-  <div class="mb-6 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  <div class="mb-6 rounded-vtur-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
     A tabela <code>system_module_settings</code> não existe neste ambiente. Os módulos são exibidos com base no catálogo padrão.
   </div>
 {/if}

@@ -9,7 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { BottomSheet, FieldInput, FieldSelect } from '$lib/components/ui';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
-  import { Plus, Trash2, RefreshCw, Search, SlidersHorizontal } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, Search, SlidersHorizontal } from '$lib/icons';
   import { escapeHtml } from '$lib/utils/html';
   import { toUserMessage } from '$lib/utils/errors';
   import { createDebouncedReloader } from '$lib/utils/autoReload';

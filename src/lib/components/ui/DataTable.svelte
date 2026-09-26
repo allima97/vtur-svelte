@@ -10,13 +10,14 @@
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
-  } from "lucide-svelte";
+  } from '$lib/icons';
   import Button from "./Button.svelte";
   import Checkbox from "./Checkbox.svelte";
   import BottomSheet from "./BottomSheet.svelte";
   import FieldInput from "./form/FieldInput.svelte";
   import FieldSelect from "./form/FieldSelect.svelte";
   import SanitizedHtml from "./SanitizedHtml.svelte";
+  import { uniqueFieldId } from "./form/fieldId";
   import type { ModuleColor } from "$lib/theme/colors";
   import type { ComponentType } from "svelte";
 
@@ -128,6 +129,8 @@
   let selectAll = false;
   let lastEmittedSearchQuery = searchQuery;
   const skeletonWidths = ["w-32", "w-24", "w-40", "w-20", "w-28", "w-36"];
+  // Fase 5.2 (acessibilidade): liga o botão "Filtros" ao painel que ele abre.
+  const filterPanelId = `${uniqueFieldId("datatable")}-filtros`;
 
   $: if (serverSide && page !== currentPage) {
     currentPage = Math.max(1, Number(page) || 1);
@@ -348,6 +351,8 @@
       <div class="flex flex-wrap items-center gap-2">
         {#if searchable}
           <FieldInput
+            label={title ? `Buscar em ${title}` : "Buscar na tabela"}
+            srLabel={true}
             placeholder="Buscar..."
             bind:value={searchQuery}
             icon={Search}
@@ -359,6 +364,7 @@
           <Button
             variant="secondary"
             on:click={() => (showFilterSheet = true)}
+            ariaHaspopup="dialog"
             class_name={`sm:hidden ${activeFilterCount > 0 ? "vtur-button--active-filter" : ""}`}
           >
             <Filter size={16} class="mr-2" />
@@ -374,6 +380,8 @@
           <Button
             variant="secondary"
             on:click={() => (showFilters = !showFilters)}
+            ariaExpanded={showFilters}
+            ariaControls={filterPanelId}
             class_name={`hidden sm:inline-flex ${activeFilterCount > 0 ? "vtur-button--active-filter" : ""}`}
           >
             <Filter size={16} class="mr-2" />
@@ -399,7 +407,7 @@
   {/if}
 
   {#if showFilters && filters.length > 0}
-    <div class="datatable-filter-panel vtur-filter-panel">
+    <div id={filterPanelId} class="datatable-filter-panel vtur-filter-panel">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {#each filters as filter}
           {#if filter.type === "select"}
@@ -486,7 +494,8 @@
 
   <div class="vtur-table-shell">
     <div class="overflow-x-visible md:overflow-x-auto">
-      <table class="w-full text-sm table-mobile-cards">
+      <table class="w-full text-sm table-mobile-cards" aria-busy={loading ? "true" : undefined}>
+        <caption class="sr-only">{title || "Registros"}</caption>
         <thead class="vtur-table__head">
           <tr>
             {#if selectable}
@@ -517,7 +526,7 @@
                     type="button"
                     variant="ghost"
                     size="xs"
-                    class_name={`!min-h-0 !rounded-none !px-0 !py-0 font-inherit text-inherit hover:!bg-transparent hover:!text-slate-900 ${column.headerClass || ""}`}
+                    class_name={`min-h-0! rounded-none! px-0! py-0! font-inherit text-inherit hover:bg-transparent! hover:text-slate-900! ${column.headerClass || ""}`}
                     ariaLabel={`Ordenar por ${column.label}`}
                     on:click={() => handleSort(column)}
                   >
@@ -554,7 +563,7 @@
                 {#if selectable}
                   <td class="px-4 py-2">
                     <div
-                      class="h-4 w-4 rounded border border-slate-200 bg-slate-100"
+                      class="h-4 w-4 rounded-sm border border-slate-200 bg-slate-100"
                     ></div>
                   </td>
                 {/if}
@@ -584,7 +593,7 @@
           {:else}
             {#each paginatedData as row (keyExtractor(row))}
               <tr
-                class={`transition-colors hover:bg-slate-50/90 ${rowClass?.(row) || ""}`}
+                class={`transition-colors hover:bg-slate-50/90 ${onRowClick ? "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-500" : ""} ${rowClass?.(row) || ""}`}
                 class:cursor-pointer={onRowClick}
                 tabindex={onRowClick ? 0 : undefined}
                 on:click={() => onRowClick?.(row)}
@@ -644,6 +653,13 @@
       </table>
     </div>
 
+    <!-- Fase 5.2: anuncia ao leitor de tela quantos registros a busca/filtro encontrou. -->
+    {#if !loading && (searchQuery.trim() !== "" || activeFilterCount > 0)}
+      <p class="sr-only" role="status" aria-live="polite">
+        {totalRecords === 1 ? "1 registro encontrado" : `${totalRecords} registros encontrados`}
+      </p>
+    {/if}
+
     {#if pagination && totalRecords > 0}
       <div class="vtur-table-pagination">
         <div class="text-sm text-slate-500">
@@ -672,7 +688,7 @@
               disabled={currentPage === 1}
               variant="ghost"
               size="xs"
-              class_name="h-9 w-9 !p-0"
+              class_name="h-9 w-9 p-0!"
               ariaLabel="Primeira página"
             >
               <ChevronsLeft size={16} />
@@ -682,12 +698,12 @@
               disabled={currentPage === 1}
               variant="ghost"
               size="xs"
-              class_name="h-9 w-9 !p-0"
+              class_name="h-9 w-9 p-0!"
               ariaLabel="Página anterior"
             >
               <ChevronLeft size={16} />
             </Button>
-            <span class="px-3 py-1 text-sm"
+            <span class="px-3 py-1 text-sm" aria-live="polite"
               >Página {currentPage} de {totalPages}</span
             >
             <Button
@@ -695,7 +711,7 @@
               disabled={currentPage === totalPages}
               variant="ghost"
               size="xs"
-              class_name="h-9 w-9 !p-0"
+              class_name="h-9 w-9 p-0!"
               ariaLabel="Próxima página"
             >
               <ChevronRight size={16} />
@@ -705,7 +721,7 @@
               disabled={currentPage === totalPages}
               variant="ghost"
               size="xs"
-              class_name="h-9 w-9 !p-0"
+              class_name="h-9 w-9 p-0!"
               ariaLabel="Última página"
             >
               <ChevronsRight size={16} />

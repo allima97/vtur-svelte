@@ -6,7 +6,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
-  import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from 'lucide-svelte';
+  import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';
@@ -214,11 +214,12 @@
     const seq = ++searchSeq;
     loadingClientes = true;
     try {
-      const data = await apiGet<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
-        q: query,
-        lookup: '1',
-        pageSize: 15
-      }, controller.signal);
+      const data = await apiFetch<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
+        query: { q: query, lookup: '1', pageSize: 15 },
+        signal: controller.signal,
+        // Busca de cliente é opcional no orçamento: sem acesso a Clientes, só não lista (não vai para "/negado").
+        redirectOnForbidden: false
+      });
       if (seq !== searchSeq || destroyed) return;
       clientesFiltrados = Array.isArray(data.items) ? data.items : [];
     } catch (err) {
@@ -432,7 +433,7 @@
 
           {#if formData.client_id}
             <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <div class="w-10 h-10 rounded-full bg-orcamentos-100 flex items-center justify-center flex-shrink-0">
+              <div class="w-10 h-10 rounded-full bg-orcamentos-100 flex items-center justify-center shrink-0">
                 <User size={20} class="text-orcamentos-600" />
               </div>
               <div class="flex-1 min-w-0">
@@ -519,7 +520,7 @@
                 on:click={() => setValidadeDias(dias)}
                 variant="secondary"
                 size="sm"
-                class_name="!rounded-lg !px-3 !py-2 text-xs"
+                class_name="rounded-lg! px-3! py-2! text-xs"
               >{dias}d</Button>
             {/each}
           </div>
@@ -615,7 +616,7 @@
                 variant="ghost"
                 size="sm"
                 on:click={() => removeItem(index)}
-                class_name="mt-5 flex-shrink-0 text-red-400 hover:text-red-600"
+                class_name="mt-5 shrink-0 text-red-400 hover:text-red-600"
                 ariaLabel="Remover item"
               >
                 <X size={18} />

@@ -12,7 +12,7 @@
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { CopyCheck, Pencil, Plus, RefreshCw, SlidersHorizontal, Target, Trash2 } from 'lucide-svelte';
+  import { CopyCheck, Pencil, Plus, RefreshCw, SlidersHorizontal, Target, Trash2 } from '$lib/icons';
   import { toUserMessage } from '$lib/utils/errors';
 
   type Produto = {
@@ -554,7 +554,7 @@
                       variant="ghost"
                       size="xs"
                       color="financeiro"
-                      class_name="hover:!bg-red-50 hover:!text-red-600"
+                      class_name="hover:bg-red-50! hover:text-red-600!"
                       loading={deletingId === row.meta.id}
                       on:click={() => deleteMeta(row.meta!)}
                     >
@@ -656,7 +656,7 @@
                 value={item.valor}
                 on:input={(event) => updateProdutoRow('form', index, { valor: (event.currentTarget as HTMLInputElement).value })}
               />
-              <Button variant="ghost" color="financeiro" on:click={() => removeProdutoRow('form', index)} class_name="hover:!bg-red-50 hover:!text-red-600">
+              <Button variant="ghost" color="financeiro" on:click={() => removeProdutoRow('form', index)} class_name="hover:bg-red-50! hover:text-red-600!">
                 <Trash2 size={16} />
               </Button>
             </div>
@@ -755,7 +755,7 @@
                 value={item.valor}
                 on:input={(event) => updateProdutoRow('bulk', index, { valor: (event.currentTarget as HTMLInputElement).value })}
               />
-              <Button variant="ghost" color="financeiro" on:click={() => removeProdutoRow('bulk', index)} class_name="hover:!bg-red-50 hover:!text-red-600">
+              <Button variant="ghost" color="financeiro" on:click={() => removeProdutoRow('bulk', index)} class_name="hover:bg-red-50! hover:text-red-600!">
                 <Trash2 size={16} />
               </Button>
             </div>

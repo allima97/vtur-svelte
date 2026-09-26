@@ -1,0 +1,23 @@
+<script>// @ts-nocheck (cópia do Flowbite-Svelte 0.48.6, ver README.md)
+import {} from "svelte";
+import { fade } from "svelte/transition";
+import Frame from "./Frame.svelte";
+export let transition = fade;
+export let params = {};
+export let open = true;
+function close(ev) {
+  if (ev?.stopPropagation) ev.stopPropagation();
+  open = false;
+}
+</script>
+
+<Frame bind:open {transition} {params} {...$$restProps} on:show><slot {close} /></Frame>
+
+<!--
+@component
+[Go to docs](https://flowbite-svelte.com/)
+## Props
+@prop export let transition: TransitionFunc = fade;
+@prop export let params: object = {};
+@prop export let open: boolean = true;
+-->

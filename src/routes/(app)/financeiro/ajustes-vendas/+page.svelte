@@ -8,7 +8,7 @@
   import { FieldInput, FieldSelect, BottomSheet } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { RefreshCw, RotateCcw, Search, SlidersHorizontal } from 'lucide-svelte';
+  import { RefreshCw, RotateCcw, Search, SlidersHorizontal } from '$lib/icons';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';

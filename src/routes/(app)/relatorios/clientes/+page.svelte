@@ -8,7 +8,7 @@
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
   import { BottomSheet, Button, FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { ArrowLeft, SlidersHorizontal, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
+  import { ArrowLeft, SlidersHorizontal, Users, Wallet, TrendingUp, Star } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';

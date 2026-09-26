@@ -38,7 +38,7 @@
     Settings,
     Shield,
     Trash2,
-  } from "lucide-svelte";
+  } from '$lib/icons';
 
   // ─── TABS ────────────────────────────────────────────────────────────────────
   const tabItems = [
@@ -741,7 +741,7 @@
           </div>
 
           {#if sysForm.conciliacao_regra_ativa && sysForm.conciliacao_tipo === "ESCALONAVEL"}
-            <div class="rounded-[18px] border border-orange-200 bg-orange-50/40 p-4">
+            <div class="rounded-vtur-xl border border-orange-200 bg-orange-50/40 p-4">
               <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div class="flex items-center gap-2">
@@ -779,7 +779,7 @@
             </div>
           {/if}
 
-          <div class="rounded-[18px] border border-slate-200 bg-slate-50/60 p-4">
+          <div class="rounded-vtur-xl border border-slate-200 bg-slate-50/60 p-4">
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 class="text-base font-semibold text-slate-900">Faixas de comissionamento da loja</h3>
@@ -789,7 +789,7 @@
             </div>
             <div class="space-y-4">
               {#each sysForm.conciliacao_faixas_loja as band, bandIndex}
-                <div class="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="rounded-vtur-xl border border-slate-200 bg-white p-4 shadow-xs">
                   <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <p class="text-base font-semibold text-slate-900">{band.nome || `Faixa ${bandIndex + 1}`}</p>
@@ -927,7 +927,7 @@
         {/if}
 
         {#if ruleForm.tipo === 'ESCALONAVEL'}
-          <div class="rounded-[18px] border border-financeiro-200 bg-financeiro-50/40 p-4">
+          <div class="rounded-vtur-xl border border-financeiro-200 bg-financeiro-50/40 p-4">
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div><h3 class="text-base font-semibold text-slate-900">Faixas escalonáveis</h3><p class="text-sm text-slate-500">Monte faixas PRE e POS sem sobreposição de intervalos.</p></div>
               <div class="flex flex-wrap gap-2">
@@ -980,7 +980,7 @@
     {:else}
       <div class="space-y-4">
         {#each rules as rule}
-          <div class="rounded-[18px] border border-slate-200 bg-slate-50/60 p-4">
+          <div class="rounded-vtur-xl border border-slate-200 bg-slate-50/60 p-4">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div class="min-w-0 flex-1 space-y-4">
                 <div class="flex flex-wrap items-center gap-2">

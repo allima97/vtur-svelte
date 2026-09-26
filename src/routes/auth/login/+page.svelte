@@ -12,7 +12,7 @@
   import { FieldCheckbox, FieldInput } from '$lib/components/ui';
   import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/browser';
   import type { Session, User } from '@supabase/supabase-js';
-  import { Mail, Lock, Eye, EyeOff, AlertCircle, TestTube, Clock, Fingerprint } from 'lucide-svelte';
+  import { Mail, Lock, Eye, EyeOff, AlertCircle, TestTube, Clock, Fingerprint } from '$lib/icons';
   
   let email = '';
   let password = '';

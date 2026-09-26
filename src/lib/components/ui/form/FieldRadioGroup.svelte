@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Helper, Label, Radio } from 'flowbite-svelte';
+  import { Helper, Label, Radio } from '../flowbite-legacy';
   import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;
@@ -32,7 +32,7 @@
     aria-required={required ? 'true' : undefined}
     aria-invalid={error ? 'true' : undefined}
     aria-describedby={describedById}
-    class={`rounded-[14px] border px-4 py-3 ${error ? 'border-red-300 bg-red-50/40' : 'border-slate-200 bg-slate-50'} ${orientation === 'column' ? 'space-y-3' : 'flex flex-wrap gap-4'}`}>
+    class={`rounded-vtur-lg border px-4 py-3 ${error ? 'border-red-300 bg-red-50/40' : 'border-slate-200 bg-slate-50'} ${orientation === 'column' ? 'space-y-3' : 'flex flex-wrap gap-4'}`}>
     {#each options as option, index}
       <label class="flex items-center gap-2 text-sm text-slate-700">
         <Radio
@@ -40,6 +40,7 @@
           {name}
           bind:group={value}
           value={option.value}
+          aria-label={option.label}
           disabled={disabled || option.disabled}
           class={error ? 'text-red-600 focus:ring-red-200' : ''}
           on:change

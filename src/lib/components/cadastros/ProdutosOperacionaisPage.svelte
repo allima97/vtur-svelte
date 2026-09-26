@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
-  import { Package, MapPin, Globe2, Hotel, Plus } from 'lucide-svelte';
+  import { Package, MapPin, Globe2, Hotel, Plus } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { apiGet, isCanceledApiError } from '$lib/services/api';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';

@@ -6,7 +6,7 @@
   import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { toUserMessage } from '$lib/utils/errors';
-  import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-svelte';
+  import { Mail, AlertCircle, CheckCircle, ArrowLeft } from '$lib/icons';
 
   let email = '';
   let loading = false;

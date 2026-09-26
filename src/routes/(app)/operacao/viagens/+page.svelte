@@ -8,7 +8,7 @@
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { Plus, Plane, Calendar, FileText, Clock, CreditCard, SlidersHorizontal } from 'lucide-svelte';
+  import { Plus, Plane, Calendar, FileText, Clock, CreditCard, SlidersHorizontal } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { toUserMessage } from '$lib/utils/errors';

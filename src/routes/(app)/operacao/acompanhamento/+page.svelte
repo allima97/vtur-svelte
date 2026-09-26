@@ -9,7 +9,7 @@
   import { BottomSheet, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
-  import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search, SlidersHorizontal } from 'lucide-svelte';
+  import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search, SlidersHorizontal } from '$lib/icons';
   import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { addDaysISODate, currentMonthRangeISODate, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';

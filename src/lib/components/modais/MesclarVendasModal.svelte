@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Merge, CheckCircle, Loader2, Calendar, MapPin, Receipt, DollarSign, Search } from 'lucide-svelte';
+  import { Merge, CheckCircle, Loader2, Calendar, MapPin, Receipt, DollarSign, Search } from '$lib/icons';
   import AlertMessage from '$lib/components/ui/AlertMessage.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -208,12 +208,12 @@
                 on:click={() => toggleSelecionado(c.id)}
                 class_name="vtur-modal-list-item !block w-full rounded-xl border-2 px-4 py-3 text-left transition-all
                   {sel
-                    ? 'border-vendas-400 bg-vendas-50 shadow-sm'
+                    ? 'border-vendas-400 bg-vendas-50 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}"
               >
                 <div class="flex items-start justify-between gap-3">
                   <!-- Checkbox visual -->
-                  <div class="mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors
+                  <div class="mt-0.5 w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors
                     {sel ? 'bg-vendas-500 border-vendas-500' : 'border-slate-300 bg-white'}">
                     {#if sel}
                       <svg class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8">
@@ -240,13 +240,13 @@
                     <div class="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1">
                       {#if c.destino_nome || c.destino_cidade_nome}
                         <div class="flex items-center gap-1.5 text-xs text-slate-600">
-                          <MapPin size={11} class="text-slate-400 flex-shrink-0" />
+                          <MapPin size={11} class="text-slate-400 shrink-0" />
                           <span class="truncate">{c.destino_nome || c.destino_cidade_nome}</span>
                         </div>
                       {/if}
                       {#if c.data_embarque}
                         <div class="flex items-center gap-1.5 text-xs text-slate-600">
-                          <Calendar size={11} class="text-slate-400 flex-shrink-0" />
+                          <Calendar size={11} class="text-slate-400 shrink-0" />
                           <span>{fmtDate(c.data_embarque)}{c.data_final ? ` → ${fmtDate(c.data_final)}` : ''}</span>
                         </div>
                       {/if}
@@ -258,7 +258,7 @@
                       {/if}
                       {#if c.valor_total}
                         <div class="flex items-center gap-1.5 text-xs text-slate-600">
-                          <DollarSign size={11} class="text-slate-400 flex-shrink-0" />
+                          <DollarSign size={11} class="text-slate-400 shrink-0" />
                           <span class="font-medium">{fmt(c.valor_total)}</span>
                         </div>
                       {/if}

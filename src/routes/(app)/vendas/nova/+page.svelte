@@ -8,7 +8,7 @@
   import { toast } from '$lib/stores/ui';
   import { toUserMessage } from '$lib/utils/errors';
   import { todayISODateLocal } from '$lib/date';
-  import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
+  import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from '$lib/icons';
   import {
     adicionarParcela,
     createPagamento,
@@ -767,7 +767,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="!flex min-h-[76px] w-full !flex-col !items-center !justify-center gap-1 rounded-xl border px-4 py-3 text-center transition-colors duration-150 {currentStep === 0 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
+      class_name="!flex min-h-[76px] w-full flex-col! items-center! justify-center! gap-1 rounded-xl border px-4 py-3 text-center transition-colors duration-150 {currentStep === 0 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
       on:click={() => goStep(0)}
     >
       <p class="text-xs font-semibold uppercase tracking-wide opacity-70">Etapa 1</p>
@@ -776,7 +776,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="!flex min-h-[76px] w-full !flex-col !items-center !justify-center gap-1 rounded-xl border px-4 py-3 text-center transition-colors duration-150 {currentStep === 1 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
+      class_name="!flex min-h-[76px] w-full flex-col! items-center! justify-center! gap-1 rounded-xl border px-4 py-3 text-center transition-colors duration-150 {currentStep === 1 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
       on:click={() => goStep(1)}
     >
       <p class="text-xs font-semibold uppercase tracking-wide opacity-70">Etapa 2</p>
@@ -785,7 +785,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="!flex min-h-[76px] w-full !flex-col !items-center !justify-center gap-1 rounded-xl border px-4 py-3 text-center transition-colors duration-150 {currentStep === 2 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
+      class_name="!flex min-h-[76px] w-full flex-col! items-center! justify-center! gap-1 rounded-xl border px-4 py-3 text-center transition-colors duration-150 {currentStep === 2 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
       on:click={() => goStep(2)}
     >
       <p class="text-xs font-semibold uppercase tracking-wide opacity-70">Etapa 3</p>

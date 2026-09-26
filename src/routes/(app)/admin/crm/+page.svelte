@@ -11,7 +11,7 @@
   import FieldTextarea from '$lib/components/ui/form/FieldTextarea.svelte';
   import FieldCheckbox from '$lib/components/ui/form/FieldCheckbox.svelte';
   import { toast } from '$lib/stores/ui';
-  import { Plus, Pencil, Trash2, RefreshCw, Image, MessageSquare, Tag } from 'lucide-svelte';
+  import { Plus, Pencil, Trash2, RefreshCw, Image, MessageSquare, Tag } from '$lib/icons';
   import { toUserMessage } from '$lib/utils/errors';
 
   import { confirmAction } from '$lib/stores/confirm';

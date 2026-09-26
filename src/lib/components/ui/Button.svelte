@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button as FlowbiteButton } from 'flowbite-svelte';
+  import { Button as FlowbiteButton } from './flowbite-legacy';
   import { sanitizeHref } from '$lib/security/url';
 
   type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'unstyled' | 'selected';
@@ -115,7 +115,7 @@
     ? 'none'
     : (resolvedColor as unknown as Exclude<FlowbiteButtonColor, 'none'>);
 
-  $: buttonClasses = `vtur-button inline-flex items-center justify-center rounded-xl font-semibold tracking-[0.01em] transition-all duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${sizeClasses[size]} ${variantClasses[variant]} ${class_name}`;
+  $: buttonClasses = `vtur-button inline-flex items-center justify-center rounded-xl font-semibold tracking-[0.01em] transition-all duration-150 focus:outline-hidden focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${sizeClasses[size]} ${variantClasses[variant]} ${class_name}`;
   $: safeHref = href ? sanitizeHref(href) || undefined : undefined;
   $: resolvedRel = rel ?? (target === '_blank' ? 'noopener noreferrer' : null);
 </script>

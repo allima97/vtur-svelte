@@ -3,7 +3,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Checkbox } from '$lib/components/ui';
-  import { ArrowDown, ArrowUp } from 'lucide-svelte';
+  import { ArrowDown, ArrowUp } from '$lib/icons';
   import type { DashboardKpiId, DashboardWidgetId } from './dashboardPrefs';
 
   export let open = false;

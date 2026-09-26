@@ -30,7 +30,7 @@
     Plane,
     UserPlus,
     Clock
-  } from 'lucide-svelte';
+  } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { construirLinkWhatsAppComTexto, montarMensagemFollowUp } from '$lib/whatsapp';
@@ -1069,7 +1069,7 @@
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingUp size={18} /></div>
           <div class="min-w-0 flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Vendas no período</p>
-            {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded bg-slate-200"></div>
+            {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded-sm bg-slate-200"></div>
             {:else}<p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(vendasAgg.totalVendas)}</p>
               <p class="mt-0.5 truncate text-xs text-slate-400">Lucro: {formatCurrency(vendasAgg.totalLiquido)}</p>{/if}
           </div>
@@ -1079,7 +1079,7 @@
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-500"><ShoppingCart size={18} /></div>
           <div class="min-w-0 flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Qtd. vendas</p>
-            {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
+            {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded-sm bg-slate-200"></div>
             {:else}<p class="text-lg font-bold text-slate-900 sm:text-2xl">{vendasAgg.qtdVendas}</p>
               <p class="mt-0.5 truncate text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>{/if}
           </div>
@@ -1089,7 +1089,7 @@
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><FileText size={18} /></div>
           <div class="min-w-0 flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Orçamentos</p>
-            {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
+            {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded-sm bg-slate-200"></div>
             {:else}<p class="text-lg font-bold text-slate-900 sm:text-2xl">{qtdOrcamentos}</p>
               <p class="mt-0.5 truncate text-xs text-slate-400">Conversão: {conversaoPct.toFixed(1)}%</p>{/if}
           </div>
@@ -1099,7 +1099,7 @@
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-500"><Target size={18} /></div>
           <div class="min-w-0 w-full flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Meta do mês</p>
-            {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded bg-slate-200"></div>
+            {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded-sm bg-slate-200"></div>
             {:else}<p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(metaTotal)}</p>
               {#if metaTotal > 0}
                 <div class="mt-1.5 w-full">
@@ -1117,7 +1117,7 @@
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Calendar size={18} /></div>
           <div class="min-w-0 flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Dias no mês</p>
-            {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
+            {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded-sm bg-slate-200"></div>
             {:else}<p class="text-lg font-bold text-slate-900 sm:text-2xl">{diasRestantes}d</p>
               {#if metaDiaria > 0}<p class="mt-0.5 truncate text-xs text-slate-400">Meta/dia: {formatCurrency(metaDiaria)}</p>
               {:else if diasRestantes === 0}<p class="mt-0.5 text-xs text-slate-400">Fim do mês</p>
@@ -1130,7 +1130,7 @@
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Award size={18} /></div>
           <div class="min-w-0 w-full flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Seguro viagem</p>
-            {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded bg-slate-200"></div>
+            {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded-sm bg-slate-200"></div>
             {:else}<p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(vendasAgg.totalSeguro)}</p>
               {#if metaSeguroTotal > 0}
                 <div class="mt-1.5 w-full">
@@ -1321,7 +1321,7 @@
                           size="xs"
                           ariaLabel="Enviar follow-up no WhatsApp"
                           title="Enviar follow-up no WhatsApp"
-                          class_name="!h-8 !w-8 !rounded-lg !p-0 text-green-600 hover:bg-green-50"
+                          class_name="h-8! w-8! rounded-lg! p-0! text-green-600 hover:bg-green-50"
                         >
                           <MessageCircle size={15} />
                         </Button>
@@ -1333,7 +1333,7 @@
                           size="xs"
                           ariaLabel="Ver cliente"
                           title="Ver cliente"
-                          class_name="!h-8 !w-8 !rounded-lg !p-0 text-slate-600"
+                          class_name="h-8! w-8! rounded-lg! p-0! text-slate-600"
                         >
                           <UserPlus size={15} />
                         </Button>
@@ -1344,7 +1344,7 @@
                         size="xs"
                         ariaLabel="Ver viagem"
                         title="Ver viagem"
-                        class_name="!h-8 !w-8 !rounded-lg !p-0 text-slate-600"
+                        class_name="h-8! w-8! rounded-lg! p-0! text-slate-600"
                       >
                         <Eye size={15} />
                       </Button>
@@ -1438,7 +1438,7 @@
                   {#if idx < activityFeed.length - 1}
                     <span class="absolute left-[19px] top-12 h-[calc(100%-12px)] w-px bg-slate-200"></span>
                   {/if}
-                  <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-sm">
+                  <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-xs">
                     {#if item.icon === 'orcamento'}<FileText size={18} class="text-amber-500" />
                     {:else if item.icon === 'aniversario'}<Gift size={18} class="text-green-500" />
                     {:else if item.icon === 'viagem'}<Plane size={18} class="text-indigo-500" />

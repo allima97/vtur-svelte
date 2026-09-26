@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Send, RefreshCw } from 'lucide-svelte';
+  import { Send, RefreshCw } from '$lib/icons';
   import { apiFetch, apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import { createLoadGuard } from '$lib/utils/loadGuard';

@@ -9,7 +9,7 @@
   import { apiGet, apiPatch, isCanceledApiError } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Save, CheckCircle, User, Phone, MapPin } from 'lucide-svelte';
+  import { Save, CheckCircle, User, Phone, MapPin } from '$lib/icons';
 
   let loading = true;
   let saving = false;
@@ -148,12 +148,12 @@
 />
 
 {#if camposFaltando.length > 0}
-  <div class="mb-6 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3">
+  <div class="mb-6 rounded-vtur-lg border border-amber-200 bg-amber-50 px-4 py-3">
     <p class="text-sm font-medium text-amber-800">Campos obrigatórios pendentes:</p>
     <p class="mt-1 text-sm text-amber-700">{camposFaltando.join(', ')}</p>
   </div>
 {:else}
-  <div class="mb-6 rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2">
+  <div class="mb-6 rounded-vtur-lg border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2">
     <CheckCircle size={18} class="text-green-600" />
     <p class="text-sm font-medium text-green-800">Todos os campos obrigatórios estão preenchidos!</p>
   </div>

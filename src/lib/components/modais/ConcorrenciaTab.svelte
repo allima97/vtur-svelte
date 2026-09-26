@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { DollarSign, Percent, Settings, Plus, Trash2, AlertTriangle, CheckCircle } from 'lucide-svelte';
+  import { DollarSign, Percent, Settings, Plus, Trash2, AlertTriangle, CheckCircle } from '$lib/icons';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
 
@@ -276,7 +276,7 @@
       type="button"
       variant="ghost"
       size="sm"
-      class_name="w-full justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-600 sm:w-auto"
+      class_name="w-full justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-600 shadow-xs hover:border-indigo-200 hover:text-indigo-600 sm:w-auto"
       on:click={() => mostrarConfig = !mostrarConfig}
     >
       <Settings size={17} />
@@ -521,7 +521,7 @@
                       variant="unstyled"
                       on:click={() => calc.parcelas = p}
                       class_name="rounded-lg border px-3 py-2 text-left transition-all
-                        {ativo ? 'border-indigo-400 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40'}"
+                        {ativo ? 'border-indigo-400 bg-indigo-50 shadow-xs' : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40'}"
                     >
                       <p class="text-sm font-semibold {ativo ? 'text-indigo-700' : 'text-slate-600'}">
                         {p === 1 ? 'À vista' : `${p}x`}
@@ -541,7 +541,7 @@
           </div>
         {/if}
       {:else}
-        <div class="flex min-h-[13.5rem] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10">
+        <div class="flex min-h-54 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10">
           <p class="max-w-[18rem] text-center text-sm leading-6 text-slate-400">Selecione o tipo de pacote para ver as formas de pagamento</p>
         </div>
       {/if}
@@ -640,7 +640,7 @@
 
           {#if calc.valorCVC > totalAPagar}
             <div class="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2.5">
-              <CheckCircle size={17} class="text-emerald-600 flex-shrink-0" />
+              <CheckCircle size={17} class="text-emerald-600 shrink-0" />
               <div>
                 <p class="text-sm font-semibold text-emerald-700">Economia do cliente</p>
                 <p class="text-base font-bold text-emerald-600">{fmt(calc.valorCVC - totalAPagar)}</p>

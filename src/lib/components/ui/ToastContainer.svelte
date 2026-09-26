@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
-  import { X } from 'lucide-svelte';
+  import { X } from '$lib/icons';
   import { toast } from '$lib/stores/ui';
   import type { Toast } from '$lib/stores/ui';
   import Button from './Button.svelte';
@@ -30,7 +30,7 @@
   };
 </script>
 
-<div class="pointer-events-none fixed right-4 top-[calc(var(--vtur-topbar-height,4.6rem)+0.75rem)] z-[2000] flex flex-col gap-2">
+<div class="pointer-events-none fixed right-4 top-[calc(var(--vtur-topbar-height,4.6rem)+0.75rem)] z-2000 flex flex-col gap-2">
   {#each $toast as item (item.id)}
     <div
       class="pointer-events-auto relative flex min-w-[260px] max-w-xs items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg"

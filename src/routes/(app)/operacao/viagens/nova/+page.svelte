@@ -15,7 +15,7 @@
   } from '$lib/components/ui';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
-  import { ArrowLeft, Plane, RefreshCw } from 'lucide-svelte';
+  import { ArrowLeft, Plane, RefreshCw } from '$lib/icons';
   import { apiGet, apiPost } from '$lib/services/api';
   import { toUserMessage } from '$lib/utils/errors';
 

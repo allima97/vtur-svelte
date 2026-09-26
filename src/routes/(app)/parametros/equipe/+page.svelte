@@ -8,7 +8,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet, apiPost, isCanceledApiError } from '$lib/services/api';
   import { createLoadGuard } from '$lib/utils/loadGuard';
-  import { Users, RefreshCw, UserCheck, UserX, Search } from 'lucide-svelte';
+  import { Users, RefreshCw, UserCheck, UserX, Search } from '$lib/icons';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -171,7 +171,7 @@
   {#if loading}
     <LoadingState compact={true} />
   {:else if usuariosFiltrados.length === 0}
-    <div class="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
+    <div class="rounded-vtur-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
       Nenhum usuário encontrado.
     </div>
   {:else}

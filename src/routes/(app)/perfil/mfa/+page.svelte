@@ -12,7 +12,7 @@
   import { createLoadGuard } from '$lib/utils/loadGuard';
   import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
   import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
-  import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode, Fingerprint } from 'lucide-svelte';
+  import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode, Fingerprint } from '$lib/icons';
 
   import { confirmAction } from '$lib/stores/confirm';
   type MfaFactor = {
@@ -261,7 +261,7 @@
   <LoadingState />
 {:else}
   {#if error}
-    <div class="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-2 text-sm text-red-700">
+    <div class="mb-6 rounded-vtur-lg border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-2 text-sm text-red-700">
       <AlertCircle size={16} />
       {error}
     </div>

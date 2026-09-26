@@ -3,7 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Calendar, Phone, Save, Trash2, UserPlus, Users } from 'lucide-svelte';
+  import { Calendar, Phone, Save, Trash2, UserPlus, Users } from '$lib/icons';
   import { formatDate } from '$lib/utils/formatters';
   import { toUserMessage } from '$lib/utils/errors';
 
@@ -201,12 +201,12 @@
     <p class="text-sm text-slate-500">{subtitle}</p>
 
     {#if errorMessage}
-      <div class="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <div class="rounded-vtur-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         {errorMessage}
       </div>
     {/if}
 
-    <div class="overflow-x-auto rounded-[18px] border border-slate-200">
+    <div class="overflow-x-auto rounded-vtur-xl border border-slate-200">
       <table class="w-full text-sm table-mobile-cards">
         <thead class="bg-slate-50">
           <tr>
@@ -261,7 +261,7 @@
     </div>
 
     {#if editable}
-      <div class="rounded-[18px] border border-slate-200 bg-white p-5">
+      <div class="rounded-vtur-xl border border-slate-200 bg-white p-5">
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 class="text-base font-semibold text-slate-900">
@@ -354,7 +354,7 @@
         </div>
       </div>
     {:else if acompanhantes.length === 0}
-      <div class="rounded-[18px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
+      <div class="rounded-vtur-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
         <Users size={24} class="mx-auto mb-2 text-slate-400" />
         Nenhum acompanhante vinculado a este cliente.
       </div>

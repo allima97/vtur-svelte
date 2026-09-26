@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Input, Label, Helper } from 'flowbite-svelte';
+  import { Input, Label, Helper } from '../flowbite-legacy';
   import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import type { HTMLInputAttributes } from 'svelte/elements';
   import Button from '../Button.svelte';
@@ -62,7 +62,7 @@
 
   <div class="relative w-full">
     {#if prefix}
-      <span class="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400 select-none">{prefix}</span>
+      <span class="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-500 select-none">{prefix}</span>
     {/if}
 
     {#if mask}
@@ -150,14 +150,14 @@
       />
     {/if}
     {#if suffix}
-      <span class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400 select-none">{suffix}</span>
+      <span class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-500 select-none">{suffix}</span>
     {/if}
     {#if actionIcon}
       <Button
         type="button"
         variant="unstyled"
         size="xs"
-        class_name="absolute right-3 top-1/2 z-10 !-translate-y-1/2 !p-0 text-slate-400 transition-colors hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+        class_name="absolute right-3 top-1/2 z-10 -translate-y-1/2! p-0! text-slate-400 transition-colors hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
         ariaLabel={actionLabel ?? undefined}
         disabled={actionDisabled}
         on:click={() => onAction?.()}
